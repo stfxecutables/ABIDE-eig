@@ -7,10 +7,8 @@ from warnings import warn
 import nibabel as nib
 import numpy as np
 import pandas as pd
-import scipy.sparse as sparse
 from numpy import ndarray
 from pandas import DataFrame
-from scipy.integrate import quad
 from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 from typing_extensions import Literal
@@ -209,8 +207,8 @@ def find_optimal_chunksize(
     args = [
         dict(flat=flat, maskflat=maskflat, voxel=voxel, covariance=covariance)
         for voxel in range(flat.shape[0])
-    ][:400]
-    CHUNKSIZES = [24, 32, 40, 48, 56]
+    ][:3000]
+    CHUNKSIZES = [8, 16, 20, 24]
     df = DataFrame(index=pd.Index(CHUNKSIZES, name="chunksize"), columns=["Duration (s)"])
     for chunksize in CHUNKSIZES:
         print(f"Beginning analysis for chunksize={chunksize}")
