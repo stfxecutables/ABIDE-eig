@@ -1,0 +1,22 @@
+\usepackage{fontspec}
+\usepackage{soul}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{bbm}  % \mathbbm{} for better blackboard bold R and etc
+% \usepackage{dsfont}  %\mathds{} gives better blackboard bold R and etc
+\usepackage{caption}
+\usepackage{hyperref}
+\captionsetup[figure]{font=small}
+% \setmainfont{Garamond Premier Pro}
+% \setmonofont{Operator Mono Lig Medium}
+\setmonofont{Operator Mono Lig}
+
+% make figures not float so far away (hopefully)
+% https://bookdown.org/yihui/rmarkdown-cookbook/figure-placement.html
+\renewcommand{\topfraction}{.85}
+\renewcommand{\bottomfraction}{.7}
+\renewcommand{\textfraction}{.15}
+\renewcommand{\floatpagefraction}{.66}
+\setcounter{topnumber}{3}
+\setcounter{bottomnumber}{3}
+\setcounter{totalnumber}{4}
