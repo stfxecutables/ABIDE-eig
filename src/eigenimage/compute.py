@@ -20,7 +20,7 @@ SHM_FLAT_NAME = "flat_nii_array"
 SHM_MASK_NAME = "mask_nii_array"
 GLOBALS = {}
 DTYPE = np.float64
-N_PROCESSES = 40 if os.environ.get("CC_CLUSTER") == "niagara" else 8
+N_PROCESSES = 44 if os.environ.get("CC_CLUSTER") == "niagara" else 8
 
 
 def eigs_via_transpose(M: ndarray, covariance: bool = True) -> ndarray:
