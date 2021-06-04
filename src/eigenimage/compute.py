@@ -1,13 +1,13 @@
 import multiprocessing as mp
-from multiprocessing import RawArray, Pool
+import os
 from copy import deepcopy
+from multiprocessing import Pool, RawArray
 from pathlib import Path
 from time import time
 from typing import Any, Dict, List, Optional, Sized, Tuple, Type, TypeVar, Union
 from warnings import warn
 
 import nibabel as nib
-import os
 import numpy as np
 import pandas as pd
 from numpy import ndarray
@@ -20,7 +20,7 @@ SHM_FLAT_NAME = "flat_nii_array"
 SHM_MASK_NAME = "mask_nii_array"
 GLOBALS = {}
 DTYPE = np.float32
-N_PROCESSES = 44 if os.environ.get("CC_CLUSTER") == "niagara" else 8
+N_PROCESSES = 84 if os.environ.get("CC_CLUSTER") == "niagara" else 8
 
 
 def eigs_via_transpose(M: ndarray, covariance: bool = True) -> ndarray:
@@ -312,7 +312,7 @@ def find_optimal_chunksize(
         ) as pool:
             signals = pool.map(eigsignal_from_shared, args, chunksize=chunksize)
             # signals = process_map(
-            #     eigsignal_from_shared, args, chunksize=chunksize, disable=not progress_bar
+            #     eigsignal_from_shared, args, max_workers=N_PROCESSES, chunksize=chunksize, disable=not progress_bar
             # )
         duration = time() - start
         df.loc[chunksize, "Duration (s)"] = duration
