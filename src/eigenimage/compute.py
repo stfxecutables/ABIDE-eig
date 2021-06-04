@@ -296,7 +296,7 @@ def find_optimal_chunksize(
         )
         for voxel in range(flat.shape[0])
     ][:3000]
-    CHUNKSIZES = [8, 16, 20, 24]
+    CHUNKSIZES = [8, 16, 20, 24, 32, 40]
     df = DataFrame(index=pd.Index(CHUNKSIZES, name="chunksize"), columns=["Duration (s)"])
     print(f"Using {N_PROCESSES} processes.")
     for chunksize in CHUNKSIZES:
