@@ -25,11 +25,12 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--optimize", action="store_true")
     parser.add_argument("--chunk-size", type=int, default=32)
+    parser.add_argument("--voxels", type=int, default=3000)
     args = parser.parse_args()
     nii = sorted(NII_PATH.rglob("*.nii.gz"))[0]
     img = nib.load(str(nii)).get_fdata()
     if args.optimize:
-        df = find_optimal_chunksize(img, covariance=True)
+        df = find_optimal_chunksize(img, covariance=True, n_voxels=args.voxels)
         outfile = Path(__file__).resolve().parent.parent.parent / "chunsize_times.json"
         df.to_json(outfile, indent=2)
         print(f"Saved chunksize report to {outfile}")

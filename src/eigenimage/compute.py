@@ -259,7 +259,7 @@ def eigsignal_from_shared(argsdict: Dict) -> ndarray:
 
 
 def find_optimal_chunksize(
-    array4d: ndarray, covariance: bool = True, progress_bar=True
+    array4d: ndarray, covariance: bool = True, progress_bar=True, n_voxels: int = 3000,
 ) -> DataFrame:
     # type setup
     dtype = np.float32
@@ -295,8 +295,8 @@ def find_optimal_chunksize(
             covariance=covariance,
         )
         for voxel in range(flat.shape[0])
-    ][:3000]
-    CHUNKSIZES = [8, 16, 20, 24, 32, 40]
+    ][:n_voxels]
+    CHUNKSIZES = [8, 16, 20, 24, 32, 40, 64, 128]
     df = DataFrame(index=pd.Index(CHUNKSIZES, name="chunksize"), columns=["Duration (s)"])
     print(f"Using {N_PROCESSES} processes.")
     for chunksize in CHUNKSIZES:
