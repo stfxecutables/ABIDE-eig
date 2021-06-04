@@ -1,6 +1,4 @@
-import multiprocessing as mp
 import os
-from copy import deepcopy
 from multiprocessing import Pool, RawArray
 from pathlib import Path
 from time import time
@@ -12,6 +10,7 @@ import numpy as np
 import pandas as pd
 from numpy import ndarray
 from pandas import DataFrame
+from scipy.linalg import eigvalsh
 from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 from typing_extensions import Literal
@@ -22,8 +21,23 @@ GLOBALS = {}
 DTYPE = np.float32
 N_PROCESSES = 84 if os.environ.get("CC_CLUSTER") == "niagara" else 8
 
+# From https://docs.scipy.org/doc/scipy/reference/generated/scipy.linalg.eigh.html#scipy.linalg.eigh
+#
+# As a brief summary, the slowest and the most robust driver is the classical <sy/he>ev which uses
+# symmetric QR. <sy/he>evr is seen as the optimal choice for the most general cases. However, there
+# are certain occasions that <sy/he>evd computes faster at the expense of more memory usage.
+# <sy/he>evx, while still being faster than <sy/he>ev, often performs worse than the rest except
+# when very few eigenvalues are requested for large arrays though there is still no performance
+# guarantee.
+Driver = Literal[
+    "evr",
+    "evd",
+]
 
-def eigs_via_transpose(M: ndarray, covariance: bool = True) -> ndarray:
+
+def eigs_via_transpose(
+    M: ndarray, covariance: bool = True, largest: int = None, driver: Driver = "evr"
+) -> ndarray:
     """Use transposes to rapidly compute eigenvalues of covariance and
     correlation matrices.
 
@@ -91,7 +105,13 @@ def eigs_via_transpose(M: ndarray, covariance: bool = True) -> ndarray:
     if not covariance:
         Z /= np.std(M, axis=1, ddof=1, keepdims=True)
     M = np.matmul(Z.T, r * Z)
-    eigs: ndarray = np.linalg.eigvalsh(M)
+    # eigs: ndarray = np.linalg.eigvalsh(M)
+    if largest is None:
+        eigs: ndarray = eigvalsh(M, eigvals_only=True, driver=driver)
+    else:
+        eigs: ndarray = eigvalsh(
+            M, eigvals_only=True, driver=driver, subset_by_index=(T - largest, T - 1)
+        )
     return eigs
 
 
@@ -239,23 +259,30 @@ def eigsignal_from_shared(argsdict: Dict) -> ndarray:
 
     voxel = argsdict["voxel"]
     covariance = argsdict["covariance"]
+    largest = argsdict["largest"]
     T = flat.shape[1] - 1
     if maskflat[voxel] == 0:
         return np.full([T], np.nan, dtype=DTYPE)
     voxelmask = np.arange(flat.shape[0]) != voxel
     deleted = flat[voxelmask, :]
     try:
-        eigs = eigs_via_transpose(deleted, covariance=covariance)
-        return eigs[1:]
+        eigs = eigs_via_transpose(deleted, covariance=covariance, largest=largest)
+        if largest is None:
+            return eigs[1:]
+        else:
+            return eigs
     except:  # in case it doesn't conververge
         try:
-            eigs = eigs_via_transpose(deleted, covariance=covariance)
-            return eigs[1:]
+            eigs = eigs_via_transpose(deleted, covariance=covariance, largest=largest)
+            if largest is None:
+                return eigs[1:]
+            else:
+                return eigs
         except:
-            eigs = np.full([T], -1, dtype=DTYPE)
-            return eigs
-
-    return eigs[1:]
+            if largest is None:
+                return np.full([T], -1, dtype=DTYPE)
+            else:
+                return np.full([largest], -1, dtype=DTYPE)
 
 
 def find_optimal_chunksize(
@@ -292,30 +319,35 @@ def find_optimal_chunksize(
     # we need to loop over the flat array, but be 100% sure that we can unflatten the
     # array while preserving the original shape
     contrib = np.full(shape=[N, eig_length], fill_value=np.nan, dtype=float)
-    args = [
-        dict(
-            voxel=voxel,
-            covariance=covariance,
-        )
-        for voxel in range(flat.shape[0])
-    ][:n_voxels]
-    CHUNKSIZES = [1, 2, 4, 8, 16]
-    df = DataFrame(index=pd.Index(CHUNKSIZES, name="chunksize"), columns=["Duration (s)"])
+    CHUNKSIZES = [1]
+    LARGESTS = [5, 10, 25]
+    df = DataFrame(columns=["Chunksize", "N largest", "Duration (s)"])
     print(f"Using {N_PROCESSES} processes.")
+    row = 0
     for chunksize in CHUNKSIZES:
-        print(f"Beginning analysis for chunksize={chunksize}")
-        start = time()
-        with Pool(
-            processes=N_PROCESSES,
-            initializer=init,
-            initargs=(flat_view, flat.shape, mask_view, mask_shape),
-        ) as pool:
-            signals = pool.map(eigsignal_from_shared, args, chunksize=chunksize)
-            # signals = process_map(
-            #     eigsignal_from_shared, args, max_workers=N_PROCESSES, chunksize=chunksize, disable=not progress_bar
-            # )
-        duration = time() - start
-        df.loc[chunksize, "Duration (s)"] = duration
-        print(df)
+        for largest in LARGESTS:
+            args = [
+                dict(
+                    voxel=voxel,
+                    covariance=covariance,
+                    largest=largest,
+                )
+                for voxel in range(flat.shape[0])
+            ][:n_voxels]
+            print(f"Beginning analysis for chunksize={chunksize} and extracting {largest} largest ")
+            start = time()
+            with Pool(
+                processes=N_PROCESSES,
+                initializer=init,
+                initargs=(flat_view, flat.shape, mask_view, mask_shape),
+            ) as pool:
+                signals = pool.map(eigsignal_from_shared, args, chunksize=chunksize)
+                # signals = process_map(
+                #     eigsignal_from_shared, args, max_workers=N_PROCESSES, chunksize=chunksize, disable=not progress_bar
+                # )
+            duration = time() - start
+            df.loc[row, :] = (chunksize, largest, duration)
+            row += 1
+            print(df)
     print(df)
     return df
