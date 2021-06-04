@@ -307,7 +307,7 @@ def find_optimal_chunksize(
             initializer=init,
             initargs=(flat_view, flat.shape, mask_view, mask_shape),
         ) as pool:
-            signals = pool.map(eigsignal_from_shared, args)
+            signals = pool.imap(eigsignal_from_shared, args, chunksize=chunksize)
             # signals = process_map(
             #     eigsignal_from_shared, args, chunksize=chunksize, disable=not progress_bar
             # )
