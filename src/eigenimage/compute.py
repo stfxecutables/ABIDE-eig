@@ -1,3 +1,4 @@
+import multiprocessing as mp
 from multiprocessing import RawArray, Pool
 from copy import deepcopy
 from pathlib import Path
@@ -17,6 +18,7 @@ from typing_extensions import Literal
 SHM_FLAT_NAME = "flat_nii_array"
 SHM_MASK_NAME = "mask_nii_array"
 GLOBALS = {}
+DTYPE = np.float64
 
 
 def eigs_via_transpose(M: ndarray, covariance: bool = True) -> ndarray:
@@ -171,46 +173,6 @@ def compute_eigensignal(argsdict: Dict) -> ndarray:
     return eigs[1:]
 
 
-def init(
-    shared_flat: RawArray,
-    flat_shape: Tuple[int, ...],
-    shared_mask: RawArray,
-    mask_shape: Tuple[int, ...],
-) -> None:
-    GLOBALS["shared_flat"] = shared_flat
-    GLOBALS["flat_shape"] = flat_shape
-    GLOBALS["shared_mask"] = shared_mask
-    GLOBALS["flat_mask"] = mask_shape
-
-
-def eigsignal_from_shared(argsdict: Dict) -> ndarray:
-    flat = np.frombuffer(GLOBALS["shared_flat"]).reshape(GLOBALS["flat_shape"])
-    shm_flat = shared_memory.SharedMemory(name=SHM_FLAT_NAME)
-    shm_mask = shared_memory.SharedMemory(name=SHM_MASK_NAME)
-
-    flat = np.array(argsdict["flat_shape"], argsdict["flat_type"], buffer=shm_flat.buf)
-    maskflat = np.array(argsdict["mask_shape"], argsdict["mask_type"], buffer=shm_mask.buf)
-    voxel = argsdict["voxel"]
-    covariance = argsdict["covariance"]
-    T = flat.shape[1] - 1
-    if maskflat[voxel] == 0:
-        return np.full([T], np.nan, dtype=float)
-    voxelmask = np.arange(flat.shape[0]) != voxel
-    deleted = flat[voxelmask, :]
-    try:
-        eigs = eigs_via_transpose(deleted, covariance=covariance)
-        return eigs[1:]
-    except:  # in case it doesn't conververge
-        try:
-            eigs = eigs_via_transpose(deleted, covariance=covariance)
-            return eigs[1:]
-        except:
-            eigs = np.full([T], -1, dtype=float)
-            return eigs
-
-    return eigs[1:]
-
-
 def eigimage_parallel(
     array4d: ndarray, covariance: bool = True, chunksize: int = 32, progress_bar: bool = True
 ):
@@ -235,34 +197,98 @@ def eigimage_parallel(
     return contrib.reshape(end_shape)
 
 
+def init(
+    flat_ptr: RawArray,
+    flat_shape: Tuple[int, ...],
+    mask_ptr: RawArray,
+    mask_shape: Tuple[int, ...],
+) -> None:
+    global GLOBALS
+    GLOBALS["flat_ptr"] = flat_ptr
+    GLOBALS["flat_shape"] = flat_shape
+    GLOBALS["mask_ptr"] = mask_ptr
+    GLOBALS["mask_shape"] = mask_shape
+
+
+# https://gist.github.com/rossant/7a46c18601a2577ac527f958dd4e452f
+# def mem_ptr_and_numpy_view(dtype: np.dtype, shape: Tuple[int, ...]) -> Tuple[RawArray, ndarray]:
+#     dtype = np.dtype(dtype)
+#     # Get a ctype type from the NumPy dtype.
+#     ctype = np.ctypeslib.as_ctypes_type(dtype)
+#     # Create the RawArray instance.
+#     mem_ptr = RawArray(ctype, sum(shape))
+#     # Get a NumPy array view.
+#     view = np.frombuffer(mem_ptr, dtype=dtype).reshape(shape)
+#     return mem_ptr, view
+
+
+def mem_ptr_and_numpy_view(array: ndarray) -> Tuple[RawArray, ndarray]:
+    dtype = np.dtype(DTYPE)
+    ctype = np.ctypeslib.as_ctypes_type(dtype)  # Get a ctype type from the NumPy dtype.
+    mem_ptr = RawArray(ctype, int(np.prod(array.shape)))
+    view = np.frombuffer(mem_ptr, dtype=DTYPE).reshape(array.shape)
+    view[:] = array[:]
+    return mem_ptr, view
+
+
+def eigsignal_from_shared(argsdict: Dict) -> ndarray:
+    flat = np.frombuffer(GLOBALS["flat_ptr"], dtype=DTYPE).reshape(GLOBALS["flat_shape"])
+    maskflat = np.frombuffer(GLOBALS["mask_ptr"], dtype=DTYPE).reshape(GLOBALS["mask_shape"])
+
+    voxel = argsdict["voxel"]
+    covariance = argsdict["covariance"]
+    T = flat.shape[1] - 1
+    if maskflat[voxel] == 0:
+        return np.full([T], np.nan, dtype=DTYPE)
+    voxelmask = np.arange(flat.shape[0]) != voxel
+    deleted = flat[voxelmask, :]
+    try:
+        eigs = eigs_via_transpose(deleted, covariance=covariance)
+        return eigs[1:]
+    except:  # in case it doesn't conververge
+        try:
+            eigs = eigs_via_transpose(deleted, covariance=covariance)
+            return eigs[1:]
+        except:
+            eigs = np.full([T], -1, dtype=DTYPE)
+            return eigs
+
+    return eigs[1:]
+
+
 def find_optimal_chunksize(
     array4d: ndarray, covariance: bool = True, progress_bar=True
 ) -> DataFrame:
+    # type setup
+    dtype = np.float32
+
+    # loading setup
     N, t = int(np.prod(array4d.shape[:-1])), int(array4d.shape[-1])
     eig_length = t - 1
     end_shape = array4d.shape[:-1] + (array4d.shape[-1] - 1,)
-
-    flat = np.reshape(array4d, [N, t])  # for looping
+    flat = np.reshape(array4d, [N, t]).astype(DTYPE)  # for looping
     mask = (array4d.sum(axis=-1) != 0) & (array4d.std(axis=-1) != 0)
-    maskflat = mask.ravel()
+    maskflat = mask.ravel().astype(DTYPE)
 
-    shared_mem_flat = RawArray("d", np.prod(flat.shape))
-    shared_flat = np.array(flat.shape, dtype=flat.type, buffer=shared_mem_flat)
-    shared_flat[:] = flat[:]
+    # parallel setup
+    flat_shape = flat.shape
+    mask_shape = maskflat.shape
+    flat_ptr, flat_view = mem_ptr_and_numpy_view(flat)
+    mask_ptr, mask_view = mem_ptr_and_numpy_view(maskflat)
 
-    shared_mem_mask = RawArray("i", np.prod(maskflat.shape))
-    shared_mask = np.array(maskflat.shape, dtype=maskflat.type, buffer=shared_mem_mask)
-    shared_mask[:] = maskflat[:]
+    # shared_mem_flat = RawArray("d", int(np.prod(flat.shape)))
+    # shared_flat = np.frombuffer(shared_mem_flat, dtype=np.float64).reshape(flat.shape)
+    # shared_flat[:] = flat[:]
+
+    # shared_mem_mask = RawArray("d", int(np.prod(maskflat.shape)))
+    # shared_mask = np.frombuffer(shared_mem_mask, dtype=np.float64).reshape(maskflat.shape)
+    # shared_mask[:] = maskflat[:]
 
     # we need to loop over the flat array, but be 100% sure that we can unflatten the
     # array while preserving the original shape
     contrib = np.full(shape=[N, eig_length], fill_value=np.nan, dtype=float)
     args = [
         dict(
-            flat_shape=flat.shape,
-            flat_type=flat.type,
-            mask_shape=mask.shape,
-            mask_type=mask.type,
             voxel=voxel,
             covariance=covariance,
         )
@@ -273,9 +299,15 @@ def find_optimal_chunksize(
     for chunksize in CHUNKSIZES:
         print(f"Beginning analysis for chunksize={chunksize}")
         start = time()
-        signals = process_map(
-            eigsignal_from_shared, args, chunksize=chunksize, disable=not progress_bar
-        )
+        with Pool(
+            processes=4,
+            initializer=init,
+            initargs=(flat_view, flat.shape, mask_view, mask_shape),
+        ) as pool:
+            signals = pool.map(eigsignal_from_shared, args)
+            # signals = process_map(
+            #     eigsignal_from_shared, args, chunksize=chunksize, disable=not progress_bar
+            # )
         duration = time() - start
         df.loc[chunksize, "Duration (s)"] = duration
         print(df)
