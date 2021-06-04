@@ -25,7 +25,7 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--optimize", action="store_true")
     parser.add_argument("--chunk-size", type=int, default=32)
-    args = parser.parse_args(["--optimize"])
+    args = parser.parse_args()
     nii = sorted(NII_PATH.rglob("*.nii.gz"))[0]
     img = nib.load(str(nii)).get_fdata()
     if args.optimize:

@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional, Sized, Tuple, Type, TypeVar, Union
 from warnings import warn
 
 import nibabel as nib
+import os
 import numpy as np
 import pandas as pd
 from numpy import ndarray
@@ -19,6 +20,7 @@ SHM_FLAT_NAME = "flat_nii_array"
 SHM_MASK_NAME = "mask_nii_array"
 GLOBALS = {}
 DTYPE = np.float64
+N_PROCESSES = 40 if os.environ.get("CC_CLUSTER") == "niagara" else 8
 
 
 def eigs_via_transpose(M: ndarray, covariance: bool = True) -> ndarray:
@@ -296,11 +298,12 @@ def find_optimal_chunksize(
     ][:3000]
     CHUNKSIZES = [8, 16, 20, 24]
     df = DataFrame(index=pd.Index(CHUNKSIZES, name="chunksize"), columns=["Duration (s)"])
+    print(f"Using {N_PROCESSES} processes.")
     for chunksize in CHUNKSIZES:
         print(f"Beginning analysis for chunksize={chunksize}")
         start = time()
         with Pool(
-            processes=4,
+            processes=N_PROCESSES,
             initializer=init,
             initargs=(flat_view, flat.shape, mask_view, mask_shape),
         ) as pool:
