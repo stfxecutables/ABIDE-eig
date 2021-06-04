@@ -259,7 +259,10 @@ def eigsignal_from_shared(argsdict: Dict) -> ndarray:
 
 
 def find_optimal_chunksize(
-    array4d: ndarray, covariance: bool = True, progress_bar=True, n_voxels: int = 3000,
+    array4d: ndarray,
+    covariance: bool = True,
+    progress_bar=True,
+    n_voxels: int = 3000,
 ) -> DataFrame:
     # type setup
     dtype = np.float32
@@ -307,7 +310,7 @@ def find_optimal_chunksize(
             initializer=init,
             initargs=(flat_view, flat.shape, mask_view, mask_shape),
         ) as pool:
-            signals = pool.imap(eigsignal_from_shared, args, chunksize=chunksize)
+            signals = pool.map(eigsignal_from_shared, args, chunksize=chunksize)
             # signals = process_map(
             #     eigsignal_from_shared, args, chunksize=chunksize, disable=not progress_bar
             # )
