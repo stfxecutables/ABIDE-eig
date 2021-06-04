@@ -19,7 +19,7 @@ from typing_extensions import Literal
 SHM_FLAT_NAME = "flat_nii_array"
 SHM_MASK_NAME = "mask_nii_array"
 GLOBALS = {}
-DTYPE = np.float64
+DTYPE = np.float32
 N_PROCESSES = 44 if os.environ.get("CC_CLUSTER") == "niagara" else 8
 
 
