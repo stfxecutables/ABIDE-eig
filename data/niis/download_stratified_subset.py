@@ -3,6 +3,7 @@ import traceback
 from os import system
 from pathlib import Path
 from urllib.request import urlretrieve
+from tqdm import tqdm
 
 import numpy as np
 import pandas as pd
@@ -59,7 +60,8 @@ if __name__ == "__main__":
     known_dx = detailed["DSM_IV_TR"] <= 2
     is_adult = detailed["AGE_AT_SCAN"] >= 18.0
     is_sortof_smart = detailed["FIQ"] >= 90
-    filters = known_dx & is_adult & is_sortof_smart
+    # filters = known_dx & is_adult & is_sortof_smart
+    filters = known_dx
 
     detailed = detailed.loc[filters, :].copy()
 
@@ -111,10 +113,11 @@ if __name__ == "__main__":
     # if str(response).upper() != "Y":
     #     sys.exit()
 
+    print(all_subjs.describe())
     ids, sids = all_subjs["FILE_ID"], all_subjs["SUB_ID"]
 
     downloaded = []
-    for i, (id, sid) in enumerate(zip(ids, sids)):
+    for i, (id, sid) in tqdm(enumerate(zip(ids, sids)), total=len(ids)):
         try:
             fname = FNAME.format(id)
             outfile = NII_DIR / fname
@@ -130,5 +133,5 @@ if __name__ == "__main__":
             traceback.print_exc()
             print(e)
             print(f"Moving to next file. {100*(i+1)/len(ids):2.1f}% done.")
-        if len(downloaded) >= 5:
-            break
+#        if len(downloaded) >= 5:
+#            break
