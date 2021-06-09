@@ -5,7 +5,7 @@ from ants import image_read
 from tqdm.contrib.concurrent import process_map
 from typing import Tuple
 
-NIIS = Path(__file__).resolve().parent.rglob("*.nii.gz")
+NIIS = sorted(Path(__file__).resolve().parent.rglob("*.nii.gz"))
 
 def get_shape(nii: Path):
     return (*image_read(str(nii)).shape, nii)
