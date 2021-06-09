@@ -5,6 +5,7 @@ from ants import image_read
 from tqdm.contrib.concurrent import process_map
 from typing import Tuple
 import os
+from tqdm import tqdm
 
 NIIS = sorted(Path(__file__).resolve().parent.rglob("*.nii.gz"))
 CC_CLUSTER = os.environ.get("CC_CLUSTER")
@@ -18,7 +19,7 @@ def get_shape(nii: Path):
 
 
 if __name__ == "__main__":
-    rets = process_map(get_shape, NIIS)
+    rets = list(map(get_shape, tqdm(NIIS)))
     dfs = []
     for ret in rets:
         shape, nii = ret
