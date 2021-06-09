@@ -11,26 +11,20 @@ CC_CLUSTER = os.environ.get("CC_CLUSTER")
 SCRATCH = Path(__file__).resolve().parent if CC_CLUSTER is None else Path(os.environ.get("SCRATCH"))
 OUTFILE = SCRATCH / "shapes.json"
 
+
 def get_shape(nii: Path):
-    return (*(image_read(str(nii)).shape), nii)
+    shape = image_read(str(nii))
+    return shape, nii
+
 
 if __name__ == "__main__":
     rets = process_map(get_shape, NIIS)
     dfs = []
     for ret in rets:
-        h, w, d, t, nii = rets
-        dfs.append(DataFrame(
-            dict(
-                H=h,
-                W=w,
-                D=d,
-                T=t
-            )
-        ), index=[str(nii.name)])
+        shape, nii = ret
+        h, w, d, t = shape
+        dfs.append(DataFrame(dict(H=h, W=w, D=d, T=t)), index=[str(nii.name)])
     df = pd.concat(dfs, axis=0)
     print(df)
     df.to_json(OUTFILE)
     print(f"Saved shape data to {OUTFILE}")
-
-
-
