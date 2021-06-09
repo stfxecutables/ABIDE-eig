@@ -14,12 +14,12 @@ OUTFILE = SCRATCH / "shapes.json"
 
 
 def get_shape(nii: Path):
-    shape = image_read(str(nii))
+    shape = image_read(str(nii)).shape
     return shape, nii
 
 
 if __name__ == "__main__":
-    rets = list(map(get_shape, tqdm(NIIS)))
+    rets = process_map(get_shape, NIIS)
     dfs = []
     for ret in rets:
         shape, nii = ret
