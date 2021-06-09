@@ -24,7 +24,7 @@ if __name__ == "__main__":
     for ret in rets:
         shape, nii = ret
         h, w, d, t = shape
-        dfs.append(DataFrame(dict(H=h, W=w, D=d, T=t)), index=[str(nii.name)])
+        dfs.append(DataFrame(dict(H=h, W=w, D=d, T=t), index=[str(nii.name)]))
     df = pd.concat(dfs, axis=0)
     print(df)
     df.to_json(OUTFILE)
