@@ -6,3 +6,6 @@
 # W503: Line break occurred before a binary operator
 ignore = E203,E302,E731,W503
 max-line-length = 100
+per-file-ignores =
+    src/analysis/test_compute_times.py:E402
+    src/eigenimage/compute.py:E402

@@ -1,18 +1,23 @@
 import os
-from multiprocessing import Pool, RawArray
+
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+import traceback
+from multiprocessing import Pool, RawArray  # type: ignore
 from pathlib import Path
 from time import time
-from typing import Any, Dict, List, Optional, Sized, Tuple, Type, TypeVar, Union
-from warnings import warn
+from typing import Dict, Tuple, Union
 
-import nibabel as nib
 import numpy as np
 import pandas as pd
+from ants.core.ants_image_io import image_read
 from numpy import ndarray
 from pandas import DataFrame
 from scipy.linalg import eigvalsh
 from tqdm import tqdm
-from tqdm.contrib.concurrent import process_map
 from typing_extensions import Literal
 
 SHM_FLAT_NAME = "flat_nii_array"
@@ -20,6 +25,8 @@ SHM_MASK_NAME = "mask_nii_array"
 GLOBALS = {}
 DTYPE = np.float32
 N_PROCESSES = 84 if os.environ.get("CC_CLUSTER") == "niagara" else 8
+OPTIMAL_CHUNKSIZE = 1
+N_VOXELS_TIME_ESTIMATION = 3000
 
 # From https://docs.scipy.org/doc/scipy/reference/generated/scipy.linalg.eigh.html#scipy.linalg.eigh
 #
@@ -109,9 +116,7 @@ def eigs_via_transpose(
     if largest is None:
         eigs: ndarray = eigvalsh(M, eigvals_only=True, driver=driver)
     else:
-        eigs: ndarray = eigvalsh(
-            M, eigvals_only=True, driver=driver, subset_by_index=(T - largest, T - 1)
-        )
+        eigs = eigvalsh(M, eigvals_only=True, driver=driver, subset_by_index=(T - largest, T - 1))
     return eigs
 
 
@@ -125,7 +130,8 @@ def full_eigensignal(array4d: ndarray, covariance: bool = True) -> ndarray:
 
 # will take about 8 hours per image on PARK dataset, using all 8 cores for
 # eigenvalue calculation
-def compute_eigencontribution(
+# DEPRECATE
+def compute_eigencontribution_slow(
     array4d: ndarray, covariance: bool = True, progress_bar=True
 ) -> ndarray:
     N, t = int(np.prod(array4d.shape[:-1])), int(array4d.shape[-1])
@@ -153,11 +159,12 @@ def compute_eigencontribution(
         deleted = flat[voxelmask, :]
         try:
             eigs = eigs_via_transpose(deleted, covariance=covariance)
-        except:  # in case it doesn't conververge
+        except:  # in case it doesn't conververge # noqa
             try:
                 eigs = eigs_via_transpose(deleted, covariance=covariance)
-            except:
+            except:  # noqa
                 converge_fails += 1
+                traceback.print_exc()
                 eigs = np.zeros([end_shape[-1]], dtype=float) - 1
 
         contrib[voxel] = eigs[1:]  # delete smallest (zero) eigenvalue
@@ -165,7 +172,9 @@ def compute_eigencontribution(
         if len(times) % 10 == 0:
             avg = np.mean(times)
             print(
-                f"Average time per voxel: {np.mean(times)}s. Expected total time remaining: {avg * (n_voxels-signal_voxels) / 60 / 60} hrs. Convergence fails so far: {converge_fails}."
+                f"Average time per voxel: {np.mean(times)}s. "
+                f"Expected total time remaining: {avg * (n_voxels-signal_voxels) / 60 / 60} hrs."
+                f"Convergence fails so far: {converge_fails}."
             )
 
     return contrib.reshape(end_shape)
@@ -183,40 +192,15 @@ def compute_eigensignal(argsdict: Dict) -> ndarray:
     deleted = flat[voxelmask, :]
     try:
         eigs = eigs_via_transpose(deleted, covariance=covariance)
-        return eigs[1:]
-    except:  # in case it doesn't conververge
+        return eigs[1:]  # type: ignore
+    except:  # in case it doesn't conververge  # noqa
         try:
             eigs = eigs_via_transpose(deleted, covariance=covariance)
-            return eigs[1:]
-        except:
+            return eigs[1:]  # type: ignore
+        except:  # noqa
+            traceback.print_exc()
             eigs = np.full([T], -1, dtype=float)
             return eigs
-
-    return eigs[1:]
-
-
-def eigimage_parallel(
-    array4d: ndarray, covariance: bool = True, chunksize: int = 32, progress_bar: bool = True
-):
-    N, t = int(np.prod(array4d.shape[:-1])), int(array4d.shape[-1])
-    eig_length = t - 1
-    end_shape = array4d.shape[:-1] + (array4d.shape[-1] - 1,)
-
-    flat = np.reshape(array4d, [N, t])  # for looping
-    mask = (array4d.sum(axis=-1) != 0) & (array4d.std(axis=-1) != 0)
-    maskflat = mask.ravel()
-
-    # we need to loop over the flat array, but be 100% sure that we can unflatten the
-    # array while preserving the original shape
-    contrib = np.full(shape=[N, eig_length], fill_value=np.nan, dtype=float)
-    args = [
-        dict(flat=flat, maskflat=maskflat, voxel=voxel, covariance=covariance)
-        for voxel in range(flat.shape[0])
-    ]
-    signals = process_map(compute_eigensignal, args, chunksize=chunksize, disable=not progress_bar)
-    for i, signal in enumerate(signals):
-        contrib[i] = signal
-    return contrib.reshape(end_shape)
 
 
 def init(
@@ -268,17 +252,17 @@ def eigsignal_from_shared(argsdict: Dict) -> ndarray:
     try:
         eigs = eigs_via_transpose(deleted, covariance=covariance, largest=largest)
         if largest is None:
-            return eigs[1:]
+            return eigs[1:]  # type: ignore
         else:
             return eigs
-    except:  # in case it doesn't conververge
+    except:  # noqa
         try:
             eigs = eigs_via_transpose(deleted, covariance=covariance, largest=largest)
             if largest is None:
-                return eigs[1:]
+                return eigs[1:]  # type: ignore
             else:
                 return eigs
-        except:
+        except:  # noqa
             if largest is None:
                 return np.full([T], -1, dtype=DTYPE)
             else:
@@ -288,37 +272,23 @@ def eigsignal_from_shared(argsdict: Dict) -> ndarray:
 def find_optimal_chunksize(
     array4d: ndarray,
     covariance: bool = True,
-    progress_bar=True,
     n_voxels: int = 3000,
 ) -> DataFrame:
-    # type setup
-    dtype = np.float32
-
     # loading setup
     N, t = int(np.prod(array4d.shape[:-1])), int(array4d.shape[-1])
     eig_length = t - 1
-    end_shape = array4d.shape[:-1] + (array4d.shape[-1] - 1,)
     flat = np.reshape(array4d, [N, t]).astype(DTYPE)  # for looping
     mask = (array4d.sum(axis=-1) != 0) & (array4d.std(axis=-1) != 0)
     maskflat = mask.ravel().astype(DTYPE)
 
     # parallel setup
-    flat_shape = flat.shape
+    flat.shape
     mask_shape = maskflat.shape
     flat_ptr, flat_view = mem_ptr_and_numpy_view(flat)
     mask_ptr, mask_view = mem_ptr_and_numpy_view(maskflat)
 
-    # shared_mem_flat = RawArray("d", int(np.prod(flat.shape)))
-    # shared_flat = np.frombuffer(shared_mem_flat, dtype=np.float64).reshape(flat.shape)
-    # shared_flat[:] = flat[:]
-
-    # shared_mem_mask = RawArray("d", int(np.prod(maskflat.shape)))
-    # shared_mask = np.frombuffer(shared_mem_mask, dtype=np.float64).reshape(maskflat.shape)
-    # shared_mask[:] = maskflat[:]
-
     # we need to loop over the flat array, but be 100% sure that we can unflatten the
     # array while preserving the original shape
-    contrib = np.full(shape=[N, eig_length], fill_value=np.nan, dtype=float)
     CHUNKSIZES = [1]
     LARGESTS = [5, 10, 25]
     df = DataFrame(columns=["Chunksize", "N largest", "Duration (s)"])
@@ -341,13 +311,67 @@ def find_optimal_chunksize(
                 initializer=init,
                 initargs=(flat_view, flat.shape, mask_view, mask_shape),
             ) as pool:
-                signals = pool.map(eigsignal_from_shared, args, chunksize=chunksize)
-                # signals = process_map(
-                #     eigsignal_from_shared, args, max_workers=N_PROCESSES, chunksize=chunksize, disable=not progress_bar
-                # )
+                _ = pool.map(eigsignal_from_shared, args, chunksize=chunksize)
             duration = time() - start
             df.loc[row, :] = (chunksize, largest, duration)
             row += 1
             print(df)
     print(df)
     return df
+
+
+def compute_eigenimage(
+    nii: Path,
+    covariance: bool = True,
+    estimate_time: bool = False,
+    decimation: int = 64,
+) -> Union[ndarray, pd.Timedelta]:
+    # loading setup
+    array4d = image_read(str(nii)).numpy()
+    N, t = int(np.prod(array4d.shape[:-1])), int(array4d.shape[-1])
+    eig_length = t - 1
+    flat = np.reshape(array4d, [N, t]).astype(DTYPE)  # for looping
+    mask = (array4d.sum(axis=-1) != 0) & (array4d.std(axis=-1) != 0)
+    maskflat = mask.ravel().astype(DTYPE)
+
+    # parallel setup
+    flat_shape = flat.shape
+    mask_shape = maskflat.shape
+    flat_ptr, flat_view = mem_ptr_and_numpy_view(flat)  # keep return, don't gc
+    mask_ptr, mask_view = mem_ptr_and_numpy_view(maskflat)
+
+    # we need to loop over the flat array, but be 100% sure that we can unflatten the
+    # array while preserving the original shape
+    contrib = np.full(shape=[N, eig_length], fill_value=np.nan, dtype=float)
+    step = decimation if estimate_time else 1  # decimate for testing
+    args = [
+        dict(
+            voxel=voxel,
+            covariance=covariance,
+            largest=None,
+        )
+        for voxel in range(0, flat.shape[0], step)  # decimation means ~4800 voxels
+    ]
+    if estimate_time:
+        print(f"Estimating time for subject with T = {t} using {len(args)} voxels. ", end="")
+    print(f"Using {N_PROCESSES} processes.")
+    start = time()
+    with Pool(
+        processes=N_PROCESSES,
+        initializer=init,
+        initargs=(flat_view, flat_shape, mask_view, mask_shape),
+    ) as pool:
+        signals = pool.map(eigsignal_from_shared, args, chunksize=OPTIMAL_CHUNKSIZE)
+    elapsed = time() - start  # seconds
+
+    if estimate_time:
+        total_voxels = np.prod(array4d.shape[:-1])
+        computed_voxels = len(args)
+        total_seconds = (elapsed / computed_voxels) * total_voxels
+        duration = pd.Timedelta(seconds=total_seconds)
+        return duration
+    else:
+        pass  # reshape signals to fill `contrib`
+        sigs = np.array(signals)
+
+        return contrib
