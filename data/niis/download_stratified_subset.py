@@ -3,10 +3,10 @@ import traceback
 from os import system
 from pathlib import Path
 from urllib.request import urlretrieve
-from tqdm import tqdm
 
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 NII_DIR = Path(__file__).resolve().parent
 FNAME = "{}_func_minimal.nii.gz"
@@ -61,17 +61,17 @@ if __name__ == "__main__":
     is_adult = detailed["AGE_AT_SCAN"] >= 18.0
     is_sortof_smart = detailed["FIQ"] >= 90
     # filters = known_dx & is_adult & is_sortof_smart
-    filters = known_dx
+    # filters = known_dx
 
-    detailed = detailed.loc[filters, :].copy()
+    # detailed = detailed.loc[filters, :].copy()
 
     males = detailed.loc[detailed.SEX == 1.0, :]
     females = detailed.loc[detailed.SEX == 2.0, :]
 
-    limited_locations = np.array(
-        [("NYU" in s) or ("CMU" in s) for s in males.FILE_ID.to_list()], dtype=bool
-    )
-    males = males.loc[limited_locations, :].copy()
+    # limited_locations = np.array(
+    #     [("NYU" in s) or ("CMU" in s) for s in males.FILE_ID.to_list()], dtype=bool
+    # )
+    # males = males.loc[limited_locations, :].copy()
 
     female_IQ_max = females.loc[:, ["FIQ", "VIQ", "PIQ"]].max(axis=0).max()
     is_matched_male = (
@@ -108,7 +108,7 @@ if __name__ == "__main__":
     totalsize = str(310 * total / 1000) + "GB"  # est. 310 MB per file
     print(f"Estimated size of files: {totalsize}.")
 
-    control_males_reduced = control_males.iloc[: len(autistic_males), :].copy()
+    # control_males_reduced = control_males.iloc[: len(autistic_males), :].copy()
     # response = input("Continue to download? [y/N]: ")
     # if str(response).upper() != "Y":
     #     sys.exit()
