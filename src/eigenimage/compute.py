@@ -5,11 +5,14 @@ os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+import shutil
 import traceback
 from multiprocessing import Pool, RawArray  # type: ignore
+from os import PathLike
 from pathlib import Path
+from pickle import UnpicklingError, dump, load
 from time import time
-from typing import Dict, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union, cast
 
 import numpy as np
 import pandas as pd
@@ -19,6 +22,8 @@ from pandas import DataFrame
 from scipy.linalg import eigvalsh
 from tqdm import tqdm
 from typing_extensions import Literal
+
+from src.constants import CKPT_PATH
 
 SHM_FLAT_NAME = "flat_nii_array"
 SHM_MASK_NAME = "mask_nii_array"
@@ -269,23 +274,43 @@ def eigsignal_from_shared(argsdict: Dict) -> ndarray:
                 return np.full([largest], -1, dtype=DTYPE)
 
 
+def parallel_setup(
+    array4d: ndarray, flat: ndarray, covariance: bool, estimate_time: bool, decimation: int
+) -> Tuple[ndarray, List[Dict[str, Any]]]:
+    # we need to loop over the flat array, but be 100% sure that we can unflatten the
+    # array while preserving the original shape
+    N, t = int(np.prod(array4d.shape[:-1])), int(array4d.shape[-1])
+    eig_length = t - 1
+    contrib = np.full(shape=[N, eig_length], fill_value=np.nan, dtype=float)
+    step = decimation if estimate_time else 1  # decimate for testing
+    args = [
+        dict(
+            voxel=voxel,
+            covariance=covariance,
+            largest=None,
+        )
+        for voxel in range(0, flat.shape[0], step)  # decimation means ~4800 voxels
+    ]
+    return contrib, args
+
+
+def shared_setup(array4d: ndarray) -> Tuple[ndarray, ndarray, RawArray, ndarray, RawArray, ndarray]:
+    N, t = int(np.prod(array4d.shape[:-1])), int(array4d.shape[-1])
+    flat = np.reshape(array4d, [N, t]).astype(DTYPE)  # for looping
+    mask = (array4d.sum(axis=-1) != 0) & (array4d.std(axis=-1) != 0)
+    maskflat = mask.ravel().astype(DTYPE)
+    # parallel setup
+    flat_ptr, flat_view = mem_ptr_and_numpy_view(flat)
+    mask_ptr, mask_view = mem_ptr_and_numpy_view(maskflat)
+    return maskflat.shape, flat, flat_ptr, flat_view, mask_ptr, mask_view
+
+
 def find_optimal_chunksize(
     array4d: ndarray,
     covariance: bool = True,
     n_voxels: int = 3000,
 ) -> DataFrame:
-    # loading setup
-    N, t = int(np.prod(array4d.shape[:-1])), int(array4d.shape[-1])
-    eig_length = t - 1
-    flat = np.reshape(array4d, [N, t]).astype(DTYPE)  # for looping
-    mask = (array4d.sum(axis=-1) != 0) & (array4d.std(axis=-1) != 0)
-    maskflat = mask.ravel().astype(DTYPE)
-
-    # parallel setup
-    flat.shape
-    mask_shape = maskflat.shape
-    flat_ptr, flat_view = mem_ptr_and_numpy_view(flat)
-    mask_ptr, mask_view = mem_ptr_and_numpy_view(maskflat)
+    mask_shape, flat, flat_ptr, flat_view, mask_ptr, mask_view = shared_setup(array4d)
 
     # we need to loop over the flat array, but be 100% sure that we can unflatten the
     # array while preserving the original shape
@@ -320,58 +345,166 @@ def find_optimal_chunksize(
     return df
 
 
-def compute_eigenimage(
+def estimate_computation_time(
     nii: Path,
     covariance: bool = True,
     estimate_time: bool = False,
     decimation: int = 64,
-) -> Union[ndarray, pd.Timedelta]:
+) -> pd.Timedelta:
     # loading setup
     array4d = image_read(str(nii)).numpy()
-    N, t = int(np.prod(array4d.shape[:-1])), int(array4d.shape[-1])
-    eig_length = t - 1
-    flat = np.reshape(array4d, [N, t]).astype(DTYPE)  # for looping
-    mask = (array4d.sum(axis=-1) != 0) & (array4d.std(axis=-1) != 0)
-    maskflat = mask.ravel().astype(DTYPE)
+    T = int(array4d.shape[-1])
+    mask_shape, flat, flat_ptr, flat_view, mask_ptr, mask_view = shared_setup(array4d)
+    contrib, args = parallel_setup(array4d, flat, covariance, estimate_time, decimation)
 
-    # parallel setup
-    flat_shape = flat.shape
-    mask_shape = maskflat.shape
-    flat_ptr, flat_view = mem_ptr_and_numpy_view(flat)  # keep return, don't gc
-    mask_ptr, mask_view = mem_ptr_and_numpy_view(maskflat)
-
-    # we need to loop over the flat array, but be 100% sure that we can unflatten the
-    # array while preserving the original shape
-    contrib = np.full(shape=[N, eig_length], fill_value=np.nan, dtype=float)
-    step = decimation if estimate_time else 1  # decimate for testing
-    args = [
-        dict(
-            voxel=voxel,
-            covariance=covariance,
-            largest=None,
-        )
-        for voxel in range(0, flat.shape[0], step)  # decimation means ~4800 voxels
-    ]
-    if estimate_time:
-        print(f"Estimating time for subject with T = {t} using {len(args)} voxels. ", end="")
+    print(f"Estimating time for subject with T = {T} using {len(args)} voxels. ", end="")
     print(f"Using {N_PROCESSES} processes.")
     start = time()
+
     with Pool(
         processes=N_PROCESSES,
         initializer=init,
-        initargs=(flat_view, flat_shape, mask_view, mask_shape),
+        initargs=(flat_view, flat.shape, mask_view, mask_shape),
     ) as pool:
         signals = pool.map(eigsignal_from_shared, args, chunksize=OPTIMAL_CHUNKSIZE)
+
     elapsed = time() - start  # seconds
+    total_voxels = np.prod(array4d.shape[:-1])
+    computed_voxels = len(args)
+    total_seconds = (elapsed / computed_voxels) * total_voxels
+    duration = pd.Timedelta(seconds=total_seconds)
+    return duration
 
-    if estimate_time:
-        total_voxels = np.prod(array4d.shape[:-1])
-        computed_voxels = len(args)
-        total_seconds = (elapsed / computed_voxels) * total_voxels
-        duration = pd.Timedelta(seconds=total_seconds)
-        return duration
+
+def ckpt_paths(nii: Path) -> Tuple[Path, Path]:
+    # re-suffix
+    p = Path(nii.name)
+    extensions = "".join(p.suffixes)
+    ckpt_name = str(p).replace(extensions, ".ckpt")
+    new_name = str(p).replace(extensions, ".ckpt.new")
+    ckpt_path: Path = CKPT_PATH / ckpt_name
+    new_path: Path = CKPT_PATH / new_name
+    return ckpt_path, new_path
+
+
+def is_corrupt(path: Path) -> bool:
+    try:
+        with open(path, "rb") as file:
+            load(file)
+        return True
+    except (UnpicklingError, EOFError):
+        return False
+    except BaseException as e:
+        traceback.print_exc()
+        print(e)
+        return False
+
+
+def cleanup(nii: Path) -> None:
+    ckpt, new = ckpt_paths(nii)
+    if not new.exists():  # nothing to do
+        return
+    if is_corrupt(new):
+        new.unlink()
+        return
+    new.replace(ckpt)
+
+
+def load_checkpoint(nii: Path) -> List[ndarray]:
+    """Checks `nii` path for associated checkpoint file, and if present loads the stored
+    signals.
+    """
+    ckpt = ckpt_paths(nii)[0]
+    cleanup(nii)  # just in case
+    if ckpt.exists():
+        with open(ckpt, "rb") as file:
+            signals: List[ndarray] = load(file)
+        return signals
     else:
-        pass  # reshape signals to fill `contrib`
-        sigs = np.array(signals)
+        return []
 
-        return contrib
+
+def save_checkpoint(signals: List[ndarray], nii: Path) -> None:
+    """We have to be a bit careful here because if we get interrupted during writing we overwrite
+    our checkpoint. There are N locations where a harmful interruption can happen:
+
+    1. writing `.ckpt.new` (slow)
+    2. renaming `.ckpt.new` to `.ckpt` (fast)
+
+    Fail at 1: (possible)
+        There is a `.new` file. We need to check if the `.new` file is a valid pickle. If so, we
+        need to rename it to `.ckpt`, otherwise, delete it and the indicator and return.
+    Fail at 2: (extremely unlikely)
+        Not even sure this can happen with Slurm, definitely seems impossible given the grace
+        period and speed of this op
+    """
+    ckpt, new = ckpt_paths(nii)
+    with open(new, "wb") as out:
+        dump(signals, out)
+    new.replace(ckpt)
+
+
+def compute_eigenimage(
+    nii: Path,
+    covariance: bool = True,
+) -> Union[ndarray, pd.Timedelta]:
+    """
+    Notes
+    -----
+    We want to checkpoint this, but to do this we have to split the parallelization a bit.
+    We know each eigenimage takes between 1-2.5 hours to compute. Doing e.g. 8-20 images per job we
+    will thus often expect the last image to be interrupted, and often for a few images at the end
+    not to be reached. Just losing the entire 1-3 hours is not really acceptable, so we need to
+    checkpoint every K amount of eigensignals processed. Ideally we want this to be about every 20
+    minutes or so, so it runs not too often and we lose at most 20 minutes of compute time.
+
+    Since the longest jobs are about 2.5 hours (maybe 3 hours if there is something really bad or
+    strange about the data) this means doing about 12 checkpoints per image.
+    """
+    N_SPLITS = 12
+    # loading setup
+    array4d = image_read(str(nii)).numpy()
+    array4d = array4d[::5, ::5, ::5, :]  # testing
+    spatial, T = array4d.shape[:-1], int(array4d.shape[-1])
+    end_shape = (*spatial, T - 1)
+    mask_shape, flat, flat_ptr, flat_view, mask_ptr, mask_view = shared_setup(array4d)
+    contrib, args = parallel_setup(array4d, flat, covariance, estimate_time=False, decimation=1)
+
+    signals = load_checkpoint(nii)
+    if len(signals) == len(args):
+        print(f"Computation for {nii} already computed. Restoring from final checkpoint.")
+        return np.array(signals).reshape(end_shape)
+
+    if len(signals) != 0:  # we are resuming from checkpoint so have lots of time
+        print(f"Found checkpoint for file {nii}. Resuming...")
+        args = args[len(signals):]
+        with Pool(
+            processes=N_PROCESSES,
+            initializer=init,
+            initargs=(flat_view, flat.shape, mask_view, mask_shape),
+        ) as pool:
+            signals.extend(pool.map(eigsignal_from_shared, args, chunksize=OPTIMAL_CHUNKSIZE))
+        print(f"Saving final checkpoint for {nii}...", end="")
+        save_checkpoint(signals, nii)
+        print(" done.")
+        return np.array(signals).reshape(end_shape)
+
+    # fresh start
+    N = int(np.ceil(len(args) / N_SPLITS))
+    splits = [slice(i * N, (i + 1) * N) for i in range(N_SPLITS)]
+    for k, split in enumerate(splits):
+        with Pool(
+            processes=N_PROCESSES,
+            initializer=init,
+            initargs=(flat_view, flat.shape, mask_view, mask_shape),
+        ) as pool:
+            signals.extend(
+                pool.map(eigsignal_from_shared, args[split], chunksize=OPTIMAL_CHUNKSIZE)
+            )
+        if k != len(splits) - 1:
+            print(f"Saving checkpoint {k} for {nii}...", end="")
+        else:
+            print(f"Saving final checkpoint for {nii}...", end="")
+        save_checkpoint(signals, nii)
+        print(" done.")
+    return np.array(signals).reshape(end_shape)

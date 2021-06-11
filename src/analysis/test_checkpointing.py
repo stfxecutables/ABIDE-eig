@@ -9,11 +9,9 @@ os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
 import sys
 from pathlib import Path
 
-from pandas import DataFrame
-
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
 from src.constants import NII_PATH
-from src.eigenimage.compute import compute_eigenimage, estimate_computation_time
+from src.eigenimage.compute import compute_eigenimage
 
 TEST_NIIS = [
     NII_PATH / "NYU_0051015_func_minimal.nii.gz",  # T = 176
@@ -22,10 +20,4 @@ TEST_NIIS = [
 ]
 
 if __name__ == "__main__":
-    df = DataFrame()
-    for nii in TEST_NIIS:
-        duration = estimate_computation_time(
-            nii, covariance=True, estimate_time=True, decimation=1024
-        )
-        df.loc[nii.name, "Estimated Time"] = duration
-    print(df)
+    compute_eigenimage(TEST_NIIS[0], covariance=True)
