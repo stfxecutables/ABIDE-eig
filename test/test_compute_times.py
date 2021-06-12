@@ -40,13 +40,33 @@ CMU_a_0050642_func_minimal.nii.gz     61  73  61  236  2.00000
 Leuven_1_0050682_func_minimal.nii.gz  61  73  61  246  1.66665
 UM_1_0050272_func_minimal.nii.gz      61  73  61  296  2.00000
 CMU_b_0050643_func_minimal.nii.gz     61  73  61  316  1.50000
+
+Estimating time for subject with T = 116 using 4245 voxels. Using 84 processes.
+Estimating time for subject with T = 146 using 4245 voxels. Using 84 processes.
+Estimating time for subject with T = 176 using 4245 voxels. Using 84 processes.
+Estimating time for subject with T = 196 using 4245 voxels. Using 84 processes.
+Estimating time for subject with T = 202 using 4245 voxels. Using 84 processes.
+Estimating time for subject with T = 236 using 4245 voxels. Using 84 processes.
+Estimating time for subject with T = 246 using 4245 voxels. Using 84 processes.
+Estimating time for subject with T = 296 using 4245 voxels. Using 84 processes.
+Estimating time for subject with T = 316 using 4245 voxels. Using 84 processes.
+                                             Estimated Time
+UCLA_1_0051201_func_minimal.nii.gz   0 days 01:05:31.390913
+Trinity_0050232_func_minimal.nii.gz  0 days 01:44:45.060964
+NYU_0050952_func_minimal.nii.gz      0 days 02:00:23.966623
+Pitt_0050003_func_minimal.nii.gz     0 days 01:58:41.036831
+CMU_a_0050647_func_minimal.nii.gz    0 days 02:25:18.577688
+CMU_a_0050642_func_minimal.nii.gz    0 days 02:48:55.975521
+Leuven_1_0050682_func_minimal.nii.gz 0 days 03:26:43.577640
+UM_1_0050272_func_minimal.nii.gz     0 days 04:39:24.942342
+CMU_b_0050643_func_minimal.nii.gz    0 days 03:42:51.118297
 """
 
 if __name__ == "__main__":
     df = DataFrame()
     for nii in TEST_NIIS:
         duration = estimate_computation_time(
-            nii, covariance=True, estimate_time=True, decimation=64
+            nii, covariance=True, estimate_time=True, decimation=128
         )
         df.loc[nii.name, "Estimated Time"] = duration
     print(df)
