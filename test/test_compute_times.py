@@ -46,7 +46,7 @@ if __name__ == "__main__":
     df = DataFrame()
     for nii in TEST_NIIS:
         duration = estimate_computation_time(
-            nii, covariance=True, estimate_time=True, decimation=1024
+            nii, covariance=True, estimate_time=True, decimation=64
         )
         df.loc[nii.name, "Estimated Time"] = duration
     print(df)
