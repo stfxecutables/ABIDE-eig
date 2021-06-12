@@ -120,6 +120,5 @@ def generate_script(script_outdir: Path = JOBSCRIPT_OUTDIR) -> str:
 
 
 if __name__ == "__main__":
-    print(images_to_compute())
-    compute_job_array_end()
-    # generate_script()
+    # print(images_to_compute())
+    generate_script()
