@@ -41,7 +41,7 @@ HEADER = HEADER_COMMON + RESOURCES
 
 SCRIPT = """
 PROJECT=$SCRATCH/def-jlevman/dberger/ABIDE-eig
-SCRIPT=$PROJECT/src/analysis/compute_batch.py
+SCRIPT=$PROJECT/src/eigenimage/compute_batch.py
 
 module load python/3.8.2
 cd $SLURM_TMPDIR
