@@ -23,7 +23,7 @@ SHAPES = NII_PATH / "shapes.json"
 # take very close to 2 hours each time, so 11 computations per 24h window,
 # i.e. 11 computations per batch
 T_LENGTH = 176
-BATCH_SIZE = 11
+BATCH_SIZE = 10
 
 
 def get_batch_idx() -> int:
