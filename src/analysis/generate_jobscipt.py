@@ -49,7 +49,7 @@ source .venv/bin/activate
 PYTHON=$(which python)
 
 echo "Job starting at $(date)"
-$PYTHON $SCRIPT --split=$SLURM_ARRAY_TASK_ID && \\
+$PYTHON $SCRIPT --batch=$SLURM_ARRAY_TASK_ID && \\
 echo "Job done at $(date)"
 """
 

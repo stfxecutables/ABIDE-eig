@@ -30,6 +30,13 @@ TEST_NIIS = [
 """
 >>> df = pd.read_json("shapes.json")
 >>> df.iloc[np.unique(df["T"], return_index=True)[1], :]
+>>> np.unique(df["T"], return_counts=True)
+(array([116, 146, 176, 196, 202, 236, 246, 296, 316]), array([ 60,  46, 208,  60,   1,  13,  27, 128,  13]))
+>>> np.unique(df["dt"].round(2), return_counts=True)
+(array([1.5 , 1.66, 1.67, 2.  , 2.2 , 3.  ]), array([ 69,   1,  26, 396,   4,  60]))
+>>> np.unique(df["dt"].round(1), return_counts=True)
+(array([1.5, 1.7, 2. , 2.2, 3. ]), array([ 69,  27, 396,   4,  60]))
+
                                        H   W   D    T       dt
 UCLA_1_0051201_func_minimal.nii.gz    61  73  61  116  3.00000
 Trinity_0050232_func_minimal.nii.gz   61  73  61  146  2.00000
@@ -50,6 +57,7 @@ Estimating time for subject with T = 236 using 4245 voxels. Using 84 processes.
 Estimating time for subject with T = 246 using 4245 voxels. Using 84 processes.
 Estimating time for subject with T = 296 using 4245 voxels. Using 84 processes.
 Estimating time for subject with T = 316 using 4245 voxels. Using 84 processes.
+
                                              Estimated Time
 UCLA_1_0051201_func_minimal.nii.gz   0 days 01:05:31.390913
 Trinity_0050232_func_minimal.nii.gz  0 days 01:44:45.060964
@@ -60,6 +68,21 @@ CMU_a_0050642_func_minimal.nii.gz    0 days 02:48:55.975521
 Leuven_1_0050682_func_minimal.nii.gz 0 days 03:26:43.577640
 UM_1_0050272_func_minimal.nii.gz     0 days 04:39:24.942342
 CMU_b_0050643_func_minimal.nii.gz    0 days 03:42:51.118297
+
+We have 396 subjects so far where the TR is 2.0. For those subjects, the number of timepoints and
+counts is:
+
+  T   N_subj
+146       46
+176      208
+202        1
+236       13
+296      128
+
+If we cut the subjects with more than 176 timepoint down to their last 176 timepoints we get more
+data, it becomes more comparable, and is faster to compute (about 2 hours per scan).
+
+
 """
 
 if __name__ == "__main__":

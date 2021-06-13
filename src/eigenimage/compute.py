@@ -447,6 +447,7 @@ def save_checkpoint(signals: List[ndarray], nii: Path) -> None:
 def compute_eigenimage(
     nii: Path,
     covariance: bool = True,
+    t: int = -1,
 ) -> Union[ndarray, pd.Timedelta]:
     """
     Notes
@@ -464,7 +465,9 @@ def compute_eigenimage(
     N_SPLITS = 12
     # loading setup
     array4d = image_read(str(nii)).numpy()
-    array4d = array4d[::5, ::5, ::5, :]  # testing
+    if t > 0:
+        array4d = array4d[:, :, :, -t:]
+    # array4d = array4d[::5, ::5, ::5, :]  # testing
     spatial, T = array4d.shape[:-1], int(array4d.shape[-1])
     end_shape = (*spatial, T - 1)
     mask_shape, flat, flat_ptr, flat_view, mask_ptr, mask_view = shared_setup(array4d)
@@ -477,7 +480,7 @@ def compute_eigenimage(
 
     if len(signals) != 0:  # we are resuming from checkpoint so have lots of time
         print(f"Found checkpoint for file {nii}. Resuming...")
-        args = args[len(signals):]
+        args = args[len(signals) :]
         with Pool(
             processes=N_PROCESSES,
             initializer=init,
