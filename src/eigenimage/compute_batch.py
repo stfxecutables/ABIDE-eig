@@ -2,6 +2,7 @@ import sys
 from argparse import ArgumentParser
 from pathlib import Path
 from typing import List
+import pandas as pd
 
 
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
