@@ -40,7 +40,7 @@ else:
 HEADER = HEADER_COMMON + RESOURCES
 
 SCRIPT = """
-PROJECT=$SCRATCH/def-jlevman/dberger/ABIDE-eig
+PROJECT=$SCRATCH/ABIDE-eig
 SCRIPT=$PROJECT/src/eigenimage/compute_batch.py
 
 module load python/3.8.2
