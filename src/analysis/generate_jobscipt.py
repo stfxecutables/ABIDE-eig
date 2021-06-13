@@ -6,6 +6,7 @@ import pandas as pd
 
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
 from src.constants import NII_PATH  # noqa
+from src.eigenimage.compute_batch import get_files, BATCH_SIZE
 
 RUNTIME = "24:00:00"
 JOBSCRIPT_OUTDIR = Path(__file__).resolve().parent.parent.parent / "job_scripts"
@@ -22,7 +23,7 @@ HEADER_COMMON = """#!/bin/bash
 #SBATCH --mail-type=FAIL
 #SBATCH --time={time}
 #SBATCH --job-name={job_name}
-#SBATCH --output={job_name}__%j.out
+#SBATCH --output={job_name}%A__%a.out
 #SBATCH --array=0-{array_end}
 """
 if CC_CLUSTER == "niagara":
@@ -64,7 +65,7 @@ def images_to_compute() -> int:
     return len(list(filter(uncomputed, NII_PATH.rglob("*minimal.nii.gz"))))
 
 
-def compute_job_array_end() -> int:
+def compute_job_array_end_mixed() -> int:
     """
     Notes
     -----
@@ -77,7 +78,7 @@ def compute_job_array_end() -> int:
     def hours(t: int) -> float:
         # multiply all time estimates by 1.1 and round up a bit
         if t == 176:
-            return 1.35
+            return 2.00
         if t == 236:
             return 1.90
         if t == 316:
@@ -106,11 +107,25 @@ def compute_job_array_end() -> int:
     return array_end
 
 
+def compute_job_array_end() -> int:
+    """
+    Notes
+    -----
+    The way to do this correctly is get a good robust estimate of the compute time for each shape
+    we have, then have a big DataFrame or dict of filename/estimated runtime pairs, and then just
+    append runs until the expected time of a job is near 24h, and then that increases the number of
+    arrays needed.
+    """
+    files = get_files()
+    n_batches = len(files) // BATCH_SIZE  # 176 timepoints == 2.0 hours per image
+    if len(files) % BATCH_SIZE > 0:  # remainders
+        n_batches += 1
+    return int(n_batches - 1)  # SBATCH --array=0-3 runs 0-3 inclusive, i.e. 4 jobs
+
+
 def generate_script(script_outdir: Path = JOBSCRIPT_OUTDIR) -> str:
-    args = " ".join(sys.argv[1:])
     job_name = "eigimg"
     header = HEADER.format(time=RUNTIME, job_name=job_name, array_end=compute_job_array_end())
-
     script = f"{header}{SCRIPT}"
     out = script_outdir / f"submit_{job_name}.sh"
     with open(out, mode="w") as file:
