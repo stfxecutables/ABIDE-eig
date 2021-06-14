@@ -16,10 +16,11 @@ from typing import Any, Dict, List, Tuple, Union, cast
 
 import numpy as np
 import pandas as pd
+import scipy
 from ants.core.ants_image_io import image_read
 from numpy import ndarray
+from numpy.linalg import eigvalsh
 from pandas import DataFrame
-from scipy.linalg import eigvalsh
 from tqdm import tqdm
 from typing_extensions import Literal
 
@@ -47,9 +48,7 @@ Driver = Literal[
 ]
 
 
-def eigs_via_transpose(
-    M: ndarray, covariance: bool = True, largest: int = None, driver: Driver = "evr"
-) -> ndarray:
+def eigs_via_transpose(M: ndarray, covariance: bool = True, largest: int = None) -> ndarray:
     """Use transposes to rapidly compute eigenvalues of covariance and
     correlation matrices.
 
@@ -119,9 +118,11 @@ def eigs_via_transpose(
     M = np.matmul(Z.T, r * Z)
     # eigs: ndarray = np.linalg.eigvalsh(M)
     if largest is None:
-        eigs: ndarray = eigvalsh(M, eigvals_only=True, driver=driver)
+        eigs: ndarray = eigvalsh(M)
     else:
-        eigs = eigvalsh(M, eigvals_only=True, driver=driver, subset_by_index=(T - largest, T - 1))
+        eigs = scipy.linalg.eigvalsh(
+            M, eigvals_only=True, subset_by_index=(T - largest, T - 1)
+        )
     return eigs
 
 
