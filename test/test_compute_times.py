@@ -7,6 +7,7 @@ os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
 
 import sys
+from argparse import ArgumentParser
 from pathlib import Path
 
 from pandas import DataFrame
@@ -86,10 +87,13 @@ data, it becomes more comparable, and is faster to compute (about 2 hours per sc
 """
 
 if __name__ == "__main__":
+    parser = ArgumentParser()
+    parser.add_argument("--decimation", type=int, default=128)
+    decimation = parser.parse_args().decimation
     df = DataFrame()
     for nii in TEST_NIIS:
         duration = estimate_computation_time(
-            nii, covariance=True, estimate_time=True, decimation=128
+            nii, covariance=True, estimate_time=True, decimation=decimation
         )
         df.loc[nii.name, "Estimated Time"] = duration
     print(df)
