@@ -260,14 +260,18 @@ def eigsignal_from_shared(argsdict: Dict) -> ndarray:
             return eigs[1:]  # type: ignore
         else:
             return eigs
-    except:  # noqa
+    except Exception as e:  # noqa
+        traceback.print_exc()
+        print(e)
         try:
             eigs = eigs_via_transpose(deleted, covariance=covariance, largest=largest)
             if largest is None:
                 return eigs[1:]  # type: ignore
             else:
                 return eigs
-        except:  # noqa
+        except Exception as e:  # noqa
+            traceback.print_exc()
+            print(e)
             if largest is None:
                 return np.full([T], -1, dtype=DTYPE)
             else:
