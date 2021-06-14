@@ -6,7 +6,7 @@ os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
-os.environ["MPLCONFIGDIR"] = Path(os.environ["SCRATCH"]) / ".mplconfig"
+os.environ["MPLCONFIGDIR"] = str(Path(os.environ["SCRATCH"]) / ".mplconfig")
 
 import sys
 from argparse import ArgumentParser
