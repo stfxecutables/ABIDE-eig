@@ -85,6 +85,29 @@ counts is:
 If we cut the subjects with more than 176 timepoint down to their last 176 timepoints we get more
 data, it becomes more comparable, and is faster to compute (about 2 hours per scan).
 
+IF WE USE MASKS:
+
+Estimating time for subject with T = 116 using 4245 voxels. Using 84 processes.
+Estimating time for subject with T = 146 using 4245 voxels. Using 84 processes.
+Estimating time for subject with T = 176 using 4245 voxels. Using 84 processes.
+Estimating time for subject with T = 196 using 4245 voxels. Using 84 processes.
+Estimating time for subject with T = 202 using 4245 voxels. Using 84 processes.
+Estimating time for subject with T = 236 using 4245 voxels. Using 84 processes.
+Estimating time for subject with T = 246 using 4245 voxels. Using 84 processes.
+Estimating time for subject with T = 296 using 4245 voxels. Using 84 processes.
+Estimating time for subject with T = 316 using 4245 voxels. Using 84 processes.
+                                             Estimated Time
+UCLA_1_0051201_func_minimal.nii.gz   0 days 00:08:32.544845
+Trinity_0050232_func_minimal.nii.gz  0 days 00:11:10.752227
+NYU_0050952_func_minimal.nii.gz      0 days 00:14:18.542031  ***
+Pitt_0050003_func_minimal.nii.gz     0 days 00:16:11.987535
+CMU_a_0050647_func_minimal.nii.gz    0 days 00:16:59.682331
+CMU_a_0050642_func_minimal.nii.gz    0 days 00:21:22.091502
+Leuven_1_0050682_func_minimal.nii.gz 0 days 00:22:19.419580
+UM_1_0050272_func_minimal.nii.gz     0 days 00:33:08.536620
+CMU_b_0050643_func_minimal.nii.gz    0 days 00:35:49.699683
+
+
 
 """
 
