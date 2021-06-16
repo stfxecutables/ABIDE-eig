@@ -21,7 +21,7 @@ SHAPES = NII_PATH / "shapes.json"
 # we'll be cutting the timepoints to the last 176, which means computations
 # take very close to 2 hours each time, so 11 computations per 24h window,
 # i.e. 11 computations per batch
-MAX_JOB_TIME = 24  # hours
+MAX_JOB_TIME = 12  # hours
 EIGIMG_COMPUTE_TIME = 1 / 3  # new masked images take about 15 minutes for 176 timepoints
 T_LENGTH = 176
 
