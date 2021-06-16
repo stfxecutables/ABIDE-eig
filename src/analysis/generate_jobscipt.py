@@ -6,9 +6,9 @@ import pandas as pd
 
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
 from src.constants import NII_PATH  # noqa
-from src.eigenimage.compute_batch import get_files, BATCH_SIZE
+from src.eigenimage.compute_batch import BATCH_SIZE, MAX_JOB_TIME, get_files
 
-RUNTIME = "24:00:00"
+RUNTIME = f"{MAX_JOB_TIME}:00:00"
 JOBSCRIPT_OUTDIR = Path(__file__).resolve().parent.parent.parent / "job_scripts"
 if not JOBSCRIPT_OUTDIR.exists():
     os.makedirs(JOBSCRIPT_OUTDIR, exist_ok=True)
