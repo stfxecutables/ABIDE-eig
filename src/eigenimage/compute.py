@@ -5,10 +5,8 @@ os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
-import shutil
 import traceback
 from multiprocessing import Pool, RawArray  # type: ignore
-from os import PathLike
 from pathlib import Path
 from pickle import UnpicklingError, dump, load
 from time import time
@@ -17,7 +15,6 @@ from typing import Any, Dict, List, Tuple, Union, cast
 import nibabel as nib
 import numpy as np
 import pandas as pd
-import scipy
 from numpy import ndarray
 from pandas import DataFrame
 from tqdm import tqdm
@@ -25,7 +22,7 @@ from typing_extensions import Literal
 
 from src.constants import CKPT_PATH
 
-MASK = Path(__file__).resolve().parent.parent / "data/atlases/MASK.nii.gz"
+MASK = Path(__file__).resolve().parent.parent.parent / "data/atlases/MASK.nii.gz"
 SHM_FLAT_NAME = "flat_nii_array"
 SHM_MASK_NAME = "mask_nii_array"
 GLOBALS = {}
