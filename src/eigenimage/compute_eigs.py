@@ -13,7 +13,7 @@ from tqdm.contrib.concurrent import process_map
 
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
 from src.eigenimage.compute import full_eigensignal
-from src.eigenimage.compute_batch import get_files
+from src.eigenimage.compute_batch import T_LENGTH, get_files
 
 DATA = Path(__file__).resolve().parent.parent.parent / "data"
 MASK = DATA / "atlases/MASK.nii.gz"
@@ -25,7 +25,7 @@ OPTIMAL_CHUNKSIZE = 1
 
 
 def compute_full_eigensignal(nii: Path) -> None:
-    eigs = full_eigensignal(nii, MASK, covariance=True)
+    eigs = full_eigensignal(nii, MASK, covariance=True, t=T_LENGTH)
     extensions = "".join(nii.suffixes)
     outfile = EIGS_OUT / nii.name.replace(extensions, ".npy")
     np.save(outfile, eigs, allow_pickle=False)

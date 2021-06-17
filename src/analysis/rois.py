@@ -24,6 +24,7 @@ if not ROIS.exists():
     os.makedirs(ROIS, exist_ok=True)
     os.makedirs(ROIS / "ctrl", exist_ok=True)
     os.makedirs(ROIS / "autism", exist_ok=True)
+EIGS = DATA / "eigs"  # for normalizing
 SUBJ_DATA = DATA / "Phenotypic_V1_0b_preprocessed1.csv"
 EIGIMGS = DATA / "eigimgs"
 ATLAS_DIR = DATA / "atlases"
@@ -68,9 +69,10 @@ def compute_roi_means(args: Namespace) -> DataFrame:
     "class":    (0=CTRL, 1=AUTISM)
     """
     np.warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
-    nii, label, legend = args.nii, args.label, args.legend
+    nii, label, legend, eigens = args.nii, args.label, args.legend, args.eigens
     img = nib.load(str(nii)).get_fdata()
     atlas = nib.load(str(ATLAS)).get_data()
+    eigs = np.load(eigens)
     df = DataFrame(index=legend.index, columns=["name", "n_voxels", "signal"])
     for id in zip(legend.index):
         mask = atlas == id
@@ -89,10 +91,11 @@ def compute_roi_means(args: Namespace) -> DataFrame:
 
 def compute_roi_mean_signals() -> None:
     niis = sorted(EIGIMGS.rglob("*eigimg.nii.gz"))
+    eigs = [EIGS / nii.name.replace("_eigimg.nii.gz", ".npy") for nii in niis]
     labels = subject_labels(niis)
     legend = parse_legend(LEGEND)
     args = [
-        Namespace(**dict(nii=nii, label=label, legend=legend)) for nii, label in zip(niis, labels)
+        Namespace(**dict(nii=nii, label=label, legend=legend, eigens=eig)) for nii, eig, label in zip(niis, eigs, labels)
     ]
     process_map(compute_roi_means, args)
 
