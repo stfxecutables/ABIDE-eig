@@ -104,10 +104,11 @@ def eigs_via_transpose(M: ndarray, covariance: bool = True) -> ndarray:
     return eigs
 
 
-def full_eigensignal(array4d: ndarray, covariance: bool = True) -> ndarray:
+def full_eigensignal(nii: Path, mask: Path, covariance: bool = True) -> ndarray:
     """Get the full eigenvalues over all brain tissue"""
-    mask = nib.load(str(MASK)).get_data().astype(bool)
-    brain = array4d[mask, :]
+    array4d = nib.load(str(nii)).get_fdata()
+    msk = nib.load(str(mask)).get_data().astype(bool)
+    brain = array4d[msk, :]
     eigs: ndarray = eigs_via_transpose(brain, covariance=covariance)
     return eigs[1:]  # type: ignore
 
