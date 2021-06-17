@@ -5,11 +5,13 @@ os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+import sys
 from pathlib import Path
 
 import numpy as np
 from tqdm.contrib.concurrent import process_map
 
+sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
 from src.eigenimage.compute import full_eigensignal
 from src.eigenimage.compute_batch import get_files
 
