@@ -1,4 +1,5 @@
 import os
+import sys
 from argparse import Namespace
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union, cast, no_type_check
@@ -17,6 +18,9 @@ from sklearn.metrics import roc_auc_score
 from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 from typing_extensions import Literal
+
+sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
+from src.eigenimage.compute_batch import T_LENGTH
 
 DATA = Path(__file__).resolve().parent.parent.parent / "data"
 ROIS = DATA / "rois"
@@ -70,15 +74,20 @@ def compute_roi_means(args: Namespace) -> DataFrame:
     """
     np.warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
     nii, label, legend, eigens = args.nii, args.label, args.legend, args.eigens
-    img = nib.load(str(nii)).get_fdata()
-    atlas = nib.load(str(ATLAS)).get_data()
     eigs = np.load(eigens)
+    if eigs.shape != (T_LENGTH - 1,):
+        return
+    # img = nib.load(str(nii)).get_fdata() - eigs  # normalize
+    img = eigs / nib.load(str(nii)).get_fdata()
+    atlas = nib.load(str(ATLAS)).get_data()
     df = DataFrame(index=legend.index, columns=["name", "n_voxels", "signal"])
     for id in zip(legend.index):
         mask = atlas == id
         roi = img[mask, :]
+        # roi = img[mask, 126]
         n_voxels = roi.shape[0]
         mean = np.mean(roi, axis=0)
+        # mean = np.std(roi, axis=0, ddof=1)
         name = legend.loc[id].item()
         df.loc[id, :] = (name, n_voxels, mean)
     extensions = "".join(nii.suffixes)
@@ -95,9 +104,42 @@ def compute_roi_mean_signals() -> None:
     labels = subject_labels(niis)
     legend = parse_legend(LEGEND)
     args = [
-        Namespace(**dict(nii=nii, label=label, legend=legend, eigens=eig)) for nii, eig, label in zip(niis, eigs, labels)
+        Namespace(**dict(nii=nii, label=label, legend=legend, eigens=eig))
+        for nii, eig, label in zip(niis, eigs, labels)
     ]
     process_map(compute_roi_means, args)
+
+
+def eig_descriptives() -> DataFrame:
+    niis = sorted(EIGIMGS.rglob("*eigimg.nii.gz"))
+    eigs = [np.load(EIGS / nii.name.replace("_eigimg.nii.gz", ".npy")) for nii in niis]
+    labels = subject_labels(niis)
+    autism, ctrl = [], []
+    eig: ndarray
+    dfs = []
+    for idx in range(len(eigs[0]) - 1):
+        for eig, label in zip(eigs, labels):
+            if len(eig) != 175:
+                continue
+            value = eig[idx]
+            # value = np.percentile(eig, [89])
+            if label == 1:
+                autism.append(value)
+            else:
+                ctrl.append(value)
+        aut, ctr = np.array(autism), np.array(ctrl)
+        t, t_p = ttest_ind(ctr, aut, equal_var=False)
+        U, U_p = mannwhitneyu(ctr, aut, alternative="two-sided")
+        d = cohens_d(ctr, aut)
+        ac = auc(ctr, aut)
+        df = DataFrame(
+            data=[(t, t_p, U, U_p, d, ac)],
+            columns=["t", "t_p", "U", "U_p", "d", "AUC"],
+            index=[idx],
+        )
+        dfs.append(df)
+    df = pd.concat(dfs, axis=0)
+    return df
 
 
 def cohens_d(x1: DataFrame, x2: DataFrame) -> float:
@@ -119,10 +161,12 @@ def compute_roi_largest_descriptive_stats(n_largest: int = 1) -> DataFrame:
     n_voxels = autisms[0]["n_voxels"].copy()
 
     for df in autisms:
-        df.signal = df.signal.apply(lambda s: s[:-n_largest].mean())
+        # df.signal = df.signal.apply(lambda s: s[:-n_largest].mean())
+        df.signal = df.signal.apply(lambda s: s[n_largest].max())
         df.drop(columns=["name", "n_voxels"], inplace=True)
     for df in ctrls:
-        df.signal = df.signal.apply(lambda s: s[:-n_largest].mean())
+        # df.signal = df.signal.apply(lambda s: s[:-n_largest].mean())
+        df.signal = df.signal.apply(lambda s: s[n_largest].max())
         df.drop(columns=["name", "n_voxels"], inplace=True)
 
     autism = pd.concat(autisms, axis=1)
@@ -138,13 +182,40 @@ def compute_roi_largest_descriptive_stats(n_largest: int = 1) -> DataFrame:
         ac = auc(ctr, aut)
         descriptives.iloc[roi, :] = (t, t_p, U, U_p, d, ac)
     descriptives.index = names
+    print(f"Largest differences")
     print(
-        descriptives.sort_values(by="U_p", ascending=True).to_markdown(
-            tablefmt="simple", floatfmt="1.3f"
-        )
+        descriptives.sort_values(by=["U_p", "d"], ascending=True)
+        .iloc[:20, :]
+        .to_markdown(tablefmt="simple", floatfmt="1.3f")
     )
+    return descriptives
+    # print(f"Smallest differences")
+    # print(
+    #     descriptives.sort_values(by=["U_p", "d"], ascending=True)
+    #     .iloc[-10:, :]
+    #     .to_markdown(tablefmt="simple", floatfmt="1.3f")
+    # )
 
 
 if __name__ == "__main__":
+    # print(eig_descriptives(1))
+    # print(eig_descriptives(10))
+    # print(
+    #     eig_descriptives()
+    #     .sort_values(by="U_p", ascending=True)
+    #     .to_markdown(tablefmt="simple", floatfmt=["1.2f", "1.2f", "1.1e", "1.2f", "1.1e","1.3f", "1.3f"])
+    # )
     # compute_roi_mean_signals()
-    compute_roi_largest_descriptive_stats(n_largest=5)
+    dfs = []
+    for i in range(1, 30):
+        df = compute_roi_largest_descriptive_stats(n_largest=-i)
+        df["idx"] = -i
+        dfs.append(df)
+    df = pd.concat(dfs, axis=0)
+    print(
+        df.sort_values(by=["U_p", "t_p"], ascending=True)
+        .iloc[:20, :]
+        .to_markdown(
+            tablefmt="simple", floatfmt=["0.1f", "1.2f", "1.1e", "1.0f", "1.1e", "1.3f", "1.3f"]
+        )
+    )
