@@ -1,25 +1,23 @@
 import os
 import sys
-from argparse import Namespace
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union, cast, no_type_check
+from typing import Callable, List, Optional
 
-import matplotlib.pyplot as plt
 import nibabel as nib
 import numpy as np
 import pandas as pd
-import pytest
-import seaborn as sbn
 from numpy import ndarray
-from numpy.core.numeric import ones_like
-from pandas import DataFrame, Series
+from pandas import DataFrame
 from scipy.stats import mannwhitneyu, ttest_ind
 from sklearn.metrics import roc_auc_score
 from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 from typing_extensions import Literal
 
+if os.environ.get("CC_CLUSTER") is not None:
+    SCRATCH = os.environ["SCRATCH"]
+    os.environ["MPLCONFIGDIR"] = str(Path(SCRATCH) / ".mplconfig")
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
 from src.eigenimage.compute_batch import T_LENGTH
 
@@ -78,11 +76,14 @@ class RoiReduction:
 def mean(x: ndarray) -> ndarray:
     return np.mean(x, axis=0)
 
+
 def median(x: ndarray) -> ndarray:
     return np.median(x, axis=0)
 
+
 def std(x: ndarray) -> ndarray:
     return np.std(x, ddof=1, axis=0)
+
 
 def max(x: ndarray) -> ndarray:
     return np.max(x, axis=0)
@@ -283,7 +284,7 @@ def compute_roi_largest_descriptive_stats(
     autisms = [pd.read_parquet(p) for p in sorted(autism_dir.rglob(regex))]
     ctrls = [pd.read_parquet(p) for p in sorted(ctrl_dir.rglob(regex))]
     names = autisms[0]["name"].copy()
-    n_voxels = autisms[0]["n_voxels"].copy()
+    autisms[0]["n_voxels"].copy()
 
     for df in autisms:
         df.signal = df.signal.apply(lambda s: slice_reducer(s[slicer]))
