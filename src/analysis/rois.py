@@ -223,6 +223,15 @@ def compute_all_subject_roi_reductions(
     process_map(compute_subject_roi_reductions, args)
 
 
+def precompute_all_func_roi_reductions() -> None:
+    for reducer in [mean, median, max, std]:
+        compute_all_subject_roi_reductions(
+            source="func",
+            norm="div",
+            reducer=reducer,
+        )
+
+
 def eig_descriptives() -> DataFrame:
     niis = sorted(EIGIMGS.rglob("*eigimg.nii.gz"))
     eigs = [np.load(EIGS / nii.name.replace("_eigimg.nii.gz", ".npy")) for nii in niis]
@@ -258,16 +267,16 @@ def eig_descriptives() -> DataFrame:
 def cohens_d(x1: DataFrame, x2: DataFrame) -> float:
     n1, n2 = len(x1) - 1, len(x2) - 1
     sd_pool = (n1 * np.std(x1, ddof=1) + n2 * np.std(x2, ddof=1)) / (n1 + n2)
-    return float((np.mean(x1) - np.mean(x1)) / sd_pool)
+    return float((np.mean(x2) - np.mean(x1)) / sd_pool)
 
 
 def auc(x1: DataFrame, x2: DataFrame) -> float:
-    y_true = np.concatenate([np.zeros_like(x1), np.ones_like(x2)])
-    y_score = np.concatenate([x1, x2])
+    y_true = np.concatenate([np.zeros(len(x1)), np.ones(len(x2))])
+    y_score = np.concatenate([np.array(x1).ravel(), np.array(x2).ravel()])
     return float(roc_auc_score(y_true, y_score))
 
 
-def compute_roi_largest_descriptive_stats(
+def compute_roi_descriptive_stats(
     source: Literal["func", "eigimg"] = "eigimg",
     norm: Literal["div", "diff"] = "div",
     reducer: Callable[[ndarray], ndarray] = None,
@@ -306,12 +315,6 @@ def compute_roi_largest_descriptive_stats(
         ac = auc(ctr, aut)
         descriptives.iloc[roi, :] = (t, t_p, U, U_p, d, ac)
     descriptives.index = names
-    print("Largest differences")
-    print(
-        descriptives.sort_values(by=["U_p", "d"], ascending=True)
-        .iloc[:20, :]
-        .to_markdown(tablefmt="simple", floatfmt="1.3f")
-    )
     return descriptives
     # print(f"Smallest differences")
     # print(
@@ -322,19 +325,25 @@ def compute_roi_largest_descriptive_stats(
 
 
 if __name__ == "__main__":
-    # print(eig_descriptives(1))
-    # print(eig_descriptives(10))
+    # precompute_all_func_roi_reductions()
     # print(
     #     eig_descriptives()
     #     .sort_values(by="U_p", ascending=True)
     #     .to_markdown(tablefmt="simple", floatfmt=["1.2f", "1.2f", "1.1e", "1.2f", "1.1e","1.3f", "1.3f"])
     # )
-    for reducer in [mean, median, max, std]:
-        compute_all_subject_roi_reductions(
-            source="func",
-            norm="div",
-            reducer=reducer,
+    df = compute_roi_descriptive_stats(
+        source="func",
+        norm=None,
+        reducer=std,
+        slice_reducer=mean,
+    )
+    print(
+        df.sort_values(by=["U_p", "t_p"], ascending=True)
+        .iloc[:20, :]
+        .to_markdown(
+            tablefmt="simple", floatfmt=["0.1f", "1.2f", "1.1e", "1.0f", "1.1e", "1.3f", "1.3f"]
         )
+    )
     sys.exit()
     dfs = []
     for i in range(1, 30):
