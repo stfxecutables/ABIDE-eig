@@ -345,7 +345,8 @@ def compute_roi_descriptive_stats(
 
 
 if __name__ == "__main__":
-    # precompute_all_func_roi_reductions()
+    precompute_all_func_roi_reductions()
+    sys.exit()
     # print(
     #     eig_descriptives()
     #     .sort_values(by="U_p", ascending=True)
