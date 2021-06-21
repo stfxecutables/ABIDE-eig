@@ -163,7 +163,7 @@ def compute_subject_roi_reductions(
     raw = nib.load(str(nii)).get_fdata()
     if (raw.shape[-1] - 1) < (T_LENGTH - 1):
         return
-    elif (raw.shape[-1] - 1) > (T_LENGTH - 1):
+    elif (raw.shape[-1] - 1) >= (T_LENGTH - 1):
         raw = raw[:, :, :, -(T_LENGTH - 1) :]
     if norm == "div" and source == "eigimg":
         eigs = np.load(eigens)
@@ -325,6 +325,7 @@ def compute_roi_descriptive_stats(
         slice_reducer=slice_reducer,
     )
     # autism.index, ctrl.index = names, names
+    print(f"Got {autism.shape[1]} autism and {ctrl.shape[1]} ctrl subjects.")
     descriptives = DataFrame(index=names, columns=["t", "t_p", "U", "U_p", "d", "AUC"])
     for roi in tqdm(range(len(names)), total=len(names)):
         aut = np.array(autism.iloc[roi, :])
@@ -345,8 +346,8 @@ def compute_roi_descriptive_stats(
 
 
 if __name__ == "__main__":
-    precompute_all_func_roi_reductions()
-    sys.exit()
+    # precompute_all_func_roi_reductions()
+    # sys.exit()
     # print(
     #     eig_descriptives()
     #     .sort_values(by="U_p", ascending=True)
@@ -355,7 +356,7 @@ if __name__ == "__main__":
     df = compute_roi_descriptive_stats(
         source="func",
         norm=None,
-        reducer=max,
+        reducer=mean,
         slice_reducer=max,
     )
     print(
