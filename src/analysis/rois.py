@@ -89,6 +89,10 @@ def max(x: ndarray) -> ndarray:
     return np.max(x, axis=0)
 
 
+def identity(x: ndarray) -> ndarray:
+    return x
+
+
 def parse_legend(legend: Path) -> DataFrame:
     """Get a simple, usable legend with columns "ID" for ROI number, and "Name"
     for human-readable label for each ROI number.
