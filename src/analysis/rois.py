@@ -2,13 +2,13 @@ import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, Tuple
 
 import nibabel as nib
 import numpy as np
 import pandas as pd
 from numpy import ndarray
-from pandas import DataFrame
+from pandas import DataFrame, Series
 from scipy.stats import mannwhitneyu, ttest_ind
 from sklearn.metrics import roc_auc_score
 from tqdm import tqdm
@@ -161,8 +161,10 @@ def compute_subject_roi_reductions(
         reducer = mean
 
     raw = nib.load(str(nii)).get_fdata()
-    if (raw.shape[-1] - 1) != (T_LENGTH - 1):
+    if (raw.shape[-1] - 1) < (T_LENGTH - 1):
         return
+    elif (raw.shape[-1] - 1) > (T_LENGTH - 1):
+        raw = raw[:, :, :, -(T_LENGTH - 1) :]
     if norm == "div" and source == "eigimg":
         eigs = np.load(eigens)
         img = eigs / raw
@@ -276,14 +278,14 @@ def auc(x1: DataFrame, x2: DataFrame) -> float:
     return float(roc_auc_score(y_true, y_score))
 
 
-def compute_roi_descriptive_stats(
+def roi_dataframes(
     source: Literal["func", "eigimg"] = "eigimg",
     norm: Literal["div", "diff"] = "div",
     reducer: Callable[[ndarray], ndarray] = None,
     reducer_name: str = None,
-    slicer: slice = slice(-1),
+    slicer: slice = slice(None),
     slice_reducer: Callable[[ndarray], ndarray] = mean,
-) -> DataFrame:
+) -> Tuple[DataFrame, DataFrame, Series]:
     if reducer is None:
         reducer = mean
     rname = reducer.__name__ if reducer_name is None else reducer_name
@@ -301,9 +303,27 @@ def compute_roi_descriptive_stats(
     for df in ctrls:
         df.signal = df.signal.apply(lambda s: slice_reducer(s[slicer]))
         df.drop(columns=["name", "n_voxels"], inplace=True)
-
     autism = pd.concat(autisms, axis=1)
     ctrl = pd.concat(ctrls, axis=1)
+    return autism, ctrl, names
+
+
+def compute_roi_descriptive_stats(
+    source: Literal["func", "eigimg"] = "eigimg",
+    norm: Literal["div", "diff"] = "div",
+    reducer: Callable[[ndarray], ndarray] = None,
+    reducer_name: str = None,
+    slicer: slice = slice(None),
+    slice_reducer: Callable[[ndarray], ndarray] = mean,
+) -> DataFrame:
+    autism, ctrl, names = roi_dataframes(
+        source=source,
+        norm=norm,
+        reducer=reducer,
+        reducer_name=reducer_name,
+        slicer=slicer,
+        slice_reducer=slice_reducer,
+    )
     # autism.index, ctrl.index = names, names
     descriptives = DataFrame(index=names, columns=["t", "t_p", "U", "U_p", "d", "AUC"])
     for roi in tqdm(range(len(names)), total=len(names)):
@@ -334,8 +354,8 @@ if __name__ == "__main__":
     df = compute_roi_descriptive_stats(
         source="func",
         norm=None,
-        reducer=std,
-        slice_reducer=mean,
+        reducer=max,
+        slice_reducer=max,
     )
     print(
         df.sort_values(by=["U_p", "t_p"], ascending=True)
