@@ -165,10 +165,16 @@ def compute_subject_roi_reductions(
         reducer = mean
 
     raw = nib.load(str(nii)).get_fdata()
-    if (raw.shape[-1] - 1) < (T_LENGTH - 1):
-        return
-    elif (raw.shape[-1] - 1) >= (T_LENGTH - 1):
-        raw = raw[:, :, :, -(T_LENGTH - 1) :]
+    # trim
+    if source == "func":
+        if raw.shape[-1] < T_LENGTH:
+            return
+        elif raw.shape[-1] >= T_LENGTH:
+            raw = raw[:, :, :, -(T_LENGTH - 1) :]
+    else:
+        if raw.shape[-1] != (T_LENGTH - 1):
+            return
+    # normalize
     if norm == "div" and source == "eigimg":
         eigs = np.load(eigens)
         img = eigs / raw
@@ -178,8 +184,8 @@ def compute_subject_roi_reductions(
     else:
         norm = None
         img = raw
-    atlas = nib.load(str(ATLAS)).get_data()
 
+    atlas = nib.load(str(ATLAS)).get_data()
     df = DataFrame(index=legend.index, columns=["name", "n_voxels", "signal"])
     for id in zip(legend.index):
         mask = atlas == id
@@ -226,6 +232,8 @@ def compute_all_subject_roi_reductions(
         )
         for nii, eig, label in zip(niis, eigs, labels)
     ]
+    # for arg in args:
+    #     compute_subject_roi_reductions(args)
     process_map(compute_subject_roi_reductions, args)
 
 
@@ -236,6 +244,7 @@ def precompute_all_func_roi_reductions() -> None:
             norm="div",
             reducer=reducer,
         )
+
 
 def precompute_all_eigimg_roi_reductions() -> None:
     for reducer in [mean, median, max, std]:
@@ -302,13 +311,12 @@ def roi_dataframes(
     if reducer is None:
         reducer = mean
     rname = reducer.__name__ if reducer_name is None else reducer_name
-    regex = f"*_ROI_{rname}_norm={norm}.parquet"
+    regex = f"*_ROI_{rname}_norm={norm}{'_eigimg' if source == 'eigimg' else ''}.parquet"
     autism_dir = ROIS / f"{source}/{rname}/autism"
     ctrl_dir = ROIS / f"{source}/{rname}/ctrl"
     autisms = [pd.read_parquet(p) for p in sorted(autism_dir.rglob(regex))]
     ctrls = [pd.read_parquet(p) for p in sorted(ctrl_dir.rglob(regex))]
     names = autisms[0]["name"].copy()
-    autisms[0]["n_voxels"].copy()
 
     for df in autisms:
         df.signal = df.signal.apply(lambda s: slice_reducer(s[slicer]))
@@ -361,21 +369,22 @@ def compute_roi_descriptive_stats(
 if __name__ == "__main__":
     # precompute_all_func_roi_reductions()
     precompute_all_eigimg_roi_reductions()
-    sys.exit()
+    # sys.exit()
     # print(
     #     eig_descriptives()
     #     .sort_values(by="U_p", ascending=True)
     #     .to_markdown(tablefmt="simple", floatfmt=["1.2f", "1.2f", "1.1e", "1.2f", "1.1e","1.3f", "1.3f"])
     # )
-    compute_all_subject_roi_reductions(
-        source="eigimg",
-        norm="div",
-        reducer=std,
-    )
+    # compute_all_subject_roi_reductions(
+    #     source="eigimg",
+    #     norm="div",
+    #     reducer=std,
+    # )
     df = compute_roi_descriptive_stats(
-        source="eigimg",
-        norm="div",
+        source="func",
+        norm=None,
         reducer=std,
+        # slicer=slice(100, 127),
         slice_reducer=mean,
     )
     print(
