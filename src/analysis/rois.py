@@ -237,6 +237,15 @@ def precompute_all_func_roi_reductions() -> None:
             reducer=reducer,
         )
 
+def precompute_all_eigimg_roi_reductions() -> None:
+    for reducer in [mean, median, max, std]:
+        for norm in ["div", "diff", None]:
+            compute_all_subject_roi_reductions(
+                source="eigimg",
+                norm=norm,
+                reducer=reducer,
+            )
+
 
 def eig_descriptives() -> DataFrame:
     niis = sorted(EIGIMGS.rglob("*eigimg.nii.gz"))
@@ -350,18 +359,24 @@ def compute_roi_descriptive_stats(
 
 
 if __name__ == "__main__":
-    precompute_all_func_roi_reductions()
+    # precompute_all_func_roi_reductions()
+    precompute_all_eigimg_roi_reductions()
     sys.exit()
     # print(
     #     eig_descriptives()
     #     .sort_values(by="U_p", ascending=True)
     #     .to_markdown(tablefmt="simple", floatfmt=["1.2f", "1.2f", "1.1e", "1.2f", "1.1e","1.3f", "1.3f"])
     # )
+    compute_all_subject_roi_reductions(
+        source="eigimg",
+        norm="div",
+        reducer=std,
+    )
     df = compute_roi_descriptive_stats(
-        source="func",
-        norm=None,
-        reducer=mean,
-        slice_reducer=max,
+        source="eigimg",
+        norm="div",
+        reducer=std,
+        slice_reducer=mean,
     )
     print(
         df.sort_values(by=["U_p", "t_p"], ascending=True)
