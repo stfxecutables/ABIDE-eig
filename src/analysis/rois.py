@@ -216,7 +216,7 @@ def compute_subject_roi_reductions(
 
 def compute_all_subject_roi_reductions(
     source: Literal["func", "eigimg"] = "eigimg",
-    norm: Literal["div", "diff"] = "div",
+    norm: Optional[Literal["div", "diff"]] = "div",
     reducer: Callable[[ndarray], ndarray] = None,
     reducer_name: str = None,
 ) -> None:
@@ -247,11 +247,12 @@ def compute_all_subject_roi_reductions(
 
 def precompute_all_func_roi_reductions() -> None:
     for reducer in [mean, median, max, std]:
-        compute_all_subject_roi_reductions(
-            source="func",
-            norm="div",
-            reducer=reducer,
-        )
+        for norm in ["div", "diff", None]:
+            compute_all_subject_roi_reductions(
+                source="func",
+                norm=norm,  # type: ignore
+                reducer=reducer,
+            )
 
 
 def precompute_all_eigimg_roi_reductions() -> None:
@@ -259,7 +260,7 @@ def precompute_all_eigimg_roi_reductions() -> None:
         for norm in ["div", "diff", None]:
             compute_all_subject_roi_reductions(
                 source="eigimg",
-                norm=norm,
+                norm=norm,  # type: ignore
                 reducer=reducer,
             )
 
@@ -310,7 +311,7 @@ def auc(x1: DataFrame, x2: DataFrame) -> float:
 
 def roi_dataframes(
     source: Literal["func", "eigimg"] = "eigimg",
-    norm: Literal["div", "diff"] = "div",
+    norm: Optional[Literal["div", "diff"]] = "div",
     reducer: Callable[[ndarray], ndarray] = None,
     reducer_name: str = None,
     slicer: slice = slice(None),

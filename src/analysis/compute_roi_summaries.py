@@ -12,6 +12,6 @@ from src.analysis.rois import (
 )
 
 if __name__ == "__main__":
-    # precompute_all_func_roi_reductions()
-    precompute_all_eigimg_roi_reductions()
+    precompute_all_func_roi_reductions()
+    # precompute_all_eigimg_roi_reductions()
     # sys.exit()
