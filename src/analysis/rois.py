@@ -175,12 +175,20 @@ def compute_subject_roi_reductions(
         if raw.shape[-1] != (T_LENGTH - 1):
             return
     # normalize
-    if norm == "div" and source == "eigimg":
-        eigs = np.load(eigens)
-        img = eigs / raw
-    elif norm == "diff" and source == "eigimg":
-        eigs = np.load(eigens)
-        img = raw - eigs
+    if norm == "div":
+        if source == "eigimg":
+            eigs = np.load(eigens)
+            img = eigs / raw
+        else:
+            mean_signal = np.mean(raw, axis=(0, 1, 2))
+            img = raw / mean_signal
+    elif norm == "diff":
+        if source == "eigimg":
+            eigs = np.load(eigens)
+            img = raw - eigs
+        else:
+            mean_signal = np.mean(raw, axis=(0, 1, 2))
+            img = raw - mean_signal
     else:
         norm = None
         img = raw
@@ -366,45 +374,38 @@ def compute_roi_descriptive_stats(
     # )
 
 
+def print_descriptives(df: DataFrame) -> None:
+    print(
+        df.sort_values(by=["U_p", "t_p"], ascending=True)
+        .iloc[:20, :]
+        .to_markdown(
+            tablefmt="simple", floatfmt=["0.1f", "1.2f", "1.1e", "1.0f", "1.1e", "1.3f", "1.3f"]
+        )
+    )
+
+
 if __name__ == "__main__":
-    # precompute_all_func_roi_reductions()
-    precompute_all_eigimg_roi_reductions()
-    # sys.exit()
     # print(
     #     eig_descriptives()
     #     .sort_values(by="U_p", ascending=True)
     #     .to_markdown(tablefmt="simple", floatfmt=["1.2f", "1.2f", "1.1e", "1.2f", "1.1e","1.3f", "1.3f"])
     # )
-    # compute_all_subject_roi_reductions(
-    #     source="eigimg",
-    #     norm="div",
-    #     reducer=std,
-    # )
-    df = compute_roi_descriptive_stats(
-        source="func",
-        norm=None,
-        reducer=std,
-        # slicer=slice(100, 127),
-        slice_reducer=mean,
-    )
-    print(
-        df.sort_values(by=["U_p", "t_p"], ascending=True)
-        .iloc[:20, :]
-        .to_markdown(
-            tablefmt="simple", floatfmt=["0.1f", "1.2f", "1.1e", "1.0f", "1.1e", "1.3f", "1.3f"]
+    print_descriptives(
+        compute_roi_descriptive_stats(
+            source="func",
+            norm=None,
+            reducer=std,
+            # slicer=slice(100, 127),
+            slice_reducer=mean,
         )
     )
     sys.exit()
-    dfs = []
+    dfs: List[DataFrame] = []
     for i in range(1, 30):
-        df = compute_roi_largest_descriptive_stats(n_largest=-i)
+        df = compute_roi_descriptive_stats(
+            source="eigimg", norm="div", reducer=std, slicer=slice(-i)
+        )
         df["idx"] = -i
         dfs.append(df)
     df = pd.concat(dfs, axis=0)
-    print(
-        df.sort_values(by=["U_p", "t_p"], ascending=True)
-        .iloc[:20, :]
-        .to_markdown(
-            tablefmt="simple", floatfmt=["0.1f", "1.2f", "1.1e", "1.0f", "1.1e", "1.3f", "1.3f"]
-        )
-    )
+    print_descriptives(df)

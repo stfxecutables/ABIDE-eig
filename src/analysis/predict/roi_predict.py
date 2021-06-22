@@ -2,14 +2,17 @@ import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from pprint import pprint
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union, cast, no_type_check
 
 import nibabel as nib
 import numpy as np
+import optuna
 import pandas as pd
 from numpy import ndarray
 from pandas import DataFrame, Series
 from scipy.stats import mannwhitneyu, ttest_ind
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import cross_val_score
 from sklearn.preprocessing import StandardScaler
@@ -22,6 +25,7 @@ if os.environ.get("CC_CLUSTER") is not None:
     SCRATCH = os.environ["SCRATCH"]
     os.environ["MPLCONFIGDIR"] = str(Path(SCRATCH) / ".mplconfig")
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent.parent))
+from src.analysis.predict.hypertune import hypertune_classifier
 from src.analysis.rois import identity, max, mean, median, roi_dataframes, std
 from src.eigenimage.compute_batch import T_LENGTH
 
@@ -57,7 +61,9 @@ def predict_from_roi_reductions(
     reducer_name: str = None,
     slicer: slice = slice(None),
     slice_reducer: Callable[[ndarray], ndarray] = identity,
-    weight_sharing: Literal["brains", "rois", "voxels"] = "rois",
+    weight_sharing: Literal["brains", "per-roi", "rois", "voxels"] = "per-roi",
+    classifier: Type = SVC,
+    classifier_args: Dict[str, Any] = {},
 ) -> DataFrame:
     """Predict autism vs. control from various roi reductions with various classifiers and/or models
 
@@ -77,7 +83,7 @@ def predict_from_roi_reductions(
     -------
     val1: Any
     """
-    if weight_sharing != "rois":
+    if weight_sharing not in ["per-roi", "rois"]:
         raise NotImplementedError()
 
     autism, ctrl, names = roi_dataframes(
@@ -93,24 +99,59 @@ def predict_from_roi_reductions(
     ctrl["target"] = 0
     df = pd.concat([autism, ctrl], axis=0, ignore_index=True)
     guess = np.max([len(autism), len(ctrl)]) / len(df)
-    scores = DataFrame(index=names, columns=["acc"])
-    for roi, name in tqdm(enumerate((names)), total=len(names), desc="Fitting SVM for ROI"):
-        X = np.stack(df.iloc[:, roi].to_numpy())
-        X = StandardScaler().fit_transform(X)
+    if weight_sharing == "per-roi":
+        scores = DataFrame(index=names, columns=["acc"])
+        for roi, name in tqdm(enumerate((names)), total=len(names), desc="Fitting SVM for ROI"):
+            X = np.stack(df.iloc[:, roi].to_numpy())
+            X = StandardScaler().fit_transform(X)
+            y = df["target"].to_numpy()
+            res = cross_val_score(classifier(**classifier_args), X, y, cv=5, scoring="accuracy")
+            scores.loc[name, "acc"] = np.mean(res)
+        return scores, guess
+    if weight_sharing == "rois":
+        Xs = []
+        for roi, name in enumerate(names):
+            Xs.append(np.stack(df.iloc[:, roi].to_numpy()))
+        X = np.concatenate(Xs, axis=1)
+        # X = StandardScaler().fit_transform(X)
         y = df["target"].to_numpy()
-        res = cross_val_score(SVC(), X, y, cv=5, scoring="accuracy")
-        scores.loc[name, "acc"] = np.mean(res)
-    return scores, guess
+        print(f"Cross-validating {classifier} on X with shape {X.shape} with args:")
+        pprint(classifier_args, indent=2)
+        htune_result = hypertune_classifier(
+            "rf", X, y, n_trials=200, cv_method=5, verbosity=optuna.logging.INFO
+        )
+        # res = cross_val_score(classifier(**classifier_args), X, y, cv=5, scoring="accuracy")
+        print(f"Best val_acc: {htune_result.val_acc}")
+        scores = pd.DataFrame(index=["all"], columns=["acc"], data=htune_result.val_acc)
+        return scores, guess
 
 
 if __name__ == "__main__":
     scores, guess = predict_from_roi_reductions(
-        source="func",
+        source="eigimg",
         norm=None,
-        reducer=std,
+        reducer=mean,
         slice_reducer=identity,
+        weight_sharing="rois",
+        classifier=RandomForestClassifier,
+        classifier_args=dict(n_jobs=-1),
     )
     print(f"Mean acc: {np.round(np.mean(scores), 3).item()}  (guess = {np.round(guess, 3)})")
     print(
         f"CI: ({np.round(np.percentile(scores, 5), 3)}, {np.round(np.percentile(scores, 95), 3)})"
     )
+
+"""
+Results: Func
+    Best Acc: 0.582
+        source="func", norm=None, reducer=std, slice_reducer=identity,
+        weight_sharing="rois", classifier=RandomForestClassifier,
+    Best Acc: 0.584
+        source="func", norm=None, reducer=mean, slice_reducer=identity,
+        weight_sharing="rois", classifier=RandomForestClassifier,
+
+Results: Eigimg
+    Best Acc: 0.637
+        source="func", norm=None, reducer=std, slice_reducer=identity,
+        weight_sharing="rois", classifier=RandomForestClassifier,
+"""
