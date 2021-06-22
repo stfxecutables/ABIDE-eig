@@ -10,6 +10,7 @@ import pandas as pd
 from numpy import ndarray
 from pandas import DataFrame, Series
 from scipy.stats import mannwhitneyu, ttest_ind
+from sklearn.decomposition import PCA
 from sklearn.metrics import roc_auc_score
 from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
@@ -88,6 +89,9 @@ def std(x: ndarray) -> ndarray:
 def max(x: ndarray) -> ndarray:
     return np.max(x, axis=0)
 
+def pca(x: ndarray) -> ndarray:
+    pc = PCA(1, whiten=True)
+    return pc.fit_transform(x.T)
 
 def identity(x: ndarray) -> ndarray:
     return x
@@ -386,11 +390,18 @@ def print_descriptives(df: DataFrame) -> None:
 
 
 if __name__ == "__main__":
-    # print(
-    #     eig_descriptives()
-    #     .sort_values(by="U_p", ascending=True)
-    #     .to_markdown(tablefmt="simple", floatfmt=["1.2f", "1.2f", "1.1e", "1.2f", "1.1e","1.3f", "1.3f"])
-    # )
+    for norm in ["div", None]:
+        compute_all_subject_roi_reductions(
+            source="func",
+            norm="div",
+            reducer=pca,
+        )
+    sys.exit()
+    print(
+        eig_descriptives()
+        .sort_values(by="U_p", ascending=True)
+        .to_markdown(tablefmt="simple", floatfmt=["1.2f", "1.2f", "1.1e", "1.2f", "1.1e","1.3f", "1.3f"])
+    )
     print_descriptives(
         compute_roi_descriptive_stats(
             source="func",

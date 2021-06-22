@@ -12,6 +12,7 @@ import pandas as pd
 from numpy import ndarray
 from pandas import DataFrame, Series
 from scipy.stats import mannwhitneyu, ttest_ind
+from sklearn.decomposition import PCA
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import cross_val_score
@@ -26,7 +27,7 @@ if os.environ.get("CC_CLUSTER") is not None:
     os.environ["MPLCONFIGDIR"] = str(Path(SCRATCH) / ".mplconfig")
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent.parent))
 from src.analysis.predict.hypertune import hypertune_classifier
-from src.analysis.rois import identity, max, mean, median, roi_dataframes, std
+from src.analysis.rois import identity, max, mean, median, pca, roi_dataframes, std
 from src.eigenimage.compute_batch import T_LENGTH
 
 DATA = Path(__file__).resolve().parent.parent.parent / "data"
@@ -129,8 +130,9 @@ def predict_from_roi_reductions(
 if __name__ == "__main__":
     scores, guess = predict_from_roi_reductions(
         source="eigimg",
-        norm=None,
-        reducer=mean,
+        norm="div",
+        reducer=std,
+        slicer=slice(126, None),
         slice_reducer=identity,
         weight_sharing="rois",
         classifier=RandomForestClassifier,
@@ -142,16 +144,37 @@ if __name__ == "__main__":
     )
 
 """
+Guess = 0.569
 Results: Func
     Best Acc: 0.582
-        source="func", norm=None, reducer=std, slice_reducer=identity,
+        source="func", norm=None, reducer=std,
+        slicer=slice(None), slice_reducer=identity,
         weight_sharing="rois", classifier=RandomForestClassifier,
     Best Acc: 0.584
-        source="func", norm=None, reducer=mean, slice_reducer=identity,
+        source="func", norm=None, reducer=mean,
+        slicer=slice(None), slice_reducer=identity,
+        weight_sharing="rois", classifier=RandomForestClassifier,
+    Best Acc: 0.613
+        source="func", norm="div", reducer=mean,
+        slicer=slice(None), slice_reducer=identity,
         weight_sharing="rois", classifier=RandomForestClassifier,
 
+TODO: test PCA reduced ROIs and/or PCA reduced fMRI images
 Results: Eigimg
     Best Acc: 0.637
-        source="func", norm=None, reducer=std, slice_reducer=identity,
+        source="eigimg", norm="div", reducer=std,
+        slicer=slice(None), slice_reducer=identity,
+        weight_sharing="rois", classifier=RandomForestClassifier,
+    Best Acc: 0.637  # also faster to run, despite less data
+        source="eigimg", norm="div", reducer=std,
+        slicer=slice(90, 160), slice_reducer=identity,
+        weight_sharing="rois", classifier=RandomForestClassifier,
+    Best Acc: 0.629  # !!!
+        source="eigimg", norm="div", reducer=std,
+        slicer=slice(125, 129), slice_reducer=identity,
+        weight_sharing="rois", classifier=RandomForestClassifier,
+    Best Acc: 0.64
+        source="eigimg", norm="div", reducer=std,
+        slicer=slice(126, None), slice_reducer=identity,
         weight_sharing="rois", classifier=RandomForestClassifier,
 """
