@@ -89,9 +89,11 @@ def std(x: ndarray) -> ndarray:
 def max(x: ndarray) -> ndarray:
     return np.max(x, axis=0)
 
+
 def pca(x: ndarray) -> ndarray:
-    pc = PCA(1, whiten=True)
+    pc = PCA(1, whiten=False)
     return pc.fit_transform(x.T)
+
 
 def identity(x: ndarray) -> ndarray:
     return x
@@ -390,17 +392,19 @@ def print_descriptives(df: DataFrame) -> None:
 
 
 if __name__ == "__main__":
-    for norm in ["div", None]:
+    for norm in [None, "div"]:
         compute_all_subject_roi_reductions(
             source="func",
-            norm="div",
+            norm=norm,
             reducer=pca,
         )
     sys.exit()
     print(
         eig_descriptives()
         .sort_values(by="U_p", ascending=True)
-        .to_markdown(tablefmt="simple", floatfmt=["1.2f", "1.2f", "1.1e", "1.2f", "1.1e","1.3f", "1.3f"])
+        .to_markdown(
+            tablefmt="simple", floatfmt=["1.2f", "1.2f", "1.1e", "1.2f", "1.1e", "1.3f", "1.3f"]
+        )
     )
     print_descriptives(
         compute_roi_descriptive_stats(
