@@ -32,7 +32,7 @@ from src.analysis.predict.reducers import SequenceReduction, normalize, subject_
 from src.analysis.rois import identity, max, mean, median, pca, roi_dataframes, std
 from src.eigenimage.compute_batch import T_LENGTH
 
-DATA = Path(__file__).resolve().parent.parent.parent / "data"
+DATA = Path(__file__).resolve().parent.parent.parent.parent / "data"
 NIIS = DATA / "niis"
 SEQS = DATA / "seqs"
 if not SEQS.exists():
