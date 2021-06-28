@@ -20,6 +20,18 @@ if os.environ.get("CC_CLUSTER") is not None:
     SCRATCH = os.environ["SCRATCH"]
     os.environ["MPLCONFIGDIR"] = str(Path(SCRATCH) / ".mplconfig")
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
+from src.analysis.predict.reducers import (
+    RoiReduction,
+    identity,
+    max,
+    mean,
+    median,
+    normalize,
+    pca,
+    std,
+    subject_labels,
+    trim,
+)
 from src.eigenimage.compute_batch import T_LENGTH
 
 DATA = Path(__file__).resolve().parent.parent.parent / "data"
@@ -37,68 +49,6 @@ ATLAS = ATLAS_DIR / "cc400_roi_atlas_ALIGNED.nii.gz"
 LEGEND = ATLAS_DIR / "CC400_ROI_labels.csv"
 
 
-@dataclass
-class RoiReduction:
-    """Reduce each ROI to a single sequence (possibly of length 1) via `reducer`
-
-    Parameters
-    ----------
-    source: Literal["func", "eigimg"]
-        Whether we are reducing the original functional or eigenimages
-    nii: Path
-        Path to eigimg.nii.gz file
-    label: int
-        int class label
-    legend: DataFrame
-        legend from `parse_legend`
-    eigens: path
-        path to full eigenvalues for normalization
-    norm: literal["div", "diff"]
-        if "div", divide by the full eigenvalues. this places all vales in [0, 1].
-        if "diff", subtract the full eigenvalues.
-    reducer: callable[[ndarray], ndarray] = none
-        reducing function. if none, uses np.mean(axis=0). must operate on an array
-        of shape (roi_voxels, t) and produce a vector of shape (l,).
-    reducer_name: str = none
-        label which determines output directory of reducer. if `none`, will try
-        to use `reducer.__name__`.
-    """
-
-    source: Literal["func", "eigimg"]
-    nii: Path
-    label: int
-    legend: DataFrame
-    eigens: Path
-    norm: Optional[Literal["div", "diff"]] = "div"
-    reducer: Optional[Callable[[ndarray], ndarray]] = None
-    reducer_name: Optional[str] = None
-
-
-def mean(x: ndarray) -> ndarray:
-    return np.mean(x, axis=0)
-
-
-def median(x: ndarray) -> ndarray:
-    return np.median(x, axis=0)
-
-
-def std(x: ndarray) -> ndarray:
-    return np.std(x, ddof=1, axis=0)
-
-
-def max(x: ndarray) -> ndarray:
-    return np.max(x, axis=0)
-
-
-def pca(x: ndarray) -> ndarray:
-    pc = PCA(1, whiten=False)
-    return pc.fit_transform(x.T)
-
-
-def identity(x: ndarray) -> ndarray:
-    return x
-
-
 def parse_legend(legend: Path) -> DataFrame:
     """Get a simple, usable legend with columns "ID" for ROI number, and "Name"
     for human-readable label for each ROI number.
@@ -113,18 +63,6 @@ def parse_legend(legend: Path) -> DataFrame:
     else:
         df = leg
     return df
-
-
-def subject_labels(imgs: List[Path]) -> List[int]:
-    subjects = pd.read_csv(SUBJ_DATA, usecols=["FILE_ID", "DX_GROUP"])
-    # convert from stupid (1,2)=(AUTISM,CTRL) to (0, 1)=(CTRL, AUTISM)
-    subjects["DX_GROUP"] = 2 - subjects["DX_GROUP"]
-    subjects.rename(columns={"DX_GROUP": "label", "FILE_ID": "fid"}, inplace=True)
-    subjects.index = subjects.fid.to_list()
-    subjects.drop(columns="fid")
-    fids = [img.stem[: img.stem.find("_func")] for img in imgs]
-    labels: List[int] = subjects.loc[fids].label.to_list()
-    return labels
 
 
 def compute_subject_roi_reductions(
@@ -164,41 +102,17 @@ def compute_subject_roi_reductions(
             "class":    (0=CTRL, 1=AUTISM)
     """
     np.warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)  # type: ignore
-    nii, label, legend, eigens = args.nii, args.label, args.legend, args.eigens
+    nii, label, legend = args.nii, args.label, args.legend
     reducer, reducer_name = args.reducer, args.reducer_name
     source, norm = args.source, args.norm
     if reducer is None:
         reducer = mean
 
     raw = nib.load(str(nii)).get_fdata()
-    # trim
-    if source == "func":
-        if raw.shape[-1] < T_LENGTH:
-            return
-        elif raw.shape[-1] >= T_LENGTH:
-            raw = raw[:, :, :, -(T_LENGTH - 1) :]
-    else:
-        if raw.shape[-1] != (T_LENGTH - 1):
-            return
-    # normalize
-    if norm == "div":
-        if source == "eigimg":
-            eigs = np.load(eigens)
-            img = eigs / raw
-        else:
-            mean_signal = np.mean(raw, axis=(0, 1, 2))
-            img = raw / mean_signal
-    elif norm == "diff":
-        if source == "eigimg":
-            eigs = np.load(eigens)
-            img = raw - eigs
-        else:
-            mean_signal = np.mean(raw, axis=(0, 1, 2))
-            img = raw - mean_signal
-    else:
-        norm = None
-        img = raw
-
+    raw = trim(raw, source)
+    if raw is None:
+        return
+    img = normalize(raw, args)
     atlas = nib.load(str(ATLAS)).get_data()
     df = DataFrame(index=legend.index, columns=["name", "n_voxels", "signal"])
     for id in zip(legend.index):

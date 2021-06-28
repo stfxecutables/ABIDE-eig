@@ -129,10 +129,10 @@ def predict_from_roi_reductions(
 
 if __name__ == "__main__":
     scores, guess = predict_from_roi_reductions(
-        source="eigimg",
+        source="func",
         norm="div",
-        reducer=std,
-        slicer=slice(126, None),
+        reducer=max,
+        # slicer=slice(126, None),
         slice_reducer=identity,
         weight_sharing="rois",
         classifier=RandomForestClassifier,
