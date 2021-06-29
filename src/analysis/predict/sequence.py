@@ -28,7 +28,13 @@ if os.environ.get("CC_CLUSTER") is not None:
     os.environ["MPLCONFIGDIR"] = str(Path(SCRATCH) / ".mplconfig")
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent.parent))
 from src.analysis.predict.hypertune import hypertune_classifier
-from src.analysis.predict.reducers import SequenceReduction, normalize, subject_labels, trim
+from src.analysis.predict.reducers import (
+    SequenceReduction,
+    eigvals,
+    normalize,
+    subject_labels,
+    trim,
+)
 from src.analysis.rois import identity, max, mean, median, pca, roi_dataframes, std
 from src.eigenimage.compute_batch import T_LENGTH
 
@@ -87,9 +93,9 @@ def compute_sequence_reductions(
     reducer: Callable[[ndarray], ndarray] = mean,
     reducer_name: str = None,
 ) -> None:
-    if source == "eigimg":
-        return
     niis = sorted(NIIS.rglob("*func_minimal.nii.gz"))
+    if source == "eigimg":
+        reducer = eigvals
     args = [
         SequenceReduction(
             nii=nii, source=source, norm=norm, reducer=reducer, reducer_name=reducer_name
@@ -128,17 +134,67 @@ def predict_from_sequence_reductions(
     slice_reducer: Callable[[ndarray], ndarray] = identity,
     classifier: Type = SVC,
     classifier_args: Dict[str, Any] = {},
-) -> None:
+) -> Tuple[DataFrame, ndarray]:
     rname = reducer.__name__ if reducer_name is None else reducer_name
-    df_path = SEQS / f"{source}/{rname}/SEQ_ALL_{rname}_norm={norm}.parquet"
+    if source == "func":
+        df_path = SEQS / f"{source}/{rname}/SEQ_ALL_{rname}_norm={norm}.parquet"
+    else:
+        df_path = SEQS / f"{source}/{rname}/SEQ_ALL_{rname}_norm={norm}.parquet"
+
     df = pd.read_parquet(df_path)
-    print(df)
+    X = df.drop(columns="target").to_numpy()
+    y = df["target"].to_numpy().ravel()
+    guess = np.max([np.sum(y == 0), np.sum(y == 1)]) / len(y)
+    pprint(classifier_args, indent=2)
+    htune_result = hypertune_classifier(
+        "rf", X, y, n_trials=200, cv_method=5, verbosity=optuna.logging.INFO
+    )
+    # res = cross_val_score(classifier(**classifier_args), X, y, cv=5, scoring="accuracy")
+    print(f"Best val_acc: {htune_result.val_acc}")
+    scores = pd.DataFrame(index=["all"], columns=["acc"], data=htune_result.val_acc)
+    return scores, guess
 
 
 if __name__ == "__main__":
-    predict_from_sequence_reductions(
-        source="func",
-        norm="div",
-        reducer=mean,
+    scores, guess = predict_from_sequence_reductions(
+        source="eigimg",
+        norm=None,
+        reducer=pca,
         classifier=RandomForestClassifier,
     )
+    print(f"Mean acc: {np.round(np.mean(scores), 3).item()}  (guess = {np.round(guess, 3)})")
+    print(
+        f"CI: ({np.round(np.percentile(scores, 5), 3)}, {np.round(np.percentile(scores, 95), 3)})"
+    )
+
+"""
+Guess = 0.569
+Results: Mean
+    Best Acc: 0.591
+        source="func", norm="div", reducer=mean,
+        slicer=slice(None), slice_reducer=identity,
+        classifier=RandomForestClassifier,
+    Best Acc: 0.556
+        source="func", norm="diff", reducer=mean,
+        slicer=slice(None), slice_reducer=identity,
+        classifier=RandomForestClassifier,
+    Best Acc: 0.562
+        source="func", norm=None, reducer=mean,
+        slicer=slice(None), slice_reducer=identity,
+        classifier=RandomForestClassifier,
+
+TODO: test PCA reduced ROIs and/or PCA reduced fMRI images
+Results: PCA
+    Best Acc: 0.587
+        source="func", norm="div", reducer=PCA,
+        slicer=slice(None), slice_reducer=identity,
+        classifier=RandomForestClassifier,
+    Best Acc: 0.571
+        source="eigimg", norm="diff", reducer=PCA,
+        slicer=slice(None), slice_reducer=identity,
+        classifier=RandomForestClassifier,
+    Best Acc: 0.553
+        source="eigimg", norm=None, reducer=PCA,
+        slicer=slice(None), slice_reducer=identity,
+        classifier=RandomForestClassifier,
+"""

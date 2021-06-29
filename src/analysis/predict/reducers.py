@@ -27,6 +27,7 @@ if os.environ.get("CC_CLUSTER") is not None:
     SCRATCH = os.environ["SCRATCH"]
     os.environ["MPLCONFIGDIR"] = str(Path(SCRATCH) / ".mplconfig")
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent.parent))
+from src.eigenimage.compute import eigs_via_transpose
 from src.eigenimage.compute_batch import T_LENGTH
 
 DATA = Path(__file__).resolve().parent.parent.parent.parent / "data"
@@ -132,6 +133,11 @@ def pca(x: ndarray) -> ndarray:
     if x.shape[0] != T_LENGTH - 1:
         raise ValueError("Img has unmatched shape.")
     return PCA(n_components=1).fit_transform(x).ravel()  # type: ignore
+
+
+def eigvals(x: ndarray) -> ndarray:
+    eigs: ndarray = eigs_via_transpose(x, covariance=True)
+    return eigs[1:]  # type: ignore
 
 
 def trim(raw: ndarray, source: Literal["func", "eigimg"]) -> Optional[ndarray]:
