@@ -54,6 +54,17 @@ def compute_sequence_reduction(
     source, nii = args.source, args.nii
     reducer, reducer_name = args.reducer, args.reducer_name
     norm = args.norm
+
+    # early return if already done
+    rname = reducer.__name__ if reducer_name is None else reducer_name
+    outdir = SEQS / f"{source}/{rname}"
+    if not outdir.exists():
+        os.makedirs(outdir, exist_ok=True)
+    fname = Path(str(nii).replace(".nii.gz", "")).name
+    outfile = outdir / f"SEQ_{rname}_norm={norm}_{fname}.npy"
+    if outfile.exists():
+        return np.load(outfile)
+
     if reducer is None:
         raise ValueError("Must have some reducer for seqeuence reduction.")
     raw = nib.load(str(nii)).get_fdata()
@@ -65,12 +76,6 @@ def compute_sequence_reduction(
     mask = nib.load(str(MASK)).get_fdata().astype(bool)
     voxels = img[mask]
 
-    rname = reducer.__name__ if reducer_name is None else reducer_name
-    outdir = SEQS / f"{source}/{rname}"
-    if not outdir.exists():
-        os.makedirs(outdir, exist_ok=True)
-    fname = Path(str(nii).replace(".nii.gz", "")).name
-    outfile = outdir / f"SEQ_{rname}_norm={norm}_{fname}.npy"
     result = reducer(voxels)
     np.save(outfile, result)
     return result
@@ -101,7 +106,7 @@ def compute_sequence_reductions(
         if result is not None:
             reductions.append(result)
             labels.append(label)
-    cols = [str(i) for i in range(reductions[0].shape[1])]
+    cols = [str(i) for i in range(len(reductions[0]))]
     df = pd.DataFrame(data=np.vstack(reductions), columns=cols)
     df["target"] = labels
 
