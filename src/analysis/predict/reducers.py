@@ -127,9 +127,9 @@ def max(x: ndarray) -> ndarray:
 def pca(x: ndarray) -> ndarray:
     if x.ndim != 2:
         raise ValueError("Can only use PCA on 2D array. Use mask to extract voxels.")
-    if x.shape[0] != T_LENGTH:
+    if x.shape[0] != T_LENGTH - 1:
         x = x.T
-    if x.shape[0] != T_LENGTH:
+    if x.shape[0] != T_LENGTH - 1:
         raise ValueError("Img has unmatched shape.")
     return PCA(n_components=1).fit_transform(x).ravel()  # type: ignore
 
