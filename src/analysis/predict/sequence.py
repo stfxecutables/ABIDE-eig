@@ -101,7 +101,8 @@ def compute_sequence_reductions(
         if result is not None:
             reductions.append(result)
             labels.append(label)
-    df = pd.DataFrame(data=np.vstack(reductions))
+    cols = [str(i) for i in range(len(reductions.shape[1]))]
+    df = pd.DataFrame(data=np.vstack(reductions), columns=cols)
     df["target"] = labels
 
     rname = reducer.__name__ if reducer_name is None else reducer_name
