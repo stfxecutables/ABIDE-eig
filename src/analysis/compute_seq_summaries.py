@@ -6,11 +6,11 @@ if os.environ.get("CC_CLUSTER") is not None:
     SCRATCH = os.environ["SCRATCH"]
     os.environ["MPLCONFIGDIR"] = str(Path(SCRATCH) / ".mplconfig")
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
-from src.analysis.predict.reducers import mean, pca
+from src.analysis.predict.reducers import max, mean, median, pca, std
 from src.analysis.predict.sequence import compute_sequence_reductions
 
 if __name__ == "__main__":
-    for reducer in [pca, mean]:
+    for reducer in [pca, mean, std, median, max]:
         for norm in ["div", "diff", None]:
             print(f"Computing sequence reductions using norm={norm} and reducer {reducer.__name__}")
             compute_sequence_reductions(
