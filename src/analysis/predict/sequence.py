@@ -114,7 +114,7 @@ def compute_sequence_reductions(
     outdir = SEQS / f"{source}/{rname}"
     if not outdir.exists():
         os.makedirs(outdir, exist_ok=True)
-    outfile = outdir / f"SEQ_ALL_{rname}_norm={norm}"
+    outfile = outdir / f"SEQ_ALL_{rname}_norm={norm}.parquet"
     df.to_parquet(str(outfile), index=True)
     print(f"Saved {reducer_name} spectrum reduction to {outfile}.")
 
@@ -122,11 +122,23 @@ def compute_sequence_reductions(
 def predict_from_sequence_reductions(
     source: Literal["func", "eigimg"] = "eigimg",
     norm: Literal["div", "diff"] = "div",
-    reducer: Callable[[ndarray], ndarray] = None,
+    reducer: Callable[[ndarray], ndarray] = mean,
     reducer_name: str = None,
     slicer: slice = slice(None),
     slice_reducer: Callable[[ndarray], ndarray] = identity,
     classifier: Type = SVC,
     classifier_args: Dict[str, Any] = {},
 ) -> None:
-    pass
+    rname = reducer.__name__ if reducer_name is None else reducer_name
+    df_path = SEQS / f"{source}/{rname}/SEQ_ALL_{rname}_norm={norm}.parquet"
+    df = pd.read_parquet(df_path)
+    print(df)
+
+
+if __name__ == "__main__":
+    predict_from_sequence_reductions(
+        source="func",
+        norm="div",
+        reducer=mean,
+        classifier=RandomForestClassifier,
+    )
