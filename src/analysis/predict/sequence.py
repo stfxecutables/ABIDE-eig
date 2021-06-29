@@ -52,7 +52,8 @@ def compute_sequence_reduction(
     args: SequenceReduction,
 ) -> ndarray:
     source, nii = args.source, args.nii
-    reducer = args.reducer
+    reducer, reducer_name = args.reducer, args.reducer_name
+    norm = args.norm
     if reducer is None:
         raise ValueError("Must have some reducer for seqeuence reduction.")
     raw = nib.load(str(nii)).get_fdata()
@@ -63,13 +64,22 @@ def compute_sequence_reduction(
     img = normalize(raw, args)
     mask = nib.load(str(MASK)).get_fdata().astype(bool)
     voxels = img[mask]
-    return reducer(voxels)
+
+    rname = reducer.__name__ if reducer_name is None else reducer_name
+    outdir = SEQS / f"{source}/{rname}"
+    if not outdir.exists():
+        os.makedirs(outdir, exist_ok=True)
+    fname = Path(str(nii).replace(".nii.gz", "")).name
+    outfile = outdir / f"SEQ_{rname}_norm={norm}_{fname}.npy"
+    result = reducer(voxels)
+    np.save(outfile, result)
+    return result
 
 
 def compute_sequence_reductions(
     source: Literal["func", "eigimg"] = "eigimg",
     norm: Optional[Literal["div", "diff"]] = "div",
-    reducer: Callable[[ndarray], ndarray] = identity,
+    reducer: Callable[[ndarray], ndarray] = mean,
     reducer_name: str = None,
 ) -> None:
     if source == "eigimg":
@@ -98,7 +108,7 @@ def compute_sequence_reductions(
     outdir = SEQS / f"{source}/{rname}"
     if not outdir.exists():
         os.makedirs(outdir, exist_ok=True)
-    outfile = outdir / f"SEQ_{rname}_norm={norm}"
+    outfile = outdir / f"SEQ_ALL_{rname}_norm={norm}"
     df.to_parquet(str(outfile), index=True)
     print(f"Saved {reducer_name} spectrum reduction to {outfile}.")
 
