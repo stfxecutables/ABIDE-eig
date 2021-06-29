@@ -94,8 +94,6 @@ def compute_sequence_reductions(
     reducer_name: str = None,
 ) -> None:
     niis = sorted(NIIS.rglob("*func_minimal.nii.gz"))
-    if source == "eigimg":
-        reducer = eigvals
     args = [
         SequenceReduction(
             nii=nii, source=source, norm=norm, reducer=reducer, reducer_name=reducer_name
@@ -135,11 +133,12 @@ def predict_from_sequence_reductions(
     classifier: Type = SVC,
     classifier_args: Dict[str, Any] = {},
 ) -> Tuple[DataFrame, ndarray]:
+    if source == "eigimg":
+        reducer = eigvals
+        reducer_name = reducer.__name__
+
     rname = reducer.__name__ if reducer_name is None else reducer_name
-    if source == "func":
-        df_path = SEQS / f"{source}/{rname}/SEQ_ALL_{rname}_norm={norm}.parquet"
-    else:
-        df_path = SEQS / f"{source}/{rname}/SEQ_ALL_{rname}_norm={norm}.parquet"
+    df_path = SEQS / f"{source}/{rname}/SEQ_ALL_{rname}_norm={norm}.parquet"
 
     df = pd.read_parquet(df_path)
     X = df.drop(columns="target").to_numpy()
@@ -156,10 +155,11 @@ def predict_from_sequence_reductions(
 
 
 if __name__ == "__main__":
+    # NOTE: `norm` arg is fucked for eigimgs, needs to be done after too
     scores, guess = predict_from_sequence_reductions(
         source="eigimg",
         norm=None,
-        reducer=pca,
+        reducer=identity,
         classifier=RandomForestClassifier,
     )
     print(f"Mean acc: {np.round(np.mean(scores), 3).item()}  (guess = {np.round(guess, 3)})")
@@ -197,4 +197,19 @@ Results: PCA
         source="eigimg", norm=None, reducer=PCA,
         slicer=slice(None), slice_reducer=identity,
         classifier=RandomForestClassifier,
+
+Results: Eigimg
+    Best Acc: 0.618
+        source="func", norm="div", reducer=mean,
+        slicer=slice(None), slice_reducer=identity,
+        classifier=RandomForestClassifier,
+    Best Acc: 0.589
+        source="func", norm="diff", reducer=mean,
+        slicer=slice(None), slice_reducer=identity,
+        classifier=RandomForestClassifier,
+    Best Acc: 0.593
+        source="func", norm=None, reducer=mean,
+        slicer=slice(None), slice_reducer=identity,
+        classifier=RandomForestClassifier,
+
 """
