@@ -65,7 +65,7 @@ if __name__ == "__main__":
         classifier_args=[dict(n_jobs=8)],
     )
     params = list(ParameterGrid(GRID))
-    dfs = process_map(compute_results, params, max_workers=5)
+    dfs = process_map(compute_results, params, max_workers=len(params))
     dfs = [df for df in dfs if df is not None]
     df = pd.concat(dfs, axis=0, ignore_index=True)
     df.to_parquet(RESULTS / "seq_results_all.parquet")
