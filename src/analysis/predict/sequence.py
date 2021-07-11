@@ -31,11 +31,17 @@ from src.analysis.predict.hypertune import hypertune_classifier
 from src.analysis.predict.reducers import (
     SequenceReduction,
     eigvals,
+    identity,
+    max,
+    mean,
+    median,
     normalize,
+    pca,
+    std,
     subject_labels,
     trim,
 )
-from src.analysis.rois import identity, max, mean, median, pca, roi_dataframes, std
+from src.analysis.rois import roi_dataframes
 from src.eigenimage.compute_batch import T_LENGTH
 
 DATA = Path(__file__).resolve().parent.parent.parent.parent / "data"

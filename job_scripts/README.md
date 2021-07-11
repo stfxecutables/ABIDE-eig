@@ -42,5 +42,5 @@ These steps make various modified versions of the original files available.
 1. Precompute eigenimages
    - `sbatch submit_precompute_eigimgs.sh`
 2. Precompute ROI summary files
-   - `sbatch submit_precompute_roi_summaries.sh`
+   - `sbatch submit_precompute_roi_reductions.sh`
 

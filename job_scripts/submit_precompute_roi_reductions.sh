@@ -13,7 +13,7 @@
 
 PROJECT=$SCRATCH/ABIDE-eig
 VENV=$PROJECT/.venv/bin/activate
-SCRIPT=$PROJECT/src/run/precompute_roi_summaries.py
+SCRIPT=$PROJECT/src/run/precompute_roi_reductions.py
 
 cd $PROJECT
 source $VENV
