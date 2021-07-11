@@ -46,6 +46,7 @@ EIGIMGS = DATA / "eigimgs"
 ATLAS_DIR = DATA / "atlases"
 ATLAS = ATLAS_DIR / "cc400_roi_atlas_ALIGNED.nii.gz"
 LEGEND = ATLAS_DIR / "CC400_ROI_labels.csv"
+VERBOSITY = optuna.logging.INFO if LOG else optuna.logging.ERROR
 
 
 def predict_from_full_rois(
@@ -128,7 +129,7 @@ def predict_from_roi_reductions(
             y,
             n_trials=2,
             cv_method=5,
-            verbosity=optuna.logging.INFO if LOG else optuna.logging.ERROR
+            verbosity=VERBOSITY,
             # "rf", X, y, n_trials=200, cv_method=5, verbosity=optuna.logging.INFO
         )
         # res = cross_val_score(classifier(**classifier_args), X, y, cv=5, scoring="accuracy")

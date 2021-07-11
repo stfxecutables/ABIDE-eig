@@ -26,6 +26,9 @@ from typing_extensions import Literal
 if os.environ.get("CC_CLUSTER") is not None:
     SCRATCH = os.environ["SCRATCH"]
     os.environ["MPLCONFIGDIR"] = str(Path(SCRATCH) / ".mplconfig")
+    LOG = False
+else:
+    LOG = True
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent.parent))
 from src.analysis.predict.hypertune import HtuneResult, hypertune_classifier
 from src.analysis.predict.reducers import (
@@ -58,6 +61,7 @@ ATLAS_DIR = DATA / "atlases"
 MASK = ATLAS_DIR / "MASK.nii.gz"
 ATLAS = ATLAS_DIR / "cc400_roi_atlas_ALIGNED.nii.gz"
 LEGEND = ATLAS_DIR / "CC400_ROI_labels.csv"
+VERBOSITY = optuna.logging.INFO if LOG else optuna.logging.ERROR
 
 
 def compute_sequence_reduction(
@@ -138,7 +142,7 @@ def predict_from_sequence_reductions(
     slice_reducer: Callable[[ndarray], ndarray] = identity,
     classifier: Type = SVC,
     classifier_args: Dict[str, Any] = {},
-) -> Tuple[DataFrame, ndarray, HtuneResult]:
+) -> Tuple[ndarray, HtuneResult]:
     if source == "eigimg":
         reducer = eigvals
         reducer_name = reducer.__name__
@@ -150,86 +154,6 @@ def predict_from_sequence_reductions(
     X = df.drop(columns="target").to_numpy()
     y = df["target"].to_numpy().ravel()
     guess = np.max([np.sum(y == 0), np.sum(y == 1)]) / len(y)
-    pprint(classifier_args, indent=2)
-    htune_result = hypertune_classifier(
-        "rf", X, y, n_trials=200, cv_method=5, verbosity=optuna.logging.INFO
-    )
+    htune_result = hypertune_classifier("rf", X, y, n_trials=200, cv_method=5, verbosity=VERBOSITY)
     # res = cross_val_score(classifier(**classifier_args), X, y, cv=5, scoring="accuracy")
-    print(f"Best val_acc: {htune_result.val_acc}")
-    scores = pd.DataFrame(index=["all"], columns=["acc"], data=htune_result.val_acc)
-    return scores, guess, htune_result
-
-
-if __name__ == "__main__":
-    # NOTE: `norm` arg is fucked for eigimgs, needs to be done after too
-    scores, guess = predict_from_sequence_reductions(
-        source="func",
-        norm="diff",
-        reducer=std,
-        classifier=RandomForestClassifier,
-    )
-    print(f"Mean acc: {np.round(np.mean(scores), 3).item()}  (guess = {np.round(guess, 3)})")
-    print(
-        f"CI: ({np.round(np.percentile(scores, 5), 3)}, {np.round(np.percentile(scores, 95), 3)})"
-    )
-
-"""
-Guess = 0.569
-Results: Mean
-    Best Acc: 0.591
-        source="func", norm="div", reducer=mean,
-        slicer=slice(None), slice_reducer=identity,
-        classifier=RandomForestClassifier,
-    Best Acc: 0.556
-        source="func", norm="diff", reducer=mean,
-        slicer=slice(None), slice_reducer=identity,
-        classifier=RandomForestClassifier,
-    Best Acc: 0.562
-        source="func", norm=None, reducer=mean,
-        slicer=slice(None), slice_reducer=identity,
-        classifier=RandomForestClassifier,
-
-Results: Std
-    Best Acc: 0.551
-        source="func", norm="div", reducer=std,
-        slicer=slice(None), slice_reducer=identity,
-        classifier=RandomForestClassifier,
-    Best Acc: 0.569
-        source="func", norm="diff", reducer=std,
-        slicer=slice(None), slice_reducer=identity,
-        classifier=RandomForestClassifier,
-    Best Acc: 0.573
-        source="func", norm=None, reducer=std,
-        slicer=slice(None), slice_reducer=identity,
-        classifier=RandomForestClassifier,
-
-TODO: test PCA reduced ROIs and/or PCA reduced fMRI images
-Results: PCA
-    Best Acc: 0.587
-        source="func", norm="div", reducer=PCA,
-        slicer=slice(None), slice_reducer=identity,
-        classifier=RandomForestClassifier,
-    Best Acc: 0.571
-        source="eigimg", norm="diff", reducer=PCA,
-        slicer=slice(None), slice_reducer=identity,
-        classifier=RandomForestClassifier,
-    Best Acc: 0.553
-        source="eigimg", norm=None, reducer=PCA,
-        slicer=slice(None), slice_reducer=identity,
-        classifier=RandomForestClassifier,
-
-Results: Eigimg
-    Best Acc: 0.618
-        source="func", norm="div", reducer=mean,
-        slicer=slice(None), slice_reducer=identity,
-        classifier=RandomForestClassifier,
-    Best Acc: 0.589
-        source="func", norm="diff", reducer=mean,
-        slicer=slice(None), slice_reducer=identity,
-        classifier=RandomForestClassifier,
-    Best Acc: 0.593
-        source="func", norm=None, reducer=mean,
-        slicer=slice(None), slice_reducer=identity,
-        classifier=RandomForestClassifier,
-
-"""
+    return guess, htune_result
