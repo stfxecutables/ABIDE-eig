@@ -35,8 +35,12 @@ to generate the `$SCRATCH/ABIDE-eig/data/niis/shapes.json` summary file needed f
 
 # To Run All Analyses
 
-1. Compute eigenimages
-   - `sbatch submit_eigimg.sh`
-2. Compute ROI summary files
-   - `sbatch submit_compute_roi_summaries.sh`
+## Pre-Computations
+
+These steps make various modified versions of the original files available.
+
+1. Precompute eigenimages
+   - `sbatch submit_precompute_eigimgs.sh`
+2. Precompute ROI summary files
+   - `sbatch submit_precompute_roi_summaries.sh`
 
