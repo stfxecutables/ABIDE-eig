@@ -17,7 +17,7 @@ if __name__ == "__main__":
     GRID = dict(
         source=["func", "eigimg"],
         norm=["div", "diff", None],
-        reducer=[identity, mean, max, pca, std],
+        reducer=[pca, mean, max, std],
     )
     for args in list(ParameterGrid(GRID)):
         try:
