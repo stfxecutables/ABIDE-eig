@@ -39,7 +39,6 @@ def compute_results(args: Dict) -> Optional[DataFrame]:
                     roi_reducer=params.reducer.__name__,
                     roi_slicer=str(params.slicer),
                     slice_reducer=params.slice_reducer.__name__,
-                    sharing=params.weight_sharing,
                     acc=htuned.val_acc,
                     guess=guess,
                 ),
