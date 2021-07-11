@@ -50,7 +50,7 @@ def compute_results(args: Dict) -> Optional[DataFrame]:
                     acc=htuned.val_acc,
                 ),
                 **htuned.best_params,
-            }
+            }, index=[0]
         ).copy(deep=True)
     except Exception as e:
         print(f"Got exception {e}")
