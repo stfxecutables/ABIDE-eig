@@ -119,8 +119,9 @@ def predict_from_roi_reductions(
         X = np.concatenate(Xs, axis=1)
         # X = StandardScaler().fit_transform(X)
         y = df["target"].to_numpy()
-        print(f"Cross-validating {classifier} on X with shape {X.shape} with args:")
-        pprint(classifier_args, indent=2)
+        if LOG:
+            print(f"Cross-validating {classifier} on X with shape {X.shape} with args:")
+            pprint(classifier_args, indent=2)
         htune_result = hypertune_classifier(
             "rf",
             X,
