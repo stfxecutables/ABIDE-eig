@@ -55,7 +55,7 @@ def compute_results(args: Dict) -> Optional[DataFrame]:
 if __name__ == "__main__":
     GRID = dict(
         source=["func", "eigimg"],
-        norm=["div", None],
+        norm=["diff", None],
         reducer=[max, mean, std, pca],
         slicer=[slice(None)],
         slice_reducer=[identity],
