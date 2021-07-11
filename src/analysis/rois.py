@@ -1,5 +1,6 @@
 import os
 import sys
+import traceback
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, List, Optional, Tuple
@@ -168,21 +169,29 @@ def compute_all_subject_roi_reductions(
 def precompute_all_func_roi_reductions() -> None:
     for reducer in [mean, median, max, std, pca]:
         for norm in ["div", "diff", None]:
-            compute_all_subject_roi_reductions(
-                source="func",
-                norm=norm,  # type: ignore
-                reducer=reducer,
-            )
+            try:
+                compute_all_subject_roi_reductions(
+                    source="func",
+                    norm=norm,  # type: ignore
+                    reducer=reducer,
+                )
+            except Exception as e:
+                print(f"Got exception {e}")
+                traceback.print_exc()
 
 
 def precompute_all_eigimg_roi_reductions() -> None:
     for reducer in [mean, median, max, std, pca]:
         for norm in ["div", "diff", None]:
-            compute_all_subject_roi_reductions(
-                source="eigimg",
-                norm=norm,  # type: ignore
-                reducer=reducer,
-            )
+            try:
+                compute_all_subject_roi_reductions(
+                    source="eigimg",
+                    norm=norm,  # type: ignore
+                    reducer=reducer,
+                )
+            except Exception as e:
+                print(f"Got exception {e}")
+                traceback.print_exc()
 
 
 def eig_descriptives() -> DataFrame:
