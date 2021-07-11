@@ -60,7 +60,6 @@ if __name__ == "__main__":
         reducer=[max, mean, std, pca],
         slicer=[slice(None)],
         slice_reducer=[identity],
-        weight_sharing=["rois"],
         classifier=[RandomForestClassifier],
         classifier_args=[dict(n_jobs=8)],
     )
