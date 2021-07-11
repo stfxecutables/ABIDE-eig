@@ -13,7 +13,7 @@
 
 PROJECT=$SCRATCH/ABIDE-eig
 VENV=$PROJECT/.venv/bin/activate
-SCRIPT=$PROJECT/src/run/precompute_sequence_reductions.py
+SCRIPT=$PROJECT/src/run/precompute_seq_reductions.py
 
 cd $PROJECT
 source $VENV
