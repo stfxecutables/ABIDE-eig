@@ -166,7 +166,7 @@ def compute_all_subject_roi_reductions(
 
 
 def precompute_all_func_roi_reductions() -> None:
-    for reducer in [mean, median, max, std]:
+    for reducer in [mean, median, max, std, pca]:
         for norm in ["div", "diff", None]:
             compute_all_subject_roi_reductions(
                 source="func",
@@ -176,7 +176,7 @@ def precompute_all_func_roi_reductions() -> None:
 
 
 def precompute_all_eigimg_roi_reductions() -> None:
-    for reducer in [mean, median, max, std]:
+    for reducer in [mean, median, max, std, pca]:
         for norm in ["div", "diff", None]:
             compute_all_subject_roi_reductions(
                 source="eigimg",
