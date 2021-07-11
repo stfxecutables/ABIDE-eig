@@ -157,9 +157,9 @@ def predict_from_sequence_reductions(
 if __name__ == "__main__":
     # NOTE: `norm` arg is fucked for eigimgs, needs to be done after too
     scores, guess = predict_from_sequence_reductions(
-        source="eigimg",
-        norm=None,
-        reducer=identity,
+        source="func",
+        norm="diff",
+        reducer=std,
         classifier=RandomForestClassifier,
     )
     print(f"Mean acc: {np.round(np.mean(scores), 3).item()}  (guess = {np.round(guess, 3)})")
@@ -180,6 +180,20 @@ Results: Mean
         classifier=RandomForestClassifier,
     Best Acc: 0.562
         source="func", norm=None, reducer=mean,
+        slicer=slice(None), slice_reducer=identity,
+        classifier=RandomForestClassifier,
+
+Results: Std
+    Best Acc: 0.551
+        source="func", norm="div", reducer=std,
+        slicer=slice(None), slice_reducer=identity,
+        classifier=RandomForestClassifier,
+    Best Acc: 0.569
+        source="func", norm="diff", reducer=std,
+        slicer=slice(None), slice_reducer=identity,
+        classifier=RandomForestClassifier,
+    Best Acc: 0.573
+        source="func", norm=None, reducer=std,
         slicer=slice(None), slice_reducer=identity,
         classifier=RandomForestClassifier,
 
