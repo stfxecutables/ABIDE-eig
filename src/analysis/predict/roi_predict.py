@@ -25,6 +25,9 @@ from typing_extensions import Literal
 if os.environ.get("CC_CLUSTER") is not None:
     SCRATCH = os.environ["SCRATCH"]
     os.environ["MPLCONFIGDIR"] = str(Path(SCRATCH) / ".mplconfig")
+    LOG = False
+else:
+    LOG = True
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent.parent))
 from src.analysis.predict.hypertune import HtuneResult, hypertune_classifier
 from src.analysis.rois import identity, max, mean, median, pca, roi_dataframes, std
@@ -119,7 +122,12 @@ def predict_from_roi_reductions(
         print(f"Cross-validating {classifier} on X with shape {X.shape} with args:")
         pprint(classifier_args, indent=2)
         htune_result = hypertune_classifier(
-            "rf", X, y, n_trials=4, cv_method=5, verbosity=optuna.logging.INFO
+            "rf",
+            X,
+            y,
+            n_trials=2,
+            cv_method=5,
+            verbosity=optuna.logging.INFO if LOG else optuna.logging.ERROR
             # "rf", X, y, n_trials=200, cv_method=5, verbosity=optuna.logging.INFO
         )
         # res = cross_val_score(classifier(**classifier_args), X, y, cv=5, scoring="accuracy")

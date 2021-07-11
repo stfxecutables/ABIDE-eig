@@ -1,8 +1,9 @@
 import os
 import sys
+import traceback
 from argparse import Namespace
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 
 import numpy as np
 import pandas as pd
@@ -27,26 +28,32 @@ if not RESULTS.exists():
     os.makedirs(RESULTS, exist_ok=True)
 
 
-def compute_results(args: Dict) -> DataFrame:
-    scores, guess, htuned = predict_from_roi_reductions(**args)
-    params = Namespace(**args)
+def compute_results(args: Dict) -> Optional[DataFrame]:
+    try:
+        scores, guess, htuned = predict_from_roi_reductions(**args)
+        params = Namespace(**args)
 
-    print(f"Mean acc: {np.round(np.mean(scores), 3).item()}  (guess = {np.round(guess, 3)})")
-    print(
-        f"CI: ({np.round(np.percentile(scores, 5), 3)}, {np.round(np.percentile(scores, 95), 3)})"
-    )
-    acc = htuned.val_acc
-    return DataFrame(dict(
-        model=htuned.classifier,
-        source=params.source,
-        norm=params.norm,
-        roi_reducer=params.reducer.__name__,
-        roi_slicer=str(params.slicer),
-        slice_reducer=params.slice_reducer.__name__,
-        sharing=params.weight_sharing,
-        acc=acc,
-        params=htuned.best_params,
-    ))
+        print(f"Mean acc: {np.round(np.mean(scores), 3).item()}  (guess = {np.round(guess, 3)})")
+        print(
+            f"CI: ({np.round(np.percentile(scores, 5), 3)}, {np.round(np.percentile(scores, 95), 3)})"
+        )
+        return DataFrame(
+            dict(
+                model=htuned.classifier,
+                source=params.source,
+                norm=params.norm,
+                roi_reducer=params.reducer.__name__,
+                roi_slicer=str(params.slicer),
+                slice_reducer=params.slice_reducer.__name__,
+                sharing=params.weight_sharing,
+                acc=htuned.val_acc,
+                params=htuned.best_params,
+            )
+        ).copy(deep=True)
+    except Exception as e:
+        print(f"Got exception {e}")
+        traceback.print_exc()
+        return None
 
 
 if __name__ == "__main__":
@@ -62,6 +69,6 @@ if __name__ == "__main__":
     )
     params = list(ParameterGrid(GRID))
     dfs = process_map(compute_results, params, max_workers=5)
+    dfs = [df for df in dfs if df is not None]
     df = pd.concat(dfs, axis=0, ignore_index=True)
     df.to_parquet(RESULTS / "roi_results_all.parquet")
-
