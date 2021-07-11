@@ -38,9 +38,11 @@ to generate the `$SCRATCH/ABIDE-eig/data/niis/shapes.json` summary file needed f
 ## Pre-Computations
 
 These steps make various modified versions of the original files available.
+This assumes you have run `cd $SCRATCH/job_scripts` first.
 
-1. Precompute eigenimages
+1. Precompute eigenimages (must be completed first)
    - `sbatch submit_precompute_eigimgs.sh`
-2. Precompute ROI summary files
+2. Precompute other summary files (can be submitted in parallel)
    - `sbatch submit_precompute_roi_reductions.sh`
+   - `sbatch submit_precompute_sequence_reductions.sh`
 
