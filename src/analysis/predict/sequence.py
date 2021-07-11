@@ -27,7 +27,7 @@ if os.environ.get("CC_CLUSTER") is not None:
     SCRATCH = os.environ["SCRATCH"]
     os.environ["MPLCONFIGDIR"] = str(Path(SCRATCH) / ".mplconfig")
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent.parent))
-from src.analysis.predict.hypertune import hypertune_classifier
+from src.analysis.predict.hypertune import HtuneResult, hypertune_classifier
 from src.analysis.predict.reducers import (
     SequenceReduction,
     eigvals,
@@ -138,7 +138,7 @@ def predict_from_sequence_reductions(
     slice_reducer: Callable[[ndarray], ndarray] = identity,
     classifier: Type = SVC,
     classifier_args: Dict[str, Any] = {},
-) -> Tuple[DataFrame, ndarray]:
+) -> Tuple[DataFrame, ndarray, HtuneResult]:
     if source == "eigimg":
         reducer = eigvals
         reducer_name = reducer.__name__
@@ -157,7 +157,7 @@ def predict_from_sequence_reductions(
     # res = cross_val_score(classifier(**classifier_args), X, y, cv=5, scoring="accuracy")
     print(f"Best val_acc: {htune_result.val_acc}")
     scores = pd.DataFrame(index=["all"], columns=["acc"], data=htune_result.val_acc)
-    return scores, guess
+    return scores, guess, htune_result
 
 
 if __name__ == "__main__":
