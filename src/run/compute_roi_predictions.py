@@ -38,17 +38,19 @@ def compute_results(args: Dict) -> Optional[DataFrame]:
             f"CI: ({np.round(np.percentile(scores, 5), 3)}, {np.round(np.percentile(scores, 95), 3)})"
         )
         return DataFrame(
-            dict(
-                model=htuned.classifier,
-                source=params.source,
-                norm=params.norm,
-                roi_reducer=params.reducer.__name__,
-                roi_slicer=str(params.slicer),
-                slice_reducer=params.slice_reducer.__name__,
-                sharing=params.weight_sharing,
-                acc=htuned.val_acc,
-                params=htuned.best_params,
-            )
+            {
+                **dict(
+                    model=htuned.classifier,
+                    source=params.source,
+                    norm=params.norm,
+                    roi_reducer=params.reducer.__name__,
+                    roi_slicer=str(params.slicer),
+                    slice_reducer=params.slice_reducer.__name__,
+                    sharing=params.weight_sharing,
+                    acc=htuned.val_acc,
+                ),
+                **htuned.best_params,
+            }
         ).copy(deep=True)
     except Exception as e:
         print(f"Got exception {e}")
