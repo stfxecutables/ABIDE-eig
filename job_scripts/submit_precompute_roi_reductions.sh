@@ -14,6 +14,7 @@
 PROJECT=$SCRATCH/ABIDE-eig
 VENV=$PROJECT/.venv/bin/activate
 SCRIPT=$PROJECT/src/run/precompute_roi_reductions.py
+export MPLCONFIGDIR=$SCRATCH/.mplconfig  # silence annoying matplotlib stuff
 
 cd $PROJECT
 source $VENV

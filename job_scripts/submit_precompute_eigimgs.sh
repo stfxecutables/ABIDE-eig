@@ -13,6 +13,7 @@
 
 PROJECT=$SCRATCH/ABIDE-eig
 SCRIPT=$PROJECT/src/eigenimage/compute_batch.py
+export MPLCONFIGDIR=$SCRATCH/.mplconfig  # silence annoying matplotlib stuff
 
 module load python/3.8.2
 cd $SLURM_TMPDIR
