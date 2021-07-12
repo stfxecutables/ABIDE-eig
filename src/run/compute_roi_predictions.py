@@ -1,5 +1,14 @@
+# fmt: off
+import sys  # isort:skip
+from pathlib import Path  # isort:skip
+ROOT = Path(__file__).resolve().parent.parent.parent
+sys.path.append(str(ROOT))
+from src.run.cc_setup import setup_environment, setup_logging  # isort:skip
+setup_environment()
+# fmt: on
+
+
 import logging
-import os
 import sys
 import traceback
 from argparse import Namespace
@@ -13,16 +22,11 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import ParameterGrid
 from tqdm.contrib.concurrent import process_map
 
-ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.append(str(ROOT))
-
-from src.analysis.predict.hypertune import HtuneResult, hypertune_classifier
 from src.analysis.predict.roi_predict import predict_from_roi_reductions
-from src.analysis.rois import identity, max, mean, median, pca, roi_dataframes, std
-from src.eigenimage.compute_batch import T_LENGTH
-from src.run.cc_setup import RESULTS, setup
+from src.analysis.rois import identity, max, mean, pca, std
+from src.run.cc_setup import RESULTS
 
-LOGFILE = setup("compute_roi_preds")
+LOGFILE = setup_logging("compute_roi_preds")
 
 
 def compute_results(args: Dict) -> Optional[DataFrame]:
@@ -30,9 +34,12 @@ def compute_results(args: Dict) -> Optional[DataFrame]:
         scores, guess, htuned = predict_from_roi_reductions(**args)
         params = Namespace(**args)
 
-        print(f"Mean acc: {np.round(np.mean(scores), 3).item()}  (guess = {np.round(guess, 3)})")
-        print(
-            f"CI: ({np.round(np.percentile(scores, 5), 3)}, {np.round(np.percentile(scores, 95), 3)})"
+        logging.debug(
+            f"Mean acc: {np.round(np.mean(scores), 3).item()}  (guess = {np.round(guess, 3)})"
+        )
+        logging.debug(
+            f"CI: ({np.round(np.percentile(scores, 5), 3)}, "
+            f"{np.round(np.percentile(scores, 95), 3)})"
         )
         return DataFrame(
             {

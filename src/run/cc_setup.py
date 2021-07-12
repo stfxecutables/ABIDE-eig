@@ -8,7 +8,7 @@ LOGDIR = ROOT / "logs"
 RESULTS = ROOT / "results"
 
 
-def setup(caller: str) -> Path:
+def setup_environment() -> None:
     if os.environ.get("CC_CLUSTER") is not None:
         SCRATCH = os.environ["SCRATCH"]
         os.environ["MPLCONFIGDIR"] = str(Path(SCRATCH) / ".mplconfig")
@@ -16,6 +16,10 @@ def setup(caller: str) -> Path:
         os.makedirs(LOGDIR, exist_ok=True)
     if not RESULTS.exists():
         os.makedirs(RESULTS, exist_ok=True)
+
+def setup_logging(caller: str) -> Path:
+    if not LOGDIR.exists():
+        os.makedirs(LOGDIR, exist_ok=True)
     LOGFILE = LOGDIR / f"ERRORS_{caller}_{time.strftime('%b-%d__%H:%M:%S')}.log"
     logging.basicConfig(filename=LOGFILE, level=logging.DEBUG)
     return LOGFILE

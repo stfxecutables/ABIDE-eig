@@ -1,29 +1,30 @@
-import os
+# fmt: off
+import sys  # isort:skip
+from pathlib import Path  # isort:skip
+ROOT = Path(__file__).resolve().parent.parent.parent
+sys.path.append(str(ROOT))
+from src.run.cc_setup import setup_environment, setup_logging, RESULTS  # isort:skip
+setup_environment()
+# fmt: on
+
+
+import logging
 import sys
 import traceback
 from argparse import Namespace
 from pathlib import Path
 from typing import Dict, Optional
 
-import numpy as np
 import pandas as pd
 from pandas.core.frame import DataFrame
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import ParameterGrid
 from tqdm.contrib.concurrent import process_map
 
-if os.environ.get("CC_CLUSTER") is not None:
-    SCRATCH = os.environ["SCRATCH"]
-    os.environ["MPLCONFIGDIR"] = str(Path(SCRATCH) / ".mplconfig")
-ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.append(str(ROOT))
-
 from src.analysis.predict.sequence import predict_from_sequence_reductions
 from src.analysis.rois import identity, max, mean, pca, std
 
-RESULTS = ROOT / "results"
-if not RESULTS.exists():
-    os.makedirs(RESULTS, exist_ok=True)
+LOGFILE = setup_logging("compute_seq_pred")
 
 
 def compute_results(args: Dict) -> Optional[DataFrame]:
@@ -47,8 +48,8 @@ def compute_results(args: Dict) -> Optional[DataFrame]:
             index=[0],
         ).copy(deep=True)
     except Exception as e:
-        print(f"Got exception {e}")
-        traceback.print_exc()
+        msg = f"Got exception {e}"
+        logging.debug(f"{msg}\n{traceback.format_exc()}")
         return None
 
 

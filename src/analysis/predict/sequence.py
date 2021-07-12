@@ -1,51 +1,37 @@
+# fmt: off
+import sys  # isort:skip
+from pathlib import Path  # isort:skip
+ROOT = Path(__file__).resolve().parent.parent.parent.parent
+sys.path.append(str(ROOT))
+from src.run.cc_setup import setup_environment  # isort:skip
+setup_environment()
+# fmt: on
+
+
 import os
 import sys
-from argparse import Namespace
-from dataclasses import dataclass
 from pathlib import Path
-from pprint import pprint
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union, cast, no_type_check
+from typing import Any, Callable, Dict, Optional, Tuple, Type, cast
 
 import nibabel as nib
 import numpy as np
 import optuna
 import pandas as pd
 from numpy import ndarray
-from pandas import DataFrame, Series
-from scipy.stats import mannwhitneyu, ttest_ind
-from sklearn.decomposition import PCA
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import roc_auc_score
-from sklearn.model_selection import cross_val_score
-from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
-from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 from typing_extensions import Literal
 
-if os.environ.get("CC_CLUSTER") is not None:
-    SCRATCH = os.environ["SCRATCH"]
-    os.environ["MPLCONFIGDIR"] = str(Path(SCRATCH) / ".mplconfig")
-    LOG = False
-else:
-    LOG = True
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent.parent))
 from src.analysis.predict.hypertune import HtuneResult, hypertune_classifier
 from src.analysis.predict.reducers import (
     SequenceReduction,
     eigvals,
     identity,
-    max,
     mean,
-    median,
     normalize,
-    pca,
-    std,
     subject_labels,
     trim,
 )
-from src.analysis.rois import roi_dataframes
-from src.eigenimage.compute_batch import T_LENGTH
 
 DATA = Path(__file__).resolve().parent.parent.parent.parent / "data"
 NIIS = DATA / "niis"
@@ -61,12 +47,13 @@ ATLAS_DIR = DATA / "atlases"
 MASK = ATLAS_DIR / "MASK.nii.gz"
 ATLAS = ATLAS_DIR / "cc400_roi_atlas_ALIGNED.nii.gz"
 LEGEND = ATLAS_DIR / "CC400_ROI_labels.csv"
+LOG = os.environ.get("CC_CLUSTER") is None
 VERBOSITY = optuna.logging.INFO if LOG else optuna.logging.ERROR
 
 
 def compute_sequence_reduction(
     args: SequenceReduction,
-) -> ndarray:
+) -> Optional[ndarray]:
     source, nii = args.source, args.nii
     reducer, reducer_name = args.reducer, args.reducer_name
     norm = args.norm
@@ -79,7 +66,7 @@ def compute_sequence_reduction(
     fname = Path(str(nii).replace(".nii.gz", "")).name
     outfile = outdir / f"SEQ_{rname}_norm={norm}_{fname}.npy"
     if outfile.exists():
-        return np.load(outfile)
+        return cast(ndarray, np.load(outfile))
 
     if reducer is None:
         raise ValueError("Must have some reducer for seqeuence reduction.")
@@ -87,14 +74,14 @@ def compute_sequence_reduction(
     # trim
     raw = trim(raw, source)
     if raw is None:
-        return
+        return None
     img = normalize(raw, args)
     mask = nib.load(str(MASK)).get_fdata().astype(bool)
     voxels = img[mask]
 
     result = reducer(voxels)
     np.save(outfile, result)
-    return result
+    return cast(ndarray, result)
 
 
 def compute_sequence_reductions(
@@ -106,7 +93,9 @@ def compute_sequence_reductions(
     NII_DIR = NIIS if source == "func" else EIGIMGS
     NII_REGEX = "*func_minimal.nii.gz" if source == "func" else "*eigimg.nii.gz"
     niis = sorted(NII_DIR.rglob(NII_REGEX))
-    eigs = [Path(str(nii).replace("eigimgs", "eigs").replace("_eigimg.nii.gz", ".npy")) for nii in niis]
+    eigs = [
+        Path(str(nii).replace("eigimgs", "eigs").replace("_eigimg.nii.gz", ".npy")) for nii in niis
+    ]
     args = [
         SequenceReduction(
             nii=nii,

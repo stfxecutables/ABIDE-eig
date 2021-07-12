@@ -1,37 +1,31 @@
-import os
-import sys
-from dataclasses import dataclass
-from pathlib import Path
-from pprint import pprint
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union, cast, no_type_check
+# fmt: off
+import sys  # isort:skip
+from pathlib import Path  # isort:skip
+ROOT = Path(__file__).resolve().parent.parent.parent.parent
+sys.path.append(str(ROOT))
+from src.run.cc_setup import setup_environment  # isort:skip
+setup_environment()
+# fmt: on
 
-import nibabel as nib
+import logging
+import os
+from pprint import pprint
+from typing import Any, Callable, Dict, Optional, Tuple, Type
+
 import numpy as np
 import optuna
 import pandas as pd
 from numpy import ndarray
-from pandas import DataFrame, Series
-from scipy.stats import mannwhitneyu, ttest_ind
-from sklearn.decomposition import PCA
+from pandas import DataFrame
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import cross_val_score
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 from tqdm import tqdm
-from tqdm.contrib.concurrent import process_map
 from typing_extensions import Literal
 
-if os.environ.get("CC_CLUSTER") is not None:
-    SCRATCH = os.environ["SCRATCH"]
-    os.environ["MPLCONFIGDIR"] = str(Path(SCRATCH) / ".mplconfig")
-    LOG = False
-else:
-    LOG = True
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent.parent))
 from src.analysis.predict.hypertune import HtuneResult, hypertune_classifier
-from src.analysis.rois import identity, max, mean, median, pca, roi_dataframes, std
-from src.eigenimage.compute_batch import T_LENGTH
+from src.analysis.rois import identity, max, roi_dataframes
 
 DATA = Path(__file__).resolve().parent.parent.parent / "data"
 NIIS = DATA / "niis"
@@ -46,6 +40,7 @@ EIGIMGS = DATA / "eigimgs"
 ATLAS_DIR = DATA / "atlases"
 ATLAS = ATLAS_DIR / "cc400_roi_atlas_ALIGNED.nii.gz"
 LEGEND = ATLAS_DIR / "CC400_ROI_labels.csv"
+LOG = os.environ.get("CC_CLUSTER") is None
 VERBOSITY = optuna.logging.INFO if LOG else optuna.logging.ERROR
 
 
@@ -113,7 +108,7 @@ def predict_from_roi_reductions(
             res = cross_val_score(classifier(**classifier_args), X, y, cv=5, scoring="accuracy")
             scores.loc[name, "acc"] = np.mean(res)
         return scores, guess, None
-    if weight_sharing == "rois":
+    elif weight_sharing == "rois":
         Xs = []
         for roi, name in enumerate(names):
             Xs.append(np.stack(df.iloc[:, roi].to_numpy()))
@@ -127,15 +122,17 @@ def predict_from_roi_reductions(
             "rf",
             X,
             y,
-            n_trials=2,
+            n_trials=200,
             cv_method=5,
             verbosity=VERBOSITY,
             # "rf", X, y, n_trials=200, cv_method=5, verbosity=optuna.logging.INFO
         )
         # res = cross_val_score(classifier(**classifier_args), X, y, cv=5, scoring="accuracy")
-        print(f"Best val_acc: {htune_result.val_acc}")
+        logging.debug(f"Best val_acc: {htune_result.val_acc}")
         scores = pd.DataFrame(index=["all"], columns=["acc"], data=htune_result.val_acc)
         return scores, guess, htune_result
+    else:
+        raise ValueError("Invalid `weight_sharing` option")
 
 
 if __name__ == "__main__":
