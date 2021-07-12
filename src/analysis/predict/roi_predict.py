@@ -122,7 +122,8 @@ def predict_from_roi_reductions(
             "rf",
             X,
             y,
-            n_trials=200,
+            # n_trials=200,
+            n_trials=10,
             cv_method=5,
             verbosity=VERBOSITY,
             # "rf", X, y, n_trials=200, cv_method=5, verbosity=optuna.logging.INFO

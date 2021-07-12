@@ -63,6 +63,7 @@ def compute_results(args: Dict) -> Optional[DataFrame]:
         return None
 
 
+# NOTE: estimated runtime is about
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--silent", action="store_true")
