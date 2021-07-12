@@ -56,8 +56,8 @@ def compute_results(args: Dict) -> Optional[DataFrame]:
 if __name__ == "__main__":
     GRID = dict(
         source=["func", "eigimg"],
-        norm=["diff", None],  # TODO: Fix this ambiguous behaviour
-        reducer=[max, mean, std, pca],
+        norm=["diff", "div", None],  # TODO: Fix this ambiguous behaviour
+        reducer=[pca, std, mean, max],
         slicer=[slice(None)],
         slice_reducer=[identity],
         classifier=[RandomForestClassifier],
