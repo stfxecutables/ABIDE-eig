@@ -66,7 +66,6 @@ if __name__ == "__main__":
         weight_sharing=["rois"],
         classifier=[RandomForestClassifier],
         classifier_args=[dict(n_jobs=8)],
-        logfile=[LOGFILE],
     )
     params = list(ParameterGrid(GRID))
     dfs = process_map(compute_results, params, max_workers=5)
