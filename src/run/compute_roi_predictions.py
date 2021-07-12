@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 import traceback
@@ -12,9 +13,6 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import ParameterGrid
 from tqdm.contrib.concurrent import process_map
 
-if os.environ.get("CC_CLUSTER") is not None:
-    SCRATCH = os.environ["SCRATCH"]
-    os.environ["MPLCONFIGDIR"] = str(Path(SCRATCH) / ".mplconfig")
 ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.append(str(ROOT))
 
@@ -22,10 +20,9 @@ from src.analysis.predict.hypertune import HtuneResult, hypertune_classifier
 from src.analysis.predict.roi_predict import predict_from_roi_reductions
 from src.analysis.rois import identity, max, mean, median, pca, roi_dataframes, std
 from src.eigenimage.compute_batch import T_LENGTH
+from src.run.cc_setup import RESULTS, setup
 
-RESULTS = ROOT / "results"
-if not RESULTS.exists():
-    os.makedirs(RESULTS, exist_ok=True)
+LOGFILE = setup(Path(__name__).resolve().stem)
 
 
 def compute_results(args: Dict) -> Optional[DataFrame]:
@@ -50,11 +47,12 @@ def compute_results(args: Dict) -> Optional[DataFrame]:
                     acc=htuned.val_acc,
                 ),
                 **htuned.best_params,
-            }, index=[0]
+            },
+            index=[0],
         ).copy(deep=True)
     except Exception as e:
-        print(f"Got exception {e}")
-        traceback.print_exc()
+        msg = f"Got exception {e}"
+        logging.debug(f"{msg}\n{traceback.format_exc()}")
         return None
 
 
@@ -68,6 +66,7 @@ if __name__ == "__main__":
         weight_sharing=["rois"],
         classifier=[RandomForestClassifier],
         classifier_args=[dict(n_jobs=8)],
+        logfile=[LOGFILE],
     )
     params = list(ParameterGrid(GRID))
     dfs = process_map(compute_results, params, max_workers=5)
