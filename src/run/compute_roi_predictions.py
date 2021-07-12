@@ -65,10 +65,10 @@ if __name__ == "__main__":
         slice_reducer=[identity],
         weight_sharing=["rois"],
         classifier=[RandomForestClassifier],
-        classifier_args=[dict(n_jobs=8)],
+        classifier_args=[dict(n_jobs=-1)],
     )
     params = list(ParameterGrid(GRID))
-    dfs = process_map(compute_results, params, max_workers=5)
+    dfs = process_map(compute_results, params)
     dfs = [df for df in dfs if df is not None]
     df = pd.concat(dfs, axis=0, ignore_index=True)
     df.to_parquet(RESULTS / "roi_results_all.parquet")
