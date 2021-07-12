@@ -53,7 +53,7 @@ def compute_results(args: Dict) -> Optional[DataFrame]:
         return None
 
 
-# NOTE: expect this to be about a less-than-1-hour job
+# NOTE: this seems to run in about 15 minutes
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--silent", action="store_true")
