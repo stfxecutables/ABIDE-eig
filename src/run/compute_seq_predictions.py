@@ -11,7 +11,7 @@ setup_environment()
 import logging
 import sys
 import traceback
-from argparse import Namespace
+from argparse import ArgumentParser, Namespace
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -55,6 +55,9 @@ def compute_results(args: Dict) -> Optional[DataFrame]:
 
 # NOTE: expect this to be about a 4-hour job
 if __name__ == "__main__":
+    parser = ArgumentParser()
+    parser.add_argument("--silent", action="store_true")
+    silent = parser.parse_args().silent
     GRID = dict(
         source=["func", "eigimg"],
         norm=["diff", "div", None],  # TODO: Fix this ambiguous behaviour
@@ -62,10 +65,10 @@ if __name__ == "__main__":
         slicer=[slice(None)],
         slice_reducer=[identity],
         classifier=[RandomForestClassifier],
-        classifier_args=[dict(n_jobs=8)],
+        classifier_args=[dict(n_jobs=-1)],
     )
     params = list(ParameterGrid(GRID))
-    dfs = process_map(compute_results, params, max_workers=len(params))
+    dfs = process_map(compute_results, params, disable=silent)
     dfs = [df for df in dfs if df is not None]
     df = pd.concat(dfs, axis=0, ignore_index=True)
     df.to_parquet(RESULTS / "seq_results_all.parquet")

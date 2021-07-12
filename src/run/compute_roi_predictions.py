@@ -11,7 +11,7 @@ setup_environment()
 import logging
 import sys
 import traceback
-from argparse import Namespace
+from argparse import ArgumentParser, Namespace
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -64,6 +64,9 @@ def compute_results(args: Dict) -> Optional[DataFrame]:
 
 
 if __name__ == "__main__":
+    parser = ArgumentParser()
+    parser.add_argument("--silent", action="store_true")
+    silent = parser.parse_args().silent
     GRID = dict(
         source=["func", "eigimg"],
         norm=["div", None],
@@ -75,7 +78,7 @@ if __name__ == "__main__":
         classifier_args=[dict(n_jobs=-1)],
     )
     params = list(ParameterGrid(GRID))
-    dfs = process_map(compute_results, params)
+    dfs = process_map(compute_results, params, disable=silent)
     dfs = [df for df in dfs if df is not None]
     df = pd.concat(dfs, axis=0, ignore_index=True)
     df.to_parquet(RESULTS / "roi_results_all.parquet")
