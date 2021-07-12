@@ -16,6 +16,6 @@ def setup(caller: str) -> Path:
         os.makedirs(LOGDIR, exist_ok=True)
     if not RESULTS.exists():
         os.makedirs(RESULTS, exist_ok=True)
-    LOGFILE = LOGDIR / f"errors_{caller}_{time.strftime('%b-%d__%H:%M:%S')}.log"
+    LOGFILE = LOGDIR / f"ERRORS_{caller}_{time.strftime('%b-%d__%H:%M:%S')}.log"
     logging.basicConfig(filename=LOGFILE, level=logging.DEBUG)
     return LOGFILE

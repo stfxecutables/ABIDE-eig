@@ -22,7 +22,7 @@ from src.analysis.rois import identity, max, mean, median, pca, roi_dataframes, 
 from src.eigenimage.compute_batch import T_LENGTH
 from src.run.cc_setup import RESULTS, setup
 
-LOGFILE = setup(Path(__name__).resolve().stem)
+LOGFILE = setup("compute_roi_preds")
 
 
 def compute_results(args: Dict) -> Optional[DataFrame]:
