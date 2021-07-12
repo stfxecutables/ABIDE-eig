@@ -63,7 +63,8 @@ def compute_results(args: Dict) -> Optional[DataFrame]:
         return None
 
 
-# NOTE: estimated runtime is about
+# NOTE: runtime n_trials=10 is about 8 minutes
+# expect about 3 hours for n_trials=200
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--silent", action="store_true")

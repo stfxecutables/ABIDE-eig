@@ -122,11 +122,9 @@ def predict_from_roi_reductions(
             "rf",
             X,
             y,
-            # n_trials=200,
-            n_trials=10,
+            n_trials=200,
             cv_method=5,
             verbosity=VERBOSITY,
-            # "rf", X, y, n_trials=200, cv_method=5, verbosity=optuna.logging.INFO
         )
         # res = cross_val_score(classifier(**classifier_args), X, y, cv=5, scoring="accuracy")
         logging.debug(f"Best val_acc: {htune_result.val_acc}")
