@@ -8,6 +8,7 @@ setup_environment()
 # fmt: on
 
 
+import logging
 import os
 import sys
 from pathlib import Path
@@ -110,7 +111,7 @@ def compute_sequence_reductions(
     results = process_map(compute_sequence_reduction, args)
     all_labels = subject_labels(niis)
     if len(results) == 0:
-        print("No sequence reductions to concatenate into DataFrame. All done.")
+        logging.debug("No sequence reductions to concatenate into DataFrame. All done.")
         return
     reductions, labels = [], []
     for result, label in zip(results, all_labels):
@@ -127,7 +128,7 @@ def compute_sequence_reductions(
         os.makedirs(outdir, exist_ok=True)
     outfile = outdir / f"SEQ_ALL_{rname}_norm={norm}.parquet"
     df.to_parquet(str(outfile), index=True)
-    print(f"Saved {reducer_name} spectrum reduction to {outfile}.")
+    logging.debug(f"Saved {reducer_name} spectrum reduction to {outfile}.")
 
 
 def predict_from_sequence_reductions(
@@ -145,8 +146,8 @@ def predict_from_sequence_reductions(
         reducer_name = reducer.__name__
 
     rname = reducer.__name__ if reducer_name is None else reducer_name
-    df_path = SEQS / f"{source}/{rname}/SEQ_ALL_{rname}_norm={norm}.parquet"
-
+    outdir = SEQS / f"{source}/{rname}"
+    df_path = outdir / f"SEQ_ALL_{rname}_norm={norm}.parquet"
     df = pd.read_parquet(df_path)
     X = df.drop(columns="target").to_numpy()
     y = df["target"].to_numpy().ravel()

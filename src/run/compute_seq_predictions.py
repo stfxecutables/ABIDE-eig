@@ -21,8 +21,8 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import ParameterGrid
 from tqdm.contrib.concurrent import process_map
 
+from src.analysis.predict.reducers import eigvals, identity, max, mean, pca, std
 from src.analysis.predict.sequence import predict_from_sequence_reductions
-from src.analysis.rois import identity, max, mean, pca, std
 
 LOGFILE = setup_logging("compute_seq_pred")
 
@@ -61,7 +61,7 @@ if __name__ == "__main__":
     GRID = dict(
         source=["func", "eigimg"],
         norm=["diff", "div", None],  # TODO: Fix this ambiguous behaviour
-        reducer=[pca, std, mean, max],
+        reducer=[pca, std, mean, max, eigvals],
         slicer=[slice(None)],
         slice_reducer=[identity],
         classifier=[RandomForestClassifier],
