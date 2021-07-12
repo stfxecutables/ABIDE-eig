@@ -52,6 +52,7 @@ def compute_results(args: Dict) -> Optional[DataFrame]:
                     slice_reducer=params.slice_reducer.__name__,
                     sharing=params.weight_sharing,
                     acc=htuned.val_acc,
+                    guess=guess,
                 ),
                 **htuned.best_params,
             },
