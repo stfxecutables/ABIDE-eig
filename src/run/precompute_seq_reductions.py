@@ -16,10 +16,10 @@ from src.analysis.predict.sequence import compute_sequence_reductions
 if __name__ == "__main__":
     GRID = dict(
         source=["func", "eigimg"],
-        norm=["diff", None],
+        norm=["div", "diff", None],
         reducer=[pca, mean, max, std],
     )
-    # expected runtime is less than one hour
+    # expected runtime is well under an hour on Niagara
     for args in list(ParameterGrid(GRID)):
         try:
             compute_sequence_reductions(**args)
