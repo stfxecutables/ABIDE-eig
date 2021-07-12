@@ -53,14 +53,13 @@ def compute_results(args: Dict) -> Optional[DataFrame]:
         return None
 
 
-# NOTE: expect this to be about a 4-hour job
+# NOTE: expect this to be about a less-than-1-hour job
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--silent", action="store_true")
     silent = parser.parse_args().silent
     GRID = dict(
-        # source=["func", "eigimg"],
-        source=["eigimg"],
+        source=["func", "eigimg"],
         norm=["diff", "div", None],  # TODO: Fix this ambiguous behaviour
         reducer=[pca, std, mean, max, eigvals],
         slicer=[slice(None)],
