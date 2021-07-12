@@ -59,7 +59,8 @@ if __name__ == "__main__":
     parser.add_argument("--silent", action="store_true")
     silent = parser.parse_args().silent
     GRID = dict(
-        source=["func", "eigimg"],
+        # source=["func", "eigimg"],
+        source=["eigimg"],
         norm=["diff", "div", None],  # TODO: Fix this ambiguous behaviour
         reducer=[pca, std, mean, max, eigvals],
         slicer=[slice(None)],
