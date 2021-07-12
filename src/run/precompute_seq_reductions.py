@@ -10,7 +10,7 @@ if os.environ.get("CC_CLUSTER") is not None:
     os.environ["MPLCONFIGDIR"] = str(Path(SCRATCH) / ".mplconfig")
 ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.append(str(ROOT))
-from src.analysis.predict.reducers import identity, max, mean, pca, std
+from src.analysis.predict.reducers import max, mean, pca, std
 from src.analysis.predict.sequence import compute_sequence_reductions
 
 if __name__ == "__main__":

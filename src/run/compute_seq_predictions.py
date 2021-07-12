@@ -52,10 +52,11 @@ def compute_results(args: Dict) -> Optional[DataFrame]:
         return None
 
 
+# NOTE: expect this to be about a 4-hour job
 if __name__ == "__main__":
     GRID = dict(
         source=["func", "eigimg"],
-        norm=["diff", None],
+        norm=["diff", None],  # TODO: Fix this ambiguous behaviour
         reducer=[max, mean, std, pca],
         slicer=[slice(None)],
         slice_reducer=[identity],

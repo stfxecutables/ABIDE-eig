@@ -100,6 +100,7 @@ class SequenceReduction:
 
     nii: Path
     source: Literal["func", "eigimg"]
+    eigens: Optional[None] = None
     norm: Optional[Literal["div", "diff"]] = "div"
     reducer: Optional[Callable[[ndarray], ndarray]] = None
     reducer_name: Optional[str] = None

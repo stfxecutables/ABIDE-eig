@@ -103,12 +103,20 @@ def compute_sequence_reductions(
     reducer: Callable[[ndarray], ndarray] = mean,
     reducer_name: str = None,
 ) -> None:
-    niis = sorted(NIIS.rglob("*func_minimal.nii.gz"))
+    NII_DIR = NIIS if source == "func" else EIGIMGS
+    NII_REGEX = "*func_minimal.nii.gz" if source == "func" else "*eigimg.nii.gz"
+    niis = sorted(NII_DIR.rglob(NII_REGEX))
+    eigs = [Path(str(nii).replace("eigimgs", "eigs").replace("_eigimg.nii.gz", ".npy")) for nii in niis]
     args = [
         SequenceReduction(
-            nii=nii, source=source, norm=norm, reducer=reducer, reducer_name=reducer_name
+            nii=nii,
+            source=source,
+            eigens=eig if source == "eigimg" else None,
+            norm=norm,
+            reducer=reducer,
+            reducer_name=reducer_name,
         )
-        for nii in niis
+        for nii, eig in zip(niis, eigs)
     ]
     results = process_map(compute_sequence_reduction, args)
     all_labels = subject_labels(niis)
