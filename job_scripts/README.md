@@ -54,3 +54,9 @@ sbatch submit_precompute_scalar_reductions.sh && \
 echo "All precompute jobs submitted."
 ```
 
+## Run Main Analyses
+
+```sh
+sbatch submit_compute_roi.sh
+sbatch submit_compute_seq.sh
+```
