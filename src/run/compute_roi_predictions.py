@@ -33,14 +33,6 @@ def compute_results(args: Dict) -> Optional[DataFrame]:
     try:
         scores, guess, htuned = predict_from_roi_reductions(**args)
         params = Namespace(**args)
-
-        logging.debug(
-            f"Mean acc: {np.round(np.mean(scores), 3).item()}  (guess = {np.round(guess, 3)})"
-        )
-        logging.debug(
-            f"CI: ({np.round(np.percentile(scores, 5), 3)}, "
-            f"{np.round(np.percentile(scores, 95), 3)})"
-        )
         return DataFrame(
             {
                 **dict(
@@ -64,8 +56,21 @@ def compute_results(args: Dict) -> Optional[DataFrame]:
         return None
 
 
-# NOTE: runtime n_trials=10 is about 8 minutes
-# expect about 3 hours for n_trials=200
+# NOTE: For the GRID
+#
+#    GRID = dict(
+#        source=["func", "eigimg"],
+#        norm=["div", None],
+#        reducer=[max, mean, std, pca],
+#        slicer=[slice(None)],
+#        slice_reducer=[identity],
+#        weight_sharing=["rois"],
+#        classifier=[RandomForestClassifier],
+#        classifier_args=[dict(n_jobs=-1)],
+#    )
+#
+# Runtime n_trials=10 is about 8 minutes
+# For n_trials=200, actual runtime was 2:31:03 (~2.5hrs)
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--silent", action="store_true")

@@ -4,9 +4,9 @@
 #SBATCH --mail-type=BEGIN
 #SBATCH --mail-type=END
 #SBATCH --mail-type=FAIL
-#SBATCH --output=eigimg%A__%a.out
-#SBATCH --job-name=eigimg
-#SBATCH --time=24:00:00
+#SBATCH --output=precomp_roi%A__%a.out
+#SBATCH --job-name=pre_roi
+#SBATCH --time=12:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=80
 

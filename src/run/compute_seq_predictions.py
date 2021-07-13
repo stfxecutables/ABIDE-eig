@@ -53,7 +53,20 @@ def compute_results(args: Dict) -> Optional[DataFrame]:
         return None
 
 
-# NOTE: this seems to run in about 15 minutes
+# NOTE: For the GRID
+#
+#    GRID = dict(
+#        source=["func", "eigimg"],
+#        norm=["diff", "div", None],  # TODO: Fix this ambiguous behaviour
+#        reducer=[pca, std, mean, max, eigvals],
+#        slicer=[slice(None)],
+#        slice_reducer=[identity],
+#        classifier=[RandomForestClassifier],
+#        classifier_args=[dict(n_jobs=-1)],
+#    )
+#
+# and n_trials=200, total runtime is about 15 minutes.
+# If n_trials=500, total runtime is just under 50 minutes.
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--silent", action="store_true")
@@ -72,64 +85,3 @@ if __name__ == "__main__":
     dfs = [df for df in dfs if df is not None]
     df = pd.concat(dfs, axis=0, ignore_index=True)
     df.to_parquet(RESULTS / "seq_results_all.parquet")
-
-"""
-Guess = 0.569
-Results: Mean
-    Best Acc: 0.591
-        source="func", norm="div", reducer=mean,
-        slicer=slice(None), slice_reducer=identity,
-        classifier=RandomForestClassifier,
-    Best Acc: 0.556
-        source="func", norm="diff", reducer=mean,
-        slicer=slice(None), slice_reducer=identity,
-        classifier=RandomForestClassifier,
-    Best Acc: 0.562
-        source="func", norm=None, reducer=mean,
-        slicer=slice(None), slice_reducer=identity,
-        classifier=RandomForestClassifier,
-
-Results: Std
-    Best Acc: 0.551
-        source="func", norm="div", reducer=std,
-        slicer=slice(None), slice_reducer=identity,
-        classifier=RandomForestClassifier,
-    Best Acc: 0.569
-        source="func", norm="diff", reducer=std,
-        slicer=slice(None), slice_reducer=identity,
-        classifier=RandomForestClassifier,
-    Best Acc: 0.573
-        source="func", norm=None, reducer=std,
-        slicer=slice(None), slice_reducer=identity,
-        classifier=RandomForestClassifier,
-
-TODO: test PCA reduced ROIs and/or PCA reduced fMRI images
-Results: PCA
-    Best Acc: 0.587
-        source="func", norm="div", reducer=PCA,
-        slicer=slice(None), slice_reducer=identity,
-        classifier=RandomForestClassifier,
-    Best Acc: 0.571
-        source="eigimg", norm="diff", reducer=PCA,
-        slicer=slice(None), slice_reducer=identity,
-        classifier=RandomForestClassifier,
-    Best Acc: 0.553
-        source="eigimg", norm=None, reducer=PCA,
-        slicer=slice(None), slice_reducer=identity,
-        classifier=RandomForestClassifier,
-
-Results: Eigimg
-    Best Acc: 0.618
-        source="func", norm="div", reducer=mean,
-        slicer=slice(None), slice_reducer=identity,
-        classifier=RandomForestClassifier,
-    Best Acc: 0.589
-        source="func", norm="diff", reducer=mean,
-        slicer=slice(None), slice_reducer=identity,
-        classifier=RandomForestClassifier,
-    Best Acc: 0.593
-        source="func", norm=None, reducer=mean,
-        slicer=slice(None), slice_reducer=identity,
-        classifier=RandomForestClassifier,
-
-"""

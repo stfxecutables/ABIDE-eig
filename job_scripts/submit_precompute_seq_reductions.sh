@@ -4,8 +4,8 @@
 #SBATCH --mail-type=BEGIN
 #SBATCH --mail-type=END
 #SBATCH --mail-type=FAIL
-#SBATCH --output=eigimg%A__%a.out
-#SBATCH --job-name=eigimg
+#SBATCH --output=precomp_seq%A__%a.out
+#SBATCH --job-name=pre_seq
 #SBATCH --time=1:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=80
