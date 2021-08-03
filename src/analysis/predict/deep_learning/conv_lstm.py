@@ -168,13 +168,19 @@ class MemTestCNN(LightningModule):
         return acc, loss
 
 
-X1_TRAIN = torch.rand([20, *INPUT_SHAPE]) - 0.4
+print("Generating class 1 training data")
+X1_TRAIN = torch.rand([20, *INPUT_SHAPE])
+print("Generating class 2 training data")
 X2_TRAIN = torch.rand([20, *INPUT_SHAPE])
 X_TRAIN = torch.cat([X1_TRAIN, X2_TRAIN])
+X_TRAIN -= torch.mean(X_TRAIN)
 Y_TRAIN = torch.cat([torch.zeros(20), torch.ones(20)])
-X1_VAL = -torch.rand([5, *INPUT_SHAPE]) + 0.4
+print("Generating class 1 validation data")
+X1_VAL = torch.rand([5, *INPUT_SHAPE])
+print("Generating class 2 validation data")
 X2_VAL = torch.rand([5, *INPUT_SHAPE])
 X_VAL = torch.cat([X1_VAL, X2_VAL])
+X_VAL -= torch.mean(X_VAL)
 Y_VAL = torch.cat([torch.zeros(5), torch.ones(5)])
 
 
