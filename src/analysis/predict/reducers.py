@@ -148,7 +148,7 @@ def trim(raw: ndarray, source: Literal["func", "eigimg"]) -> Optional[ndarray]:
         else:
             return cast(ndarray, raw[:, :, :, -(T_LENGTH - 1) :])
     else:
-        if raw.shape[-1] != (T_LENGTH - 1):
+        if raw.shape[-1] != (T_LENGTH - 1):  # 175
             return None
         else:
             return raw

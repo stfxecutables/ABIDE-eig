@@ -34,7 +34,7 @@ from src.analysis.predict.reducers import (
     trim,
 )
 
-DATA = Path(__file__).resolve().parent.parent.parent.parent / "data"
+DATA = ROOT / "data"
 NIIS = DATA / "niis"
 SEQS = DATA / "seqs"
 if not SEQS.exists():
