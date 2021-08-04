@@ -71,7 +71,7 @@ def get_mask_bounds(mask: ndarray) -> Cropper:
 
 
 def crop_to_bounds(nii: Path, mask: ndarray, cropper: Cropper) -> ndarray:
-    img: ndarray = nib.load(str(nii)).get_fdata().astype(np.float32)
+    img: ndarray = nib.load(str(nii)).get_fdata()
     img[~mask] = 0
     img = img[cropper]
     # now crop time
@@ -98,7 +98,7 @@ def save(args: PreprocArgs, img: ndarray) -> None:
     norm = "_norm" if args.normalize else ""
     outdir = DEEP_EIGIMG if "eigimg" in src.name else DEEP_FMRI
     outfile = outdir / src.name.replace(".nii.gz", f"_cropped{norm}.npy")
-    np.save(outfile, img, allow_pickle=False)
+    np.save(outfile, img.astype(np.float32), allow_pickle=False)
 
 
 def preprocess_image(args: PreprocArgs) -> None:
