@@ -25,7 +25,7 @@ from numpy import ndarray
 from pandas import DataFrame, Series
 from pytorch_lightning import LightningModule, Trainer
 from torch import Tensor
-from torch.nn import BCEWithLogitsLoss, Conv3d, Linear, LSTMCell, Module, PReLU, ReLU
+from torch.nn import BatchNorm3d, BCEWithLogitsLoss, Conv3d, Linear, LSTMCell, Module, PReLU, ReLU
 from torch.utils.data import DataLoader, Dataset, random_split
 from torchmetrics.functional import accuracy
 from typing_extensions import Literal
@@ -48,6 +48,36 @@ added with ratio 0.5 after the first and the sec- ond max pooling layers and rat
 third and the fourth max pooling layers. L2 regularization with regulari- sation 0.01 was used in
 each fully connected layer to avoid overfitting
 """
+
+
+class Downsample(Module):
+    def __init__(self):
+        super().__init__()
+
+
+class ResBlock(Module):
+    def __init__(self):
+        super().__init__()
+        ch = INPUT_SHAPE[0]
+        KERNEL = 3
+        STRIDE = 2
+        DILATION = 3
+        PADDING = 3
+        conv_args: Dict = dict(
+            kernel_size=KERNEL,
+            stride=STRIDE,
+            dilation=DILATION,
+            padding=PADDING,
+            bias=False,
+            groups=1,
+        )
+        # BNorm  after PReLU, see https://github.com/ducha-aiki/caffenet-benchmark/blob/master/batchnorm.md
+        self.conv1 = Conv3d(in_channels=ch, out_channels=ch, **conv_args)
+        self.relu1 = PReLU()
+        self.norm1 = BatchNorm3d(ch)
+        self.conv2 = Conv3d(in_channels=ch, out_channels=ch, **conv_args)
+        self.relu2 = PReLU()
+        self.norm2 = BatchNorm3d(ch)
 
 
 class ConvToLSTM(Module):
@@ -77,8 +107,7 @@ class ConvToLSTM(Module):
     def __init__(self):
         super().__init__()
         ch = INPUT_SHAPE[0]
-        conv_args = dict(in_channels=ch, out_channels=ch, kernel_size=2, stride=2, bias=False)
-
+        conv_args: Dict = dict(in_channels=ch, out_channels=ch, kernel_size=2, stride=2, bias=False)
         self.conv1 = Conv3d(**conv_args)
         self.conv2 = Conv3d(**conv_args)
 
@@ -98,7 +127,7 @@ class MemTestCNN(LightningModule):
         STRIDE = 2
         DILATION = 3
         PADDING = 3
-        conv_args = dict(
+        conv_args: Dict = dict(
             kernel_size=KERNEL,
             stride=STRIDE,
             dilation=DILATION,
@@ -106,30 +135,42 @@ class MemTestCNN(LightningModule):
             bias=False,
             groups=1,
         )
+        # BNorm  after PReLU, see https://github.com/ducha-aiki/caffenet-benchmark/blob/master/batchnorm.md
         self.conv1 = Conv3d(in_channels=ch, out_channels=ch, **conv_args)
         self.relu1 = PReLU()
+        self.norm1 = BatchNorm3d(ch)
         self.conv2 = Conv3d(in_channels=ch, out_channels=ch, **conv_args)
         self.relu2 = PReLU()
+        self.norm2 = BatchNorm3d(ch)
         self.conv3 = Conv3d(in_channels=ch, out_channels=ch, **conv_args)
         self.relu3 = PReLU()
+        self.norm3 = BatchNorm3d(ch)
         self.conv4 = Conv3d(in_channels=ch, out_channels=ch, **conv_args)
         self.relu4 = PReLU()
+        self.norm4 = BatchNorm3d(ch)
         self.conv5 = Conv3d(in_channels=ch, out_channels=ch, **conv_args)
         self.relu5 = PReLU()
+        self.norm5 = BatchNorm3d(ch)
         self.gap = GlobalAveragePooling()
         self.linear = Linear(in_features=2100, out_features=1, bias=True)
 
+    @no_type_check
     def forward(self, x: Tensor) -> Tensor:
         x = self.conv1(x)
         x = self.relu1(x)
+        x = self.norm1(x)
         x = self.conv2(x)
         x = self.relu2(x)
+        x = self.norm2(x)
         x = self.conv3(x)
         x = self.relu3(x)
+        x = self.norm3(x)
         x = self.conv4(x)
         x = self.relu4(x)
+        x = self.norm4(x)
         x = self.conv5(x)
         x = self.relu5(x)
+        x = self.norm5(x)
         # print("Shape after convs: ", x.shape)
         # x = self.gap(x)
         x = x.reshape([x.size(0), -1])  # flatten
@@ -138,6 +179,7 @@ class MemTestCNN(LightningModule):
         x = self.linear(x)
         return x
 
+    @no_type_check
     def training_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> Tensor:
         acc, loss = self.inner_step(batch)
         self.log("train_acc", acc, prog_bar=True, on_step=True, on_epoch=True)
@@ -145,11 +187,13 @@ class MemTestCNN(LightningModule):
         self.log("loss", loss, prog_bar=True, on_step=True, on_epoch=True)
         return loss
 
+    @no_type_check
     def validation_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> None:
         acc, loss = self.inner_step(batch)
         self.log("val_loss", loss, prog_bar=True)
         self.log("val_acc", acc, prog_bar=True)
 
+    @no_type_check
     def test_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> None:
         acc, loss = self.inner_step(batch)
         self.log("test_loss", loss)
@@ -168,20 +212,26 @@ class MemTestCNN(LightningModule):
         return acc, loss
 
 
-print("Generating class 1 training data")
-X1_TRAIN = torch.rand([20, *INPUT_SHAPE])
-print("Generating class 2 training data")
-X2_TRAIN = torch.rand([20, *INPUT_SHAPE])
-X_TRAIN = torch.cat([X1_TRAIN, X2_TRAIN])
-X_TRAIN -= torch.mean(X_TRAIN)
-Y_TRAIN = torch.cat([torch.zeros(20), torch.ones(20)])
-print("Generating class 1 validation data")
-X1_VAL = torch.rand([5, *INPUT_SHAPE])
-print("Generating class 2 validation data")
-X2_VAL = torch.rand([5, *INPUT_SHAPE])
-X_VAL = torch.cat([X1_VAL, X2_VAL])
-X_VAL -= torch.mean(X_VAL)
-Y_VAL = torch.cat([torch.zeros(5), torch.ones(5)])
+def random_data() -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+    # if our model is flexible enough we should be  able to overfit random data
+    # we can!
+    print("Generating class 1 training data")
+    x1_train = torch.rand([20, *INPUT_SHAPE])
+    print("Generating class 2 training data")
+    x2_train = torch.rand([20, *INPUT_SHAPE])
+    x_train = torch.cat([x1_train, x2_train])
+    print("Normalizing")
+    x_train -= torch.mean(x_train)
+    y_train = torch.cat([torch.zeros(20), torch.ones(20)])
+    print("Generating class 1 validation data")
+    x1_val = torch.rand([5, *INPUT_SHAPE])
+    print("Generating class 2 validation data")
+    x2_val = torch.rand([5, *INPUT_SHAPE])
+    x_val = torch.cat([x1_val, x2_val])
+    print("Normalizing")
+    x_val -= torch.mean(x_val)
+    y_val = torch.cat([torch.zeros(5), torch.ones(5)])
+    return x_train, y_train, x_val, y_val
 
 
 class RandomSeparated(Dataset):
@@ -189,7 +239,7 @@ class RandomSeparated(Dataset):
         super().__init__()
         self.size = size
 
-    def __getitem__(self, index: int) -> Tuple[Tensor, int]:
+    def __getitem__(self, index: int) -> Tuple[Tensor, Tensor]:
         if index < self.size // 2:
             return torch.rand(INPUT_SHAPE) - 0.5, Tensor([0])
         return torch.rand(INPUT_SHAPE), Tensor([1])
@@ -199,6 +249,7 @@ class RandomSeparated(Dataset):
 
 
 if __name__ == "__main__":
+    X_TRAIN, Y_TRAIN, X_VAL, Y_VAL = random_data()
     train_loader = DataLoader(
         TensorDataset(X_TRAIN, Y_TRAIN),
         batch_size=BATCH_SIZE,
