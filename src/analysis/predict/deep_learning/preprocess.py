@@ -9,22 +9,14 @@ sys.path.append(str(ROOT))
 
 import os
 import traceback
-from argparse import Namespace
 from dataclasses import dataclass
-from itertools import repeat
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union, cast, no_type_check
+from typing import Tuple, cast
 
-import matplotlib.pyplot as plt
 import nibabel as nib
 import numpy as np
-import pandas as pd
-import pytest
-import seaborn as sbn
 from numpy import ndarray
-from pandas import DataFrame, Series
 from tqdm.contrib.concurrent import process_map
-from typing_extensions import Literal
 
 """We need to use fMRI (non-eigimg) files only for subjects where we could
 compute the eigenimage of the same shapes. For efficiency, we also need to
@@ -130,4 +122,3 @@ if __name__ == "__main__":
         niis = sorted(SRC_DIR.rglob("*.nii.gz"))
         args = [PreprocArgs(nii=nii, mask=mask, cropper=cropper, normalize=True) for nii in niis]
         process_map(preprocess_image, args)
-    pass
