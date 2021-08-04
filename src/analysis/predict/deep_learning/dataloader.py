@@ -36,7 +36,9 @@ DEEP_EIGIMG = DEEP / "eigimg"
 # images that we could compute comparable eigimgs for.
 PREPROC_EIG = sorted(DEEP_EIGIMG.rglob("*.npy"))
 PREPROC_FMRI = [Path(str(p).replace("_eigimg", "")) for p in PREPROC_EIG]
-
+for fmri in PREPROC_FMRI:
+    assert fmri.exists(), fmri
+sys.exit()
 
 # nii paths
 IMGS: List[Path] = sorted(Path(__file__).resolve().parent.rglob("*nii.gz"))
