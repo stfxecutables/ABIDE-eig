@@ -180,6 +180,7 @@ def normalize(raw: ndarray, args: Union[SequenceReduction, RoiReduction]) -> nda
 
 
 def subject_labels(imgs: List[Path]) -> List[int]:
+    """Returns a list of labels (0 for ctrl, 1 for autism) given a list of nii paths"""
     subjects = pd.read_csv(SUBJ_DATA, usecols=["FILE_ID", "DX_GROUP"])
     # convert from stupid (1,2)=(AUTISM,CTRL) to (0, 1)=(CTRL, AUTISM)
     subjects["DX_GROUP"] = 2 - subjects["DX_GROUP"]
