@@ -2,10 +2,12 @@
 #                           Project-specific ignores                           #
 ################################################################################
 data/atlases/*ALIGNED.nii.gz
+data/deep
+data/eigs
+data/eigimgs
 data/niis/*.nii.gz
 data/rois
 data/seqs
-data/deep
 lightning_logs
 *.tar.gz
 
