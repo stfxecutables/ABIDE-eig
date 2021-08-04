@@ -77,7 +77,7 @@ def crop_to_bounds(nii: Path, mask: ndarray, cropper: Cropper) -> ndarray:
     # now crop time
     img = img[:, :, :, -T:]
     if img.shape[-1] != T:
-        raise ValueError("Cannot process image")
+        raise ValueError(f"Image {nii.name} too short for inclusion")
     return img
 
 
@@ -97,7 +97,7 @@ def save(args: PreprocArgs, img: ndarray) -> None:
     src = args.nii
     norm = "_norm" if args.normalize else ""
     outdir = DEEP_EIGIMG if "eigimg" in src.name else DEEP_FMRI
-    outfile = outdir / src.name.replace(".nii.gz", f"_cropped{norm}.nii.gz")
+    outfile = outdir / src.name.replace(".nii.gz", f"_cropped{norm}.npy")
     np.save(outfile, img, allow_pickle=False)
 
 
