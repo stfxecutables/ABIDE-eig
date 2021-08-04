@@ -29,13 +29,14 @@ from typing_extensions import Literal
 from src.analysis.predict.reducers import subject_labels
 
 DATA = ROOT / "data"
-EIGS = DATA / "eigs"  # for normalizing
-NIIS = DATA / "niis"  # raw nii data
-EIGIMGS = DATA / "eigimgs"  # raw eigenimages
-SUBJ_DATA = DATA / "Phenotypic_V1_0b_preprocessed1.csv"
+DEEP = DATA / "deep"  # for DL preprocessed fMRI data
+DEEP_FMRI = DEEP / "fmri"
+DEEP_EIGIMG = DEEP / "eigimg"
+# Not all images convert to eigenimg of same dims, so we only use fMRI
+# images that we could compute comparable eigimgs for.
+PREPROC_EIG = sorted(DEEP_EIGIMG.rglob("*.npy"))
+PREPROC_FMRI = [Path(str(p).replace("_eigimg", "")) for p in PREPROC_EIG]
 
-ATLAS_DIR = DATA / "atlases"
-MASK = ATLAS_DIR / "MASK.nii.gz"  # perhaps only want loss on a mask
 
 # nii paths
 IMGS: List[Path] = sorted(Path(__file__).resolve().parent.rglob("*nii.gz"))
