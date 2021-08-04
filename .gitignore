@@ -5,6 +5,9 @@ data/atlases/*ALIGNED.nii.gz
 data/niis/*.nii.gz
 data/rois
 data/seqs
+data/deep
+lightning_logs
+*.tar.gz
 
 
 
