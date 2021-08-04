@@ -71,7 +71,7 @@ def get_mask_bounds(mask: ndarray) -> Cropper:
 
 
 def crop_to_bounds(nii: Path, mask: ndarray, cropper: Cropper) -> ndarray:
-    img: ndarray = nib.load(str(nii)).get_fdata()
+    img: ndarray = nib.load(str(nii)).get_fdata().astype(np.float32)
     img[~mask] = 0
     img = img[cropper]
     # now crop time
