@@ -34,11 +34,21 @@ DEEP_EIGIMG = DEEP / "eigimg"
 # images that we could compute comparable eigimgs for.
 PREPROC_EIG = sorted(DEEP_EIGIMG.rglob("*.npy"))
 PREPROC_FMRI = [DEEP_FMRI / str(p.name).replace("_eigimg", "") for p in PREPROC_EIG]
+print("Verifying fMRI files match eigimg files...")
 n_exist = 0
-for fmri in tqdm(PREPROC_FMRI, total=len(PREPROC_EIG)):
-    assert fmri.exists(), f"Files existing: {n_exist}. Missing: {fmri}"
+for fmri in tqdm(PREPROC_FMRI, total=len(PREPROC_EIG), disable=True):
+    assert fmri.exists(), f"Matching fMRI files: {n_exist}. Currently missing: {fmri}"
     n_exist += 1
+LABELS: List[int] = subject_labels(PREPROC_EIG)
+info = DataFrame({"img": map(lambda p: p.name, PREPROC_EIG), "label": LABELS}, index=list(range(len(LABELS))))
+ctrl = info.loc[info["label"] == 0, :]
+auts = info.loc[info["label"] == 1, :]
+ctrl = ctrl.iloc[:50, :]
+auts = auts.iloc[:50, :]
+df = pd.concat([ctrl, auts], axis=0)
+df.to_csv(DEEP / "subjs.csv")
 sys.exit()
+
 
 # nii paths
 IMGS: List[Path] = sorted(Path(__file__).resolve().parent.rglob("*nii.gz"))
