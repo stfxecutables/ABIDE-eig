@@ -16,9 +16,7 @@ import nibabel as nib
 import numpy as np
 import pandas as pd
 import pytest
-import seaborn as sbn
 import torch
-from nilearn.image import resample_img
 from numpy import ndarray
 from pandas import DataFrame, Series
 from torch import Tensor
@@ -36,7 +34,7 @@ DEEP_EIGIMG = DEEP / "eigimg"
 # images that we could compute comparable eigimgs for.
 PREPROC_EIG = sorted(DEEP_EIGIMG.rglob("*.npy"))
 PREPROC_FMRI = [Path(str(p).replace("_eigimg", "")) for p in PREPROC_EIG]
-for fmri in PREPROC_FMRI:
+for fmri in tqdm(PREPROC_FMRI, total=len(PREPROC_EIG)):
     assert fmri.exists(), fmri
 sys.exit()
 
