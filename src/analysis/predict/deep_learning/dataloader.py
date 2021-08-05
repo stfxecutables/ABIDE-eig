@@ -33,7 +33,7 @@ DEEP_EIGIMG = DEEP / "eigimg"
 # Not all images convert to eigenimg of same dims, so we only use fMRI
 # images that we could compute comparable eigimgs for.
 PREPROC_EIG = sorted(DEEP_EIGIMG.rglob("*.npy"))
-PREPROC_FMRI = [Path(str(p).replace("_eigimg", "")) for p in PREPROC_EIG]
+PREPROC_FMRI = [DEEP_FMRI / str(p.name).replace("_eigimg", "") for p in PREPROC_EIG]
 n_exist = 0
 for fmri in tqdm(PREPROC_FMRI, total=len(PREPROC_EIG)):
     assert fmri.exists(), f"Files existing: {n_exist}. Missing: {fmri}"
