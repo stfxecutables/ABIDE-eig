@@ -34,8 +34,10 @@ DEEP_EIGIMG = DEEP / "eigimg"
 # images that we could compute comparable eigimgs for.
 PREPROC_EIG = sorted(DEEP_EIGIMG.rglob("*.npy"))
 PREPROC_FMRI = [Path(str(p).replace("_eigimg", "")) for p in PREPROC_EIG]
+n_exist = 0
 for fmri in tqdm(PREPROC_FMRI, total=len(PREPROC_EIG)):
-    assert fmri.exists(), fmri
+    assert fmri.exists(), f"Files existing: {n_exist}. Missing: {fmri}"
+    n_exist += 1
 sys.exit()
 
 # nii paths
