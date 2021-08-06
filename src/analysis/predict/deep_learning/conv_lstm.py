@@ -28,7 +28,17 @@ from numpy import ndarray
 from pandas import DataFrame, Series
 from pytorch_lightning import LightningModule, Trainer, seed_everything
 from torch import Tensor
-from torch.nn import BatchNorm3d, BCEWithLogitsLoss, Conv3d, Linear, LSTMCell, Module, PReLU, ReLU
+from torch.nn import (
+    AdaptiveMaxPool3d,
+    BatchNorm3d,
+    BCEWithLogitsLoss,
+    Conv3d,
+    Linear,
+    LSTMCell,
+    Module,
+    PReLU,
+    ReLU,
+)
 from torch.utils.data import DataLoader, Dataset, random_split
 from torchmetrics.functional import accuracy
 from typing_extensions import Literal
@@ -155,29 +165,36 @@ class MemTestCNN(LightningModule):
         self.conv5 = Conv3d(in_channels=ch, out_channels=ch, **conv_args)
         self.relu5 = PReLU()
         self.norm5 = BatchNorm3d(ch)
+        # TODO: instead of pooling, just flatten, transpose, and treat as
+        # Conv1D with e.g. 8 channels, 175 timepoints
         self.gap = GlobalAveragePooling()
-        self.linear = Linear(in_features=1400, out_features=1, bias=True)
+        self.pool = AdaptiveMaxPool3d((1, 1, 1))
+        # TODO: replace with Conv1D net
+        # self.linear = Linear(in_features=1400, out_features=1, bias=True)  # If no pool
+        self.linear = Linear(in_features=175, out_features=1, bias=True)
 
     @no_type_check
     def forward(self, x: Tensor) -> Tensor:
-        x = self.conv1(x)
+        # input shape is (B, 175, 47, 59, 42)
+        x = self.conv1(x)  # now x.shape == [40, 175, 24, 30, 21]
         x = self.relu1(x)
         x = self.norm1(x)
-        x = self.conv2(x)
+        x = self.conv2(x)  # now x.shape == torch.Size([40, 175, 12, 15, 11])
         x = self.relu2(x)
         x = self.norm2(x)
-        x = self.conv3(x)
+        x = self.conv3(x)  # now x.shape == torch.Size([40, 175, 6, 8, 6])
         x = self.relu3(x)
         x = self.norm3(x)
-        x = self.conv4(x)
+        x = self.conv4(x)  # now x.shape == torch.Size([40, 175, 3, 4, 3])
         x = self.relu4(x)
         x = self.norm4(x)
-        x = self.conv5(x)
+        x = self.conv5(x)  # now x.shape == torch.Size([40, 175, 2, 2, 2])
         x = self.relu5(x)
         x = self.norm5(x)
-        # print("Shape after convs: ", x.shape)
         # x = self.gap(x)
-        x = x.reshape([x.size(0), -1])  # flatten
+        x = self.pool(x)
+        # x = x.reshape([x.size(0), 1, -1])  # flatten and add 1-channel if Conv1D
+        x = x.reshape([x.size(0), -1])  # flatten for if going straight to linear
         # print("Reshaped: ", x.shape)
         # sys.exit()
         x = self.linear(x)
@@ -278,9 +295,11 @@ def test_overfit_fmri_subset(is_eigimg: bool = False, preload: bool = False) -> 
     test_length = 40 if len(data) == 100 else 100
     train_length = len(data) - test_length
     train, val = random_split(data, (train_length, test_length), generator=None)
+    val_aut = torch.cat(list(zip(*list(val)))[1]).sum().int().item()
+    train_aut = torch.cat(list(zip(*list(train)))[1]).sum().int().item()
     print("For quick testing, subset sizes will be:")
-    print(f"train: {len(train)}")
-    print(f"val:   {len(val)}")
+    print(f"train: {len(train)} (Autism={train_aut}, Control={len(train) - train_aut})")
+    print(f"val:   {len(val)} (Autism={val_aut}, Control={len(val) - val_aut})")
     parser = ArgumentParser()
     parser.add_argument("--batch_size", default=BATCH_SIZE, type=int)
     parser = Trainer.add_argparse_args(parser)
@@ -311,6 +330,6 @@ def test_overfit_fmri_subset(is_eigimg: bool = False, preload: bool = False) -> 
 
 
 if __name__ == "__main__":
-    seed_everything(666, workers=True)
+    seed_everything(333, workers=True)
     # test_overfit_random()
     test_overfit_fmri_subset(is_eigimg=False, preload=True)
