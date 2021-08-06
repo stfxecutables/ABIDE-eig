@@ -1,8 +1,11 @@
 # fmt: off
-import sys  # isort:skip
+from logging import warn
 from pathlib import Path
 
 from torch import random
+
+import sys  # isort:skip
+
 
 from torch.utils.data.dataset import TensorDataset  # isort:skip
 ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent
@@ -23,13 +26,14 @@ import seaborn as sbn
 import torch
 from numpy import ndarray
 from pandas import DataFrame, Series
-from pytorch_lightning import LightningModule, Trainer
+from pytorch_lightning import LightningModule, Trainer, seed_everything
 from torch import Tensor
 from torch.nn import BatchNorm3d, BCEWithLogitsLoss, Conv3d, Linear, LSTMCell, Module, PReLU, ReLU
 from torch.utils.data import DataLoader, Dataset, random_split
 from torchmetrics.functional import accuracy
 from typing_extensions import Literal
 
+from src.analysis.predict.deep_learning.dataloader import FmriDataset
 from src.analysis.predict.deep_learning.layers import GlobalAveragePooling
 
 INPUT_SHAPE = (175, 61, 73, 61)
@@ -133,7 +137,7 @@ class MemTestCNN(LightningModule):
             dilation=DILATION,
             padding=PADDING,
             bias=False,
-            groups=1,
+            groups=ch,
         )
         # BNorm  after PReLU, see https://github.com/ducha-aiki/caffenet-benchmark/blob/master/batchnorm.md
         self.conv1 = Conv3d(in_channels=ch, out_channels=ch, **conv_args)
@@ -152,7 +156,7 @@ class MemTestCNN(LightningModule):
         self.relu5 = PReLU()
         self.norm5 = BatchNorm3d(ch)
         self.gap = GlobalAveragePooling()
-        self.linear = Linear(in_features=2100, out_features=1, bias=True)
+        self.linear = Linear(in_features=1400, out_features=1, bias=True)
 
     @no_type_check
     def forward(self, x: Tensor) -> Tensor:
@@ -207,7 +211,7 @@ class MemTestCNN(LightningModule):
         x, y_true = batch
         y_pred = self(x)
         criterion = BCEWithLogitsLoss()
-        loss = criterion(y_pred.squeeze(), y_true)
+        loss = criterion(y_pred, y_true)
         acc = accuracy(torch.sigmoid(y_pred.squeeze()), y_true.int())
         return acc, loss
 
@@ -248,7 +252,7 @@ class RandomSeparated(Dataset):
         return self.size
 
 
-if __name__ == "__main__":
+def test_overfit_random() -> None:
     X_TRAIN, Y_TRAIN, X_VAL, Y_VAL = random_data()
     train_loader = DataLoader(
         TensorDataset(X_TRAIN, Y_TRAIN),
@@ -267,3 +271,46 @@ if __name__ == "__main__":
     trainer.fit(model, train_loader, val_loader)
     # test_loader = DataLoader(RandomSeparated(100), batch_size=BATCH_SIZE, num_workers=8)
     # trainer.test(model, test_loader)
+
+
+def test_overfit_fmri_subset(is_eigimg: bool = False, preload: bool = False) -> None:
+    data = FmriDataset(is_eigimg=is_eigimg, preload_data=preload)
+    test_length = 40 if len(data) == 100 else 100
+    train_length = len(data) - test_length
+    train, val = random_split(data, (train_length, test_length), generator=None)
+    print("For quick testing, subset sizes will be:")
+    print(f"train: {len(train)}")
+    print(f"val:   {len(val)}")
+    parser = ArgumentParser()
+    parser.add_argument("--batch_size", default=BATCH_SIZE, type=int)
+    parser = Trainer.add_argparse_args(parser)
+    args = parser.parse_args()
+    batch_size = args.batch_size
+    if len(train) % batch_size != 0:
+        warn(
+            "Batch size does not evenly divide training set. "
+            f"{len(train) % batch_size} subjects will be dropped each training epoch."
+        )
+    train_loader = DataLoader(
+        train,
+        batch_size=args.batch_size,
+        num_workers=8,
+        shuffle=True,
+        drop_last=False,
+    )
+    val_loader = DataLoader(
+        val,
+        batch_size=40 if len(data) == 100 else BATCH_SIZE,
+        num_workers=8,
+        shuffle=False,
+        drop_last=False,
+    )
+    model = MemTestCNN()
+    trainer = Trainer.from_argparse_args(args)
+    trainer.fit(model, train_loader, val_loader)
+
+
+if __name__ == "__main__":
+    seed_everything(666, workers=True)
+    # test_overfit_random()
+    test_overfit_fmri_subset(is_eigimg=False, preload=True)

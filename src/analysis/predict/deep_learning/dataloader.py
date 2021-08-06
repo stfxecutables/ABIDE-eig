@@ -1,4 +1,6 @@
 # fmt: off
+from concurrent.futures import process
+
 import sys  # isort:skip
 from pathlib import Path  # isort:skip
 ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent
@@ -18,6 +20,7 @@ from pandas import DataFrame
 from torch import Tensor
 from torch.utils.data import Dataset
 from tqdm import tqdm
+from tqdm.contrib.concurrent import process_map
 
 from src.analysis.predict.reducers import subject_labels
 
@@ -33,18 +36,36 @@ LABELS: List[int] = subject_labels(PREPROC_EIG)
 SHAPE = (47, 59, 42, 175)
 
 
+def verify(fmri_eig: Tuple[Path, Path]) -> bool:
+    fmri, eigimg = fmri_eig
+    fail = False
+    if not fmri.exists():
+        print(f"Matching fMRI files currently missing: {fmri}")
+        fail = True
+    if not eigimg.exists():
+        print(f"Matching fMRI files currently missing eigimg: {eigimg}")
+        fail = True
+    if not np.load(fmri).shape == SHAPE:
+        print(f"Invalid input shape for file {fmri}")
+        fail = True
+    if not np.load(eigimg).shape == SHAPE:
+        print(f"Invalid input shape for file {eigimg}")
+        fail = True
+    return fail
+
+
 def verify_matching() -> None:
     print("Verifying fMRI files match eigimg files... ", end="", flush=True)
-    n_exist = 0
-    for fmri, eigimg in tqdm(zip(PREPROC_FMRI, PREPROC_EIG), total=len(PREPROC_EIG), disable=True):
-        assert np.load(fmri).shape == SHAPE, f"Invalid input shape for file {fmri}"
-        assert np.load(eigimg).shape == SHAPE, f"Invalid input shape for file {eigimg}"
-        assert fmri.exists(), f"Matching fMRI files: {n_exist}. Currently missing: {fmri}"
-        assert (
-            eigimg.exists()
-        ), f"Matching fMRI files: {n_exist}. Currently missing eigimg: {eigimg}"
-        n_exist += 1
-    print("success.")
+    n_unmatched = np.sum(
+        process_map(
+            verify,
+            list(zip(PREPROC_FMRI, PREPROC_EIG)),
+            total=len(PREPROC_EIG),
+            desc="Verifying fMRI/eig matches",
+        )
+    )
+    if n_unmatched > 0:
+        print(f"Failure to verify. {n_unmatched} unmatched files.")
 
 
 def get_testing_subsample() -> None:
@@ -61,7 +82,7 @@ def get_testing_subsample() -> None:
 
 
 # get_testing_subsample()
-verify_matching()
+# verify_matching()
 
 FmriSlice = Tuple[int, int, int, int]  # just a convencience type to save space
 
@@ -249,6 +270,15 @@ def plot_patch(size: Tuple[int, int, int, int] = (32, 32, 32, 12)) -> None:
     plt.show()
 
 
+def preload(img: Path) -> np.ndarray:
+    # need channels_first, but is currently channels last
+    x = np.load(img)
+    x = np.transpose(x, (3, 0, 1, 2))
+    x -= np.mean(x)
+    x /= np.std(x, ddof=1)
+    return x
+
+
 class FmriDataset(Dataset):
     """Loads entire 4D images.
 
@@ -261,24 +291,38 @@ class FmriDataset(Dataset):
         If False (default) loads the registered and minimially pre-processed ABIDE fMRI scans where
         controls are truncated to 175 timepoints. If True, loads the computed eigenimages with 175
         timepoints.
+
+    preload: bool = False
+        If True, load all images into memory (over 100 GB in full case)
     """
 
     def __init__(
         self,
         transform: Optional[Callable] = None,
         is_eigimg: bool = False,
+        preload_data: bool = False,
     ) -> None:
         # self.mask = nib.load(MASK).get_fdata().astype(bool)  # more efficient to load just once
+        self.preload = bool(preload_data)
         self.img_paths = PREPROC_EIG if is_eigimg else PREPROC_FMRI
-        self.labels: List[int] = []
         self.transform = transform
+        self.imgs = []
+        if self.preload:
+            self.imgs = process_map(
+                preload, self.img_paths, total=len(self.img_paths), desc="Preloading all images..."
+            )
 
     def __len__(self) -> int:
         return len(self.img_paths)
 
     def __getitem__(self, i: int) -> Tuple[Tensor, Tensor]:
+        y = int(LABELS[i])
+        if self.preload:
+            x = self.imgs[i]
+            return Tensor(x), Tensor([y])
+        # need channels_first, but is currently channels last
         x = np.load(self.img_paths[i])
+        x = np.transpose(x, (3, 0, 1, 2))
         x -= np.mean(x)
         x /= np.std(x, ddof=1)
-        y = int(LABELS[i])
         return Tensor(x), Tensor([y])
