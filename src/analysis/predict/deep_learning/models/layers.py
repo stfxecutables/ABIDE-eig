@@ -35,6 +35,8 @@ from torch.nn import (
     PReLU,
     ReLU,
 )
+from torch.nn.modules.linear import Identity
+from torch.nn.modules.pooling import MaxPool3d
 from typing_extensions import Literal
 
 from src.analysis.predict.deep_learning.constants import INPUT_SHAPE
@@ -54,20 +56,22 @@ def outsize_3d(s: int, kernel: int, dilation: int, stride: int, padding: int) ->
 
 # see https://discuss.pytorch.org/t/same-padding-equivalent-in-pytorch/85121/4
 # for padding logic
-def padding_same_3d(
-    input_shape: Tuple[int, int, int], kernel: int, dilation: int
+def padding_same(
+    input_shape: Tuple[int, ...], kernel: int, dilation: int
 ) -> Tuple[int, int, int, int, int, int]:
-    """Assumes symmetric / cubic kernels, dilations, and stride=1"""
+    """Assumes symmetric kernels, dilations, and stride=1"""
 
-    def pad(width: int, k: int) -> Tuple[int, int]:
-        p = max(k - 1, 0) if (width % 1) == 0 else max(k - (width % 1), 0)
+    def pad(k: int) -> Tuple[int, int]:
+        p = max(k - 1, 0)
         p_top = p // 2
         p_bot = p - p_top
         return p_top, p_bot
 
     k = kernel + (kernel - 1) * (dilation - 1)  # effective kernel size
-    D, H, W = input_shape
-    return (*pad(D, k), *pad(H, k), *pad(W, k))
+    pads: List[int] = []
+    for dim in input_shape:
+        pads.extend(pad(k))
+    return tuple(pads)  # type: ignore
 
 
 class Conv3dSame(Module):
@@ -90,7 +94,7 @@ class Conv3dSame(Module):
         self.d_groups = depthwise_groups if depthwise else 1
         self.in_channels = in_channels
         self.out_channels = in_channels * self.d_groups
-        self.pad = ConstantPad3d(padding_same_3d(spatial_in, kernel_size, dilation), 0)
+        self.pad = ConstantPad3d(padding_same(spatial_in, kernel_size, dilation), 0)
         self.conv = Conv3d(
             in_channels=in_channels,
             out_channels=out_channels,
@@ -140,15 +144,15 @@ class InputConv(Module):
         depthwise_groups: int = 1,
     ) -> None:
         super().__init__()
-        ch = in_channels
+        self.in_channels = ci = in_channels
+        self.groups = depthwise_groups if depthwise else 1
+        self.out_channels = co = self.in_channels * self.groups
+
         self.kernel = kernel_size
         self.stride = stride
         self.padding = padding
         self.dilation = dilation
-        self.groups = ch if depthwise else 1
-        self.d_groups = depthwise_groups if depthwise else 1
-        self.in_channels = ch
-        self.out_channels = ch * self.d_groups
+
         self.padder = ConstantPad3d(EVEN_PAD, 0)
         self.conv = Conv3d(
             in_channels=self.in_channels,
@@ -179,27 +183,65 @@ class InputConv(Module):
         return outsize_3d(s, k, d, r, p)
 
 
-class ResBlock(Module):
-    def __init__(self) -> None:
+class ResBlock3d(Module):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int,
+        dilation: int,
+        residual: bool = True,
+        halve: bool = True,
+        depthwise: bool = False,
+        depthwise_groups: int = 1,
+    ) -> None:
         super().__init__()
-        ch = INPUT_SHAPE[0]
-        KERNEL = 3
-        STRIDE = 2
-        DILATION = 3
-        PADDING = 3
+        self.in_channels = ci = in_channels
+        self.groups = depthwise_groups if depthwise else 1
+        if depthwise:
+            self.out_channels = co = self.in_channels * self.groups
+        else:
+            self.out_channels = co = out_channels
+
+        self.kernel = kernel_size
+        self.dilation = dilation
+        self.residual = residual
+        self.halve = halve
+        # padding for same is effective kernel size // 2
+        self.padding = (self.kernel + (self.kernel - 1) * (self.dilation - 1)) // 2
+
         conv_args: Dict = dict(
-            kernel_size=KERNEL,
-            stride=STRIDE,
-            dilation=DILATION,
-            padding=PADDING,
+            out_channels=self.out_channels,
+            kernel_size=self.kernel,
+            stride=1,
+            dilation=self.dilation,
+            padding=self.padding,
+            groups=self.groups,
             bias=False,
-            groups=1,
         )
         # BNorm  after PReLU
         # see https://github.com/ducha-aiki/caffenet-benchmark/blob/master/batchnorm.md
-        self.conv1 = Conv3d(in_channels=ch, out_channels=ch, **conv_args)
+        self.conv1 = Conv3d(in_channels=ci, **conv_args)
         self.relu1 = PReLU()
-        self.norm1 = BatchNorm3d(ch)
-        self.conv2 = Conv3d(in_channels=ch, out_channels=ch, **conv_args)
+        self.norm1 = BatchNorm3d(co)
+        self.conv2 = Conv3d(in_channels=co, **conv_args)
         self.relu2 = PReLU()
-        self.norm2 = BatchNorm3d(ch)
+        self.norm2 = BatchNorm3d(co)
+        if halve:
+            self.pool = MaxPool3d(2, 2)
+
+    def forward(self, x: Tensor) -> Tensor:
+        # we use modern identity mapping here in the hopes of better performance
+        # https://arxiv.org/abs/1603.05027
+        out: Tensor
+        identity = x
+        out = self.conv1(x)
+        out = self.relu1(out)
+        out = self.norm1(out)
+        out = self.conv2(out)
+        out = self.relu2(out)
+        out = self.norm2(out)
+        out += identity  # we are assuming padding="same"
+        if self.halve:
+            out = self.pool(out)
+        return out

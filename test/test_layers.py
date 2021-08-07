@@ -15,7 +15,7 @@ from tqdm import tqdm
 from typing_extensions import Literal
 
 from src.analysis.predict.deep_learning.constants import INPUT_SHAPE
-from src.analysis.predict.deep_learning.models.layers import Conv3dSame, InputConv
+from src.analysis.predict.deep_learning.models.layers import Conv3dSame, InputConv, ResBlock3d
 
 SPATIAL = INPUT_SHAPE[1:]
 TEST_SHAPE = (1, 1, *SPATIAL)  # no need for so many channels
@@ -54,17 +54,28 @@ def test_input_shapes(capsys: CaptureFixture) -> None:
 def test_padding(capsys: CaptureFixture) -> None:
     K = [1, 2, 3, 4, 5, 7]
     D = [1, 2, 3]
-    x = torch.rand(PADDED_TEST_SHAPE, device="cuda")
-    with capsys.disabled():
-        for k in tqdm(K, leave=True, desc="K"):
-            for d in tqdm(D, leave=False, desc="D"):
-                conv = Conv3dSame(
-                    in_channels=1,
-                    spatial_in=PADDED_TEST_SHAPE[2:],
-                    out_channels=1,
-                    kernel_size=k,
-                    dilation=d,
-                )
-                conv.to(device="cuda")
-                out = conv(x)
-                assert out.shape == x.shape
+    EVENS = [1, 1, 32, 32, 32]
+    ODDS = [1, 1, 33, 33, 33]
+    MIXED = [1, 1, 32, 33, 33]
+
+    for shape in [EVENS, ODDS, MIXED]:
+        x = torch.rand(shape, device="cuda")
+        with capsys.disabled():
+            for k in tqdm(K, leave=True, desc="K"):
+                for d in tqdm(D, leave=False, desc="D"):
+                    conv = Conv3dSame(
+                        in_channels=1,
+                        spatial_in=shape[2:],
+                        out_channels=1,
+                        kernel_size=k,
+                        dilation=d,
+                    )
+                    conv.to(device="cuda")
+                    out = conv(x)
+                    assert out.shape == x.shape
+
+def test_resblock(capsys: CaptureFixture) -> None:
+    res = ResBlock3d(1, 1, kernel_size=3, dilation=3)  # effective kernel size of 7
+    x = torch.rand((1, 1, 16, 16, 16))
+    out = res(x)
+    assert out.shape == (1, 1, 8, 8, 8)
