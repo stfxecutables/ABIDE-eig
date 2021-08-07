@@ -1,20 +1,15 @@
 # fmt: off
-from logging import warn
-from pathlib import Path
-
-from torch import random
-
+from pathlib import Path  # isort:skip
 import sys  # isort:skip
-
-
 from torch.utils.data.dataset import TensorDataset  # isort:skip
-ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent.parent
 sys.path.append(str(ROOT))
 # from src.run.cc_setup import setup_environment  # isort:skip
 # setup_environment()
 # fmt: on
 
 from argparse import ArgumentParser
+from logging import warn
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union, cast, no_type_check
 
@@ -43,10 +38,10 @@ from torch.utils.data import DataLoader, Dataset, random_split
 from torchmetrics.functional import accuracy
 from typing_extensions import Literal
 
+from src.analysis.predict.deep_learning.constants import INPUT_SHAPE
 from src.analysis.predict.deep_learning.dataloader import FmriDataset
 from src.analysis.predict.deep_learning.layers import GlobalAveragePooling
 
-INPUT_SHAPE = (175, 61, 73, 61)
 BATCH_SIZE = 10
 
 """
@@ -62,37 +57,6 @@ added with ratio 0.5 after the first and the sec- ond max pooling layers and rat
 third and the fourth max pooling layers. L2 regularization with regulari- sation 0.01 was used in
 each fully connected layer to avoid overfitting
 """
-
-
-class Downsample(Module):
-    def __init__(self) -> None:
-        super().__init__()
-
-
-class ResBlock(Module):
-    def __init__(self) -> None:
-        super().__init__()
-        ch = INPUT_SHAPE[0]
-        KERNEL = 3
-        STRIDE = 2
-        DILATION = 3
-        PADDING = 3
-        conv_args: Dict = dict(
-            kernel_size=KERNEL,
-            stride=STRIDE,
-            dilation=DILATION,
-            padding=PADDING,
-            bias=False,
-            groups=1,
-        )
-        # BNorm  after PReLU
-        # see https://github.com/ducha-aiki/caffenet-benchmark/blob/master/batchnorm.md
-        self.conv1 = Conv3d(in_channels=ch, out_channels=ch, **conv_args)
-        self.relu1 = PReLU()
-        self.norm1 = BatchNorm3d(ch)
-        self.conv2 = Conv3d(in_channels=ch, out_channels=ch, **conv_args)
-        self.relu2 = PReLU()
-        self.norm2 = BatchNorm3d(ch)
 
 
 class ConvToLSTM(Module):

@@ -1,20 +1,15 @@
 # fmt: off
-from logging import warn
-from pathlib import Path
-
-from torch import random
-
+from pathlib import Path  # isort:skip
 import sys  # isort:skip
-
-
 from torch.utils.data.dataset import TensorDataset  # isort:skip
-ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent.parent
 sys.path.append(str(ROOT))
 # from src.run.cc_setup import setup_environment  # isort:skip
 # setup_environment()
 # fmt: on
 
 from argparse import ArgumentParser
+from logging import warn
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union, cast, no_type_check
 
@@ -43,10 +38,10 @@ from torch.utils.data import DataLoader, Dataset, random_split
 from torchmetrics.functional import accuracy
 from typing_extensions import Literal
 
+from src.analysis.predict.deep_learning.constants import INPUT_SHAPE
 from src.analysis.predict.deep_learning.dataloader import FmriDataset
 from src.analysis.predict.deep_learning.layers import GlobalAveragePooling
 
-INPUT_SHAPE = (175, 61, 73, 61)
 BATCH_SIZE = 10
 
 """
