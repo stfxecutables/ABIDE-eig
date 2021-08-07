@@ -10,11 +10,16 @@ import torch
 from _pytest.capture import CaptureFixture
 from numpy import ndarray
 from pandas import DataFrame, Series
+from torch.nn import Conv3d
 from tqdm import tqdm
 from typing_extensions import Literal
 
 from src.analysis.predict.deep_learning.constants import INPUT_SHAPE
-from src.analysis.predict.deep_learning.models.layers import InputConv
+from src.analysis.predict.deep_learning.models.layers import Conv3dSame, InputConv
+
+SPATIAL = INPUT_SHAPE[1:]
+TEST_SHAPE = (1, 1, *SPATIAL)  # no need for so many channels
+PADDED_TEST_SHAPE = (1, 1, 48, 60, 42)
 
 
 def test_input_shapes(capsys: CaptureFixture) -> None:
@@ -23,7 +28,7 @@ def test_input_shapes(capsys: CaptureFixture) -> None:
     P = [1, 2, 3, 4, 5]
     D = [1, 2, 3]
     G = [1, 2, 3, 4]
-    x = torch.rand([1, *INPUT_SHAPE], device="cuda")
+    x = torch.rand(TEST_SHAPE, device="cuda")
 
     with capsys.disabled():
         for k in tqdm(K, leave=True, desc="K"):
@@ -33,14 +38,33 @@ def test_input_shapes(capsys: CaptureFixture) -> None:
                         for depthwise in [True, False]:
                             if depthwise:
                                 for g in G:
-                                    conv = InputConv(k, s, p, d, depthwise, g)
+                                    conv = InputConv(1, k, s, p, d, depthwise, g)
                                     conv.conv.to(device="cuda")
                                     out = conv(x)
                                     exp = (1, *conv.output_shape())
                                     assert out.shape == exp
                             else:
-                                conv = InputConv(k, s, p, d, depthwise)
+                                conv = InputConv(1, k, s, p, d, depthwise)
                                 conv.conv.to(device="cuda")
                                 out = conv(x)
                                 exp = (1, *conv.output_shape())
                                 assert out.shape == exp
+
+
+def test_padding(capsys: CaptureFixture) -> None:
+    K = [1, 2, 3, 4, 5, 7]
+    D = [1, 2, 3]
+    x = torch.rand(PADDED_TEST_SHAPE, device="cuda")
+    with capsys.disabled():
+        for k in tqdm(K, leave=True, desc="K"):
+            for d in tqdm(D, leave=False, desc="D"):
+                conv = Conv3dSame(
+                    in_channels=1,
+                    spatial_in=PADDED_TEST_SHAPE[2:],
+                    out_channels=1,
+                    kernel_size=k,
+                    dilation=d,
+                )
+                conv.to(device="cuda")
+                out = conv(x)
+                assert out.shape == x.shape

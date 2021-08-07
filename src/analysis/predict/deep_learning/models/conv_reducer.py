@@ -40,7 +40,7 @@ from typing_extensions import Literal
 
 from src.analysis.predict.deep_learning.constants import INPUT_SHAPE
 from src.analysis.predict.deep_learning.dataloader import FmriDataset
-from src.analysis.predict.deep_learning.layers import GlobalAveragePooling
+from src.analysis.predict.deep_learning.models.layers import GlobalAveragePooling
 
 BATCH_SIZE = 10
 
