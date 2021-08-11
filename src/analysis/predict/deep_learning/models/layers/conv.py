@@ -1,77 +1,15 @@
-from math import floor
-from pathlib import Path
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    List,
-    Optional,
-    Sequence,
-    Tuple,
-    Type,
-    Union,
-    cast,
-    no_type_check,
-)
+from typing import Dict, Tuple
 
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-import pytest
-import seaborn as sbn
-import torch
-from numpy import ndarray
-from pandas import DataFrame, Series
 from torch import Tensor
-from torch.nn import (
-    AdaptiveMaxPool3d,
-    BatchNorm3d,
-    BCEWithLogitsLoss,
-    ConstantPad3d,
-    Conv3d,
-    Linear,
-    LSTMCell,
-    Module,
-    PReLU,
-    ReLU,
-)
-from torch.nn.modules.linear import Identity
+from torch.nn import BatchNorm3d, ConstantPad3d, Conv3d, Module, PReLU
 from torch.nn.modules.pooling import MaxPool3d
-from typing_extensions import Literal
 
 from src.analysis.predict.deep_learning.constants import INPUT_SHAPE
-
-Tuple3d = Union[int, Tuple[int, int, int]]
-
-# need to pad (47, 59, 42) to (48, 60, 42)
-EVEN_PAD = (0, 0, 1, 0, 1, 0)
-
-
-def outsize_3d(s: int, kernel: int, dilation: int, stride: int, padding: int) -> int:
-    """Get the output size for a dimension of size `s`"""
-    p, d = padding, dilation
-    k, r = kernel, stride
-    return floor((s + 2 * p - d * (k - 1) - 1) / r + 1)
-
-
-# see https://discuss.pytorch.org/t/same-padding-equivalent-in-pytorch/85121/4
-# for padding logic
-def padding_same(
-    input_shape: Tuple[int, ...], kernel: int, dilation: int
-) -> Tuple[int, int, int, int, int, int]:
-    """Assumes symmetric kernels, dilations, and stride=1"""
-
-    def pad(k: int) -> Tuple[int, int]:
-        p = max(k - 1, 0)
-        p_top = p // 2
-        p_bot = p - p_top
-        return p_top, p_bot
-
-    k = kernel + (kernel - 1) * (dilation - 1)  # effective kernel size
-    pads: List[int] = []
-    for dim in input_shape:
-        pads.extend(pad(k))
-    return tuple(pads)  # type: ignore
+from src.analysis.predict.deep_learning.models.layers.utils import (
+    EVEN_PAD,
+    outsize_3d,
+    padding_same,
+)
 
 
 class Conv3dSame(Module):
@@ -111,28 +49,19 @@ class Conv3dSame(Module):
         return x
 
 
-class GlobalAveragePooling(Module):
-    def __init__(self, dims: Union[int, Tuple[int, ...]] = (2, 3, 4), keepdim: bool = False):
-        super().__init__()
-        self.dims = dims
-        self.keepdim = bool(keepdim)
-
-    @no_type_check
-    def forward(self, x: Tensor) -> Tensor:
-        return torch.mean(x, dim=self.dims, keepdim=self.keepdim)
-
-    def __str__(self) -> str:
-        return f"{self.__class__.__name__} reducing_dims={self.dims})"
-
-    __repr__ = __str__
-
-
-class Downsample(Module):
-    def __init__(self) -> None:
-        super().__init__()
-
-
 class InputConv(Module):
+    """Take in fMRI images and pad to even.
+
+    Parameters
+    ----------
+    depthwise: bool
+        If True, uses depthwise convolutions, i.e. will set `groups` argument
+        to `k * in_channels`, where `k` is specified in `depthwise_groups` arg
+
+    depthwise_groups: int = 1
+        See above notes for `depthwise` arg.
+    """
+
     def __init__(
         self,
         in_channels: int,
@@ -144,9 +73,9 @@ class InputConv(Module):
         depthwise_groups: int = 1,
     ) -> None:
         super().__init__()
-        self.in_channels = ci = in_channels
+        self.in_channels = in_channels
         self.groups = depthwise_groups if depthwise else 1
-        self.out_channels = co = self.in_channels * self.groups
+        self.out_channels = self.in_channels * depthwise_groups if depthwise else self.in_channels
 
         self.kernel = kernel_size
         self.stride = stride
