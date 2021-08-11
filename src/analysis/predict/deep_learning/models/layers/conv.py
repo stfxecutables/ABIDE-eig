@@ -56,9 +56,10 @@ class InputConv(Module):
     ----------
     depthwise: bool
         If True, uses depthwise convolutions, i.e. will set `groups` argument
-        to `k * in_channels`, where `k` is specified in `depthwise_groups` arg
+        to `in_channels`, and `out_channels` to `k * in_channels` where `k` is
+        specified in `depthwise_groups` arg.
 
-    depthwise_groups: int = 1
+    depthwise_k: int = 1
         See above notes for `depthwise` arg.
     """
 
@@ -70,12 +71,12 @@ class InputConv(Module):
         padding: int,
         dilation: int,
         depthwise: bool,
-        depthwise_groups: int = 1,
+        depthwise_k: int = 1,
     ) -> None:
         super().__init__()
         self.in_channels = in_channels
-        self.groups = depthwise_groups if depthwise else 1
-        self.out_channels = self.in_channels * depthwise_groups if depthwise else self.in_channels
+        self.groups = self.in_channels if depthwise else 1
+        self.out_channels = self.in_channels * depthwise_k if depthwise else self.in_channels
 
         self.kernel = kernel_size
         self.stride = stride

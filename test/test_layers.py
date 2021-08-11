@@ -19,7 +19,6 @@ from src.analysis.predict.deep_learning.models.layers.conv import Conv3dSame, In
 
 SPATIAL = INPUT_SHAPE[1:]
 TEST_SHAPE = (1, 1, *SPATIAL)  # no need for so many channels
-GROUP_SHAPE = (1, 12, *SPATIAL)  # for depthwise
 PADDED_TEST_SHAPE = (1, 1, 48, 60, 42)
 
 
@@ -31,7 +30,6 @@ class TestConv:
         D = [1, 2, 3]
         G = [1, 2, 3, 4]
         x = torch.rand(TEST_SHAPE, device="cuda")
-        x_g = torch.rand(GROUP_SHAPE, device="cuda")
 
         with capsys.disabled():
             for k in tqdm(K, leave=True, desc="K"):
@@ -41,9 +39,9 @@ class TestConv:
                             for depthwise in [True, False]:
                                 if depthwise:
                                     for g in G:
-                                        conv = InputConv(x_g.size(1), k, s, p, d, depthwise, g)
+                                        conv = InputConv(1, k, s, p, d, depthwise, g)
                                         conv.conv.to(device="cuda")
-                                        out = conv(x_g)
+                                        out = conv(x)
                                         exp = (1, *conv.output_shape())
                                         assert out.shape == exp
                                 else:
