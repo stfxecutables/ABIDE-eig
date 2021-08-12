@@ -4,7 +4,7 @@ from torch import Tensor
 from torch.nn import BatchNorm3d, ConstantPad3d, Conv3d, Module, PReLU
 from torch.nn.modules.pooling import MaxPool3d
 
-"""
+r"""
 # Examples
 
 https://github.com/pytorch/pytorch/blob/master/benchmarks/fastrnns/custom_lstms.py
@@ -22,19 +22,50 @@ https://arxiv.org/pdf/1506.04214.pdf. This means the equations:
     * = elementwise multiplication
     i = input, f = forget, C = "context" / cell state, o = output, H = hidden state
 
-    i_t = sigmoid( W_xi @ X_t + W_hi @ H_t−1 + W_ci * C_t−1 + b_i )
-    f_t = sigmoid( W_xf @ X_t + W_hf @ H_t−1 + W_cf * C_t−1 + b_f )
-    C_t = f_t * C_t−1 + i_t * tanh( W_xc * X_t + W_hc @ H_t−1 + b_c )
-    o_t = sigmoid( W_xo @ X_t + W_ho @ H_t−1 + W_co * C_t + b_o )
-    H_t = o_t * tanh( C_t )
+                       Can be implemented with 1 Conv that operates on concatenated [X_t, H_t-1]
+                       and which is then split apart along the channel dimensions for later sums.
+                                     |
+                      /------------------------------\
+    i_t =    sigmoid( W_xi @ X_t + W_hi @ H_t−1 + b_i + W_ci * c_t−1)
+    f_t =    sigmoid( W_xf @ X_t + W_hf @ H_t−1 + b_f + W_cf * c_t−1)
+    c_t = i_t * tanh( W_xc @ X_t + W_hc @ H_t−1 + b_c) + f_t * c_t−1
+    o_t =    sigmoid( W_xo @ X_t + W_ho @ H_t−1 + b_o + W_co * c_t  )
+    H_t = o_t * tanh( c_t )
 
-If we let K be the kernel size, pad so there is no size reduction, and let H_n be the number of
-hidden stats, then dimensions in our case are:
+We let K be the kernel size, and pad so there is no size reduction. H_d, the number
+(dimension) of hidden states.
 
-    X   = (C, H, W, D, T) = 5D = 4D + channels, except C == 1
-    X_t = (C, H, W, D) = 4D = 3D + channels
-    H   = (H_n, T)
-    W_xi = (H_n, C, K, K, K)
+Hidden states truly are hidden *states*, in the sense that an input {X1, ..., XT} is T states, and
+an input with C channels is like C*T states. Then hidden states are concatenated along the channel
+dimension, so if we have H hidden states, we have (H + C) * T states total.
+
+and so if we say there are are H hidden states, truly is a dimension, in that an LSTM cell with n hidden states is
+like running that cell n times in parallel at each timepoint. For a ConvLSTM3D, the cell is 4D
+(3D + channel dim), so stacking is along the channel dim, i.e. there is an equivalence between
+number of filters and number of hidden states. So we use instead F = H_d to be the number of filters
+or hidden states of each component / gate below.
+
+    X    = (C_in, H, W, D, T) = 5D = 4D + channels: C_in == 1
+    X_t  = (C_in, H, W, D)    = 4D = 3D + channels: C_in == 1
+
+    W_xi = (F * C_in, K, K, K)    W_hi = (F,)    W_ci = (F,)    b_i = (1, F)  # see below
+    W_xf = (F * C_in, K, K, K)    W_hi = (F,)    W_cf = (F,)    b_f = (1, F)
+    W_xc = (F * C_in, K, K, K)    W_hi = (F,)    W_cc = (F,)    b_c = (1, F)
+    W_xo = (F * C_in, K, K, K)    W_hi = (F,)    W_co = (F,)    b_o = (1, F)
+
+Therefore:
+
+    W_xi @ X_t = (F * C_in, H, W, D)
+
+    W  = (4*F, K, K, K)    W_h = (4, F)   W_c = (4, F)     b = (4, F)
+    Output shapes:       o = H = (T, F)  Cell = (T, F)
+
+Biases can be either (H_d, F) fully independent (strange, not sure if would work) or (1, F) each if
+tied (shared within a channel, one bias per filter) or I guess technically could be scalar values if
+shared across channels. I don't think anyone does the latter, and tied is the default, so we don't
+have to handle the biases if we just do `bias=True` in our conv layers.
+
+Note if C_in > 1,
 
 
 
