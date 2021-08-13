@@ -120,6 +120,7 @@ class ConvLSTMCell3d(Module):
         hidden_size: int,
         kernel_size: int = 3,
         dilation: int = 2,
+        depthwise: bool = False,
         spatial_dropout: float = 0.0,
     ):
         super().__init__()
@@ -133,10 +134,23 @@ class ConvLSTMCell3d(Module):
         self.hidden_size = hidden_size
         self.kernel_size = kernel_size
         self.dilation = dilation
+        self.depthwise = depthwise
         self.effective_size = self.kernel_size + (self.kernel_size - 1) * (self.dilation - 1)
         self.padding = (self.effective_size - 1) // 2  # need to maintain size
         self.has_dropout = spatial_dropout != 0
         self.dropout = float(spatial_dropout)
+
+        if self.depthwise:
+            in_ch = self.in_channels + self.hidden_size
+            out_ch = 4 * self.hidden_size
+            valid = None
+            for groups in range(2, in_ch + 1):
+                if in_ch % groups == 0 and out_ch % groups == 0:
+                    valid = groups
+            if valid is None:
+                raise ValueError(f"No valid depthwise group size for current hidden size {self.hidden_size}")
+
+
 
         self.layers = [
             Conv3d(
@@ -146,6 +160,7 @@ class ConvLSTMCell3d(Module):
                 stride=1,
                 padding=self.padding,
                 dilation=self.dilation,
+                groups=self.in_channels + self.hidden_size if self.depthwise else 1,
                 bias=True,
             ),
             BatchNorm3d(4 * self.hidden_size),
@@ -231,6 +246,7 @@ class ConvLSTM3d(Module):
         hidden_sizes: Sequence[int] = [32],
         kernel_sizes: Sequence[int] = [3],
         dilations: Sequence[int] = [2],
+        depthwise: bool = False,
         inner_spatial_dropout: float = 0.0,
         spatial_dropout: float = 0.0,
     ):
@@ -241,6 +257,7 @@ class ConvLSTM3d(Module):
         self.hidden_sizes = self.listify(hidden_sizes)
         self.kernel_sizes = self.listify(kernel_sizes)
         self.dilations = self.listify(dilations)
+        self.depthwise = depthwise
         self.inner_spatial_dropout = inner_spatial_dropout
         self.spatial_dropout = spatial_dropout
         if self.spatial_dropout > 0:
@@ -249,6 +266,7 @@ class ConvLSTM3d(Module):
         cell_args: Dict = dict(
             in_spatial_dims=in_spatial_dims,
             spatial_dropout=inner_spatial_dropout,
+            depthwise= self.depthwise,
         )
 
         layers = []
