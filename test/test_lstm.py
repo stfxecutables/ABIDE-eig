@@ -75,6 +75,8 @@ def test_stacked(capsys: CaptureFixture) -> None:
 
 def model_fits_gpu(x: Tensor, batch: int, T: int, n_layer: int, hidden: int) -> Optional[DataFrame]:
     try:
+        start = torch.cuda.Event(enable_timing=True)
+        end = torch.cuda.Event(enable_timing=True)
         lstm = ConvLSTM3d(
             in_channels=1,
             in_spatial_dims=SPATIAL,
@@ -85,11 +87,18 @@ def model_fits_gpu(x: Tensor, batch: int, T: int, n_layer: int, hidden: int) -> 
             # depthwise=True,
         )
         lstm.to(device="cuda")
+        start.record()
         lstm(x)
+        end.record()
+        torch.cuda.synchronize()
+        time = start.elapsed_time(end)
         print(
-            f"Success with: batch_size={batch}, T={T}, hidden_size={hidden}, num_layers={n_layer}"
+            f"Success with: batch_size={batch}, T={T}, hidden_size={hidden}, num_layers={n_layer}, compute (ms)={time}"
         )
-        return DataFrame(dict(batch=batch, T=T, hidden_size=hidden, num_layers=n_layer), index=[0])
+        return DataFrame(
+            dict(batch=batch, T=T, hidden_size=hidden, num_layers=n_layer, compute_ms=time),
+            index=[0],
+        )
     except:
         return None
 

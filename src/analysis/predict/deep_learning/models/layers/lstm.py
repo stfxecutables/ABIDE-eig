@@ -107,11 +107,44 @@ channeled-vectors
 the
 
 Note that biases must be initialized as torch.Parameter objects to properly update/track gradients.
+
+# FMRI NOTES
+
+The ConvLSTM3d *makes sense* for fMRI. fMRI data is a sequence of 3D states. The eigenimage is *not*
+a sequence in any traditional sense. The eigenindex does not represent sequentiality in any way. The
+eigenimage is a truly 4D block where no dimension can be interpreted as sequentially preceding
+another. However, each eigenindex *can* be validly thought of as a unique *channel*. This is
+extremely accurate (though treating each t of an fMRI as a channel is not). In this sense, the
+ConvLSTM3d makes perfect sense for fMRI, but a a multi-channel Conv3D or Conv4d makes most sense
+for the eigenimages. In fact, the Conv3D is likely to outperform a Conv4D because the Conv4D would
+struggle to find long-range relationships between eigenplanes
+
+Of course, DL and LSTMS aprroximate everything with linearities. It could well be that treating
+volumes defined by egenindexes as linearly related works *very well*.
 """
 
 
 class ConvLSTMCell3d(Module):
-    """Expects inputs to be (T, B, C, *SPATIAL), where len(SPATIAL) == 3."""
+    """Expects inputs to be (T, B, C, *SPATIAL), where len(SPATIAL) == 3.
+
+    Notes
+    -----
+    GPU memory cost is a function of both spatial size, sequence length, hidden_size, and
+    num_layers. An input tensor is O(H, W, D, T). Our base values are (47, 59, 42, 175). The
+    input x size is thus (47*59*42*175), which according to
+
+        x.element_size() * x.nelements / 1e6
+
+    is about 80 MB. Thus regardless of the architecture, inputs alone with a batch size of B cost
+    about 80*B MB. So already at a batch size of 12 inputs, we have used 1GB of GPU memory.
+
+
+
+
+    weights for a conv that has kernel**3 * (hidden_size + in_channels) floats.  at 175 timepoints
+    about , and saving
+
+    """
 
     def __init__(
         self,
@@ -170,6 +203,7 @@ class ConvLSTMCell3d(Module):
 
         # any function that can be applied recursively (maintains shape) works here?
         self.recursor = Sequential(*self.layers)
+
         self.Wci = Parameter(torch.zeros((1, self.hidden_size, *self.spatial_dims)))
         self.Wcf = Parameter(torch.zeros((1, self.hidden_size, *self.spatial_dims)))
         self.Wco = Parameter(torch.zeros((1, self.hidden_size, *self.spatial_dims)))
@@ -177,7 +211,7 @@ class ConvLSTMCell3d(Module):
     def forward(self, x: Tensor, state: State) -> State:
         """Requires x.shape == (B, C, *SPATIAL)"""
         h, c = state  # current state (or equivalently, previous state, h_t-1)
-        hx = torch.cat((x, h), dim=1)  # channel dimension must be 1
+        hx = torch.cat((x.to(device="cuda"), h), dim=1)  # channel dimension must be 1
         convolved = self.recursor(hx)
         ii, ff, cc, oo = torch.chunk(convolved, 4, dim=1)  # un-concatenated combined terms
 
@@ -249,6 +283,7 @@ class ConvLSTM3d(Module):
         depthwise: bool = False,
         inner_spatial_dropout: float = 0.0,
         spatial_dropout: float = 0.0,
+        min_gpu: bool = True,  # save results on cpu to save GPU memory
     ):
         super().__init__()
         self.in_channels = in_channels
@@ -260,6 +295,7 @@ class ConvLSTM3d(Module):
         self.depthwise = depthwise
         self.inner_spatial_dropout = inner_spatial_dropout
         self.spatial_dropout = spatial_dropout
+        self.min_gpu = min_gpu
         if self.spatial_dropout > 0:
             raise NotImplementedError("Spatial dropout between layers is not yet implemented")
 
@@ -294,9 +330,15 @@ class ConvLSTM3d(Module):
             state = layer.initialize(batch_size, x.device)
             hs = []
             for t in range(T):
-                x_t = x_layer[:, t]
+                if self.min_gpu:
+                    x_t = x_layer[:, t].clone().to(device="cpu")
+                else:
+                    x_t = x_layer[:, t]
                 state = layer(x_t, state)
-                hs.append(state[0])
+                if self.min_gpu:
+                    hs.append(state[0].clone().to(device="cpu"))
+                else:
+                    hs.append(state[0])
             x_layer = torch.stack(hs, dim=1)  # Tensor/list of all computed hidden states
         return state
 
