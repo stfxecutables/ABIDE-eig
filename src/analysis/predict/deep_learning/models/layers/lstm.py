@@ -148,9 +148,9 @@ class ConvLSTMCell3d(Module):
                 if in_ch % groups == 0 and out_ch % groups == 0:
                     valid = groups
             if valid is None:
-                raise ValueError(f"No valid depthwise group size for current hidden size {self.hidden_size}")
-
-
+                raise ValueError(
+                    f"No valid depthwise group size for current hidden size {self.hidden_size}"
+                )
 
         self.layers = [
             Conv3d(
@@ -266,7 +266,7 @@ class ConvLSTM3d(Module):
         cell_args: Dict = dict(
             in_spatial_dims=in_spatial_dims,
             spatial_dropout=inner_spatial_dropout,
-            depthwise= self.depthwise,
+            depthwise=self.depthwise,
         )
 
         layers = []
@@ -277,7 +277,7 @@ class ConvLSTM3d(Module):
                     hidden_size=self.hidden_sizes[i],
                     kernel_size=self.kernel_sizes[i],
                     dilation=self.dilations[i],
-                    **cell_args
+                    **cell_args,
                 )
             )
         self.layers: ModuleList = ModuleList(layers)  # properly register
