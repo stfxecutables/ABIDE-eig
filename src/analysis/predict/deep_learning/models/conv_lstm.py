@@ -1,13 +1,6 @@
 # fmt: off
-from logging import warn
-from pathlib import Path
-
-from torch import random
-
+from pathlib import Path  # isort:skip
 import sys  # isort:skip
-
-
-from torch.utils.data.dataset import TensorDataset  # isort:skip
 ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent.parent
 sys.path.append(str(ROOT))
 # from src.run.cc_setup import setup_environment  # isort:skip
@@ -15,14 +8,9 @@ sys.path.append(str(ROOT))
 # fmt: on
 
 from argparse import ArgumentParser
-from pathlib import Path
+from logging import warn
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union, cast, no_type_check
 
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-import pytest
-import seaborn as sbn
 import torch
 from numpy import ndarray
 from pandas import DataFrame, Series
@@ -33,21 +21,34 @@ from torch.nn import (
     BatchNorm3d,
     BCEWithLogitsLoss,
     Conv3d,
+    InstanceNorm3d,
     Linear,
     LSTMCell,
     Module,
     PReLU,
     ReLU,
 )
+from torch.nn.modules.padding import ConstantPad3d
 from torch.utils.data import DataLoader, Dataset, random_split
+from torch.utils.data.dataset import TensorDataset
 from torchmetrics.functional import accuracy
 from typing_extensions import Literal
 
 from src.analysis.predict.deep_learning.constants import INPUT_SHAPE
 from src.analysis.predict.deep_learning.dataloader import FmriDataset
-from src.analysis.predict.deep_learning.layers import GlobalAveragePooling
+from src.analysis.predict.deep_learning.models.layers.lstm import ConvLSTM3d
+from src.analysis.predict.deep_learning.models.layers.reduce import GlobalAveragePooling
+from src.analysis.predict.deep_learning.models.layers.utils import EVEN_PAD
 
-BATCH_SIZE = 10
+BATCH_SIZE = 1
+MODEL_ARGS = dict(
+    in_channels=1,
+    in_spatial_dims=INPUT_SHAPE[1:],
+    num_layers=1,
+    hidden_sizes=[4],
+    kernel_sizes=[3],
+    dilations=[2],
+)
 
 """
 Notes from https://ieeexplore.ieee.org/document/8363798
@@ -236,6 +237,190 @@ class MemTestCNN(LightningModule):
         return acc, loss
 
 
+class Conv3dToLstm3d(LightningModule):
+    def __init__(self, config: Dict) -> None:
+        super().__init__()
+        IN_CH = INPUT_SHAPE[0]
+        final_conv_args: Dict = dict(
+            in_channels=IN_CH,
+            out_channels=IN_CH,
+            kernel_size=3,
+            stride=2,
+            dilation=3,
+            padding=3,
+            bias=False,
+        )
+        self.save_hyperparameters()
+        self.model = ConvLSTM3d(**config)
+        # TODO: instead of pooling, just flatten, transpose, and treat as
+        # Conv1D with e.g. 8 channels, 175 timepoints
+        self.padder = ConstantPad3d(EVEN_PAD, 0)
+        self.conv1 = Conv3d(**final_conv_args)
+        self.relu1 = PReLU()
+        self.norm1 = InstanceNorm3d(IN_CH)
+        self.conv2 = Conv3d(**final_conv_args)
+        self.relu2 = PReLU()
+        self.norm2 = InstanceNorm3d(IN_CH)
+        self.conv3 = Conv3d(**final_conv_args)
+        self.relu3 = PReLU()
+        self.norm3 = InstanceNorm3d(IN_CH)
+        # output shape after above is (1, IN_CH, 6, 8, 6)
+
+        self.gap = GlobalAveragePooling()
+        self.pool = AdaptiveMaxPool3d((1, 1, 1))
+        # TODO: replace with Conv1D net
+        self.linear = Linear(in_features=32, out_features=1, bias=True)  # If no pool
+        # self.linear = Linear(in_features=175, out_features=1, bias=True)
+
+    @no_type_check
+    def forward(self, x: Tensor) -> Tensor:
+        # input shape is (B, 175, 47, 59, 42)
+        x, _ = self.model(x)  # now x.shape == (B, 47, 59, 42)
+        x = self.padder(x)  # now x.shape == (B, 48, 60, 42)
+        x = self.conv1(x)  # now x.shape == (B, 8, 24, 30, 21)
+        x = self.relu1(x)
+        x = self.norm1(x)
+        x = self.conv2(x)  # now x.shape == torch.Size([40, 16, 12, 15, 11])
+        x = self.relu2(x)
+        x = self.norm2(x)
+        x = self.conv3(x)  # now x.shape == torch.Size([40, 32, 6, 8, 6])
+        x = self.relu3(x)
+        x = self.norm3(x)
+        x = self.pool(x)  # now x.shape == torch.Size([40, 32, 1, 1, 1])
+        x = x.squeeze()
+        x = self.linear(x)
+        # x = self.gap(x)
+
+        # x = x.reshape([x.size(0), -1])  # flatten for if going straight to linear
+        # x = x.reshape([x.size(0), 1, -1])  # flatten and add 1-channel if Conv1D
+        return x
+
+    @no_type_check
+    def training_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> Tensor:
+        acc, loss = self.inner_step(batch)
+        self.log("train_acc", acc, prog_bar=True, on_step=True, on_epoch=True)
+        self.log("train_loss", loss, prog_bar=True, on_step=True, on_epoch=True)
+        self.log("loss", loss, prog_bar=True, on_step=True, on_epoch=True)
+        return loss
+
+    @no_type_check
+    def validation_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> None:
+        acc, loss = self.inner_step(batch)
+        self.log("val_loss", loss, prog_bar=True)
+        self.log("val_acc", acc, prog_bar=True)
+
+    @no_type_check
+    def test_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> None:
+        acc, loss = self.inner_step(batch)
+        self.log("test_loss", loss)
+        self.log("test_acc", acc)
+
+    def configure_optimizers(self) -> Any:
+        return torch.optim.Adam(self.parameters())
+
+    def inner_step(self, batch: Tuple[Tensor, Tensor]) -> Tuple[Tensor, Tensor]:
+        loss: Tensor
+        x, y_true = batch
+        y_pred = self(x)
+        criterion = BCEWithLogitsLoss()
+        loss = criterion(y_pred.squeeze(), y_true.squeeze())
+        acc = accuracy(
+            torch.sigmoid(y_pred.squeeze().unsqueeze(0)), y_true.squeeze().unsqueeze(0).int()
+        )
+        return acc, loss
+
+
+class Lstm3dToConv(LightningModule):
+    def __init__(self, config: Dict) -> None:
+        super().__init__()
+        final_conv_args: Dict = dict(
+            kernel_size=3,
+            stride=2,
+            dilation=3,
+            padding=3,
+            bias=False,
+        )
+        self.save_hyperparameters()
+        self.model = ConvLSTM3d(**config)
+        # TODO: instead of pooling, just flatten, transpose, and treat as
+        # Conv1D with e.g. 8 channels, 175 timepoints
+        self.padder = ConstantPad3d(EVEN_PAD, 0)
+        self.conv1 = Conv3d(
+            in_channels=self.model.hidden_sizes[-1], out_channels=8, **final_conv_args
+        )
+        self.relu1 = PReLU()
+        self.norm1 = InstanceNorm3d(8)
+        self.conv2 = Conv3d(in_channels=8, out_channels=16, **final_conv_args)
+        self.relu2 = PReLU()
+        self.norm2 = InstanceNorm3d(16)
+        self.conv3 = Conv3d(in_channels=16, out_channels=32, **final_conv_args)
+        self.relu3 = PReLU()
+        self.norm3 = InstanceNorm3d(32)
+
+        self.gap = GlobalAveragePooling()
+        self.pool = AdaptiveMaxPool3d((1, 1, 1))
+        # TODO: replace with Conv1D net
+        self.linear = Linear(in_features=32, out_features=1, bias=True)  # If no pool
+        # self.linear = Linear(in_features=175, out_features=1, bias=True)
+
+    @no_type_check
+    def forward(self, x: Tensor) -> Tensor:
+        # input shape is (B, 175, 47, 59, 42)
+        x, _ = self.model(x)  # now x.shape == (B, 47, 59, 42)
+        x = self.padder(x)  # now x.shape == (B, 48, 60, 42)
+        x = self.conv1(x)  # now x.shape == (B, 8, 24, 30, 21)
+        x = self.relu1(x)
+        x = self.norm1(x)
+        x = self.conv2(x)  # now x.shape == torch.Size([40, 16, 12, 15, 11])
+        x = self.relu2(x)
+        x = self.norm2(x)
+        x = self.conv3(x)  # now x.shape == torch.Size([40, 32, 6, 8, 6])
+        x = self.relu3(x)
+        x = self.norm3(x)
+        x = self.pool(x)  # now x.shape == torch.Size([40, 32, 1, 1, 1])
+        x = x.squeeze()
+        x = self.linear(x)
+        # x = self.gap(x)
+
+        # x = x.reshape([x.size(0), -1])  # flatten for if going straight to linear
+        # x = x.reshape([x.size(0), 1, -1])  # flatten and add 1-channel if Conv1D
+        return x
+
+    @no_type_check
+    def training_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> Tensor:
+        acc, loss = self.inner_step(batch)
+        self.log("train_acc", acc, prog_bar=True, on_step=True, on_epoch=True)
+        self.log("train_loss", loss, prog_bar=True, on_step=True, on_epoch=True)
+        self.log("loss", loss, prog_bar=True, on_step=True, on_epoch=True)
+        return loss
+
+    @no_type_check
+    def validation_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> None:
+        acc, loss = self.inner_step(batch)
+        self.log("val_loss", loss, prog_bar=True)
+        self.log("val_acc", acc, prog_bar=True)
+
+    @no_type_check
+    def test_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> None:
+        acc, loss = self.inner_step(batch)
+        self.log("test_loss", loss)
+        self.log("test_acc", acc)
+
+    def configure_optimizers(self) -> Any:
+        return torch.optim.Adam(self.parameters())
+
+    def inner_step(self, batch: Tuple[Tensor, Tensor]) -> Tuple[Tensor, Tensor]:
+        loss: Tensor
+        x, y_true = batch
+        y_pred = self(x)
+        criterion = BCEWithLogitsLoss()
+        loss = criterion(y_pred.squeeze(), y_true.squeeze())
+        acc = accuracy(
+            torch.sigmoid(y_pred.squeeze().unsqueeze(0)), y_true.squeeze().unsqueeze(0).int()
+        )
+        return acc, loss
+
+
 def random_data() -> Tuple[Tensor, Tensor, Tensor, Tensor]:
     # if our model is flexible enough we should be  able to overfit random data
     # we can!
@@ -282,11 +467,12 @@ def test_overfit_random() -> None:
         drop_last=True,
     )
     val_loader = DataLoader(TensorDataset(X_VAL, Y_VAL), batch_size=BATCH_SIZE, num_workers=8)
-    model = MemTestCNN()
+    model = Lstm3dToConv(config=MODEL_ARGS)
     parser = ArgumentParser()
     parser.add_argument("--batch_size", default=BATCH_SIZE, type=int)
     parser = Trainer.add_argparse_args(parser)
     args = parser.parse_args()
+    args.default_root_dir = ROOT / "results/LSTM_rand_test"
     trainer = Trainer.from_argparse_args(args)
     trainer.fit(model, train_loader, val_loader)
     # test_loader = DataLoader(RandomSeparated(100), batch_size=BATCH_SIZE, num_workers=8)
@@ -334,5 +520,5 @@ def test_overfit_fmri_subset(is_eigimg: bool = False, preload: bool = False) -> 
 
 if __name__ == "__main__":
     seed_everything(333, workers=True)
-    # test_overfit_random()
-    test_overfit_fmri_subset(is_eigimg=True, preload=True)
+    test_overfit_random()
+    # test_overfit_fmri_subset(is_eigimg=True, preload=True)

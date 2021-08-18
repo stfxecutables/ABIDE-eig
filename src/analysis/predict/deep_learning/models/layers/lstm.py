@@ -218,6 +218,7 @@ class ConvLSTMCell3d(Module):
         i_t = torch.sigmoid(ii + self.Wci * c)
         f_t = torch.sigmoid(ff + self.Wcf * c)
         c_t = i_t * torch.tanh(cc) + f_t * c
+        f_t = i_t = None  # try to free memory...
         o_t = torch.sigmoid(oo + self.Wco * c_t)
         h_t = o_t * torch.tanh(c_t)
         return h_t, c_t
@@ -331,9 +332,9 @@ class ConvLSTM3d(Module):
             hs = []
             for t in range(T):
                 if self.min_gpu:
-                    x_t = x_layer[:, t].clone().to(device="cpu")
+                    x_t = x_layer[:, t].unsqueeze(1).clone().to(device="cpu")
                 else:
-                    x_t = x_layer[:, t]
+                    x_t = x_layer[:, t].unsqueeze(1)
                 state = layer(x_t, state)
                 if self.min_gpu:
                     hs.append(state[0].clone().to(device="cpu"))
@@ -349,6 +350,9 @@ class ConvLSTM3d(Module):
             items = [*item]
             if len(items) == self.num_layers:
                 return items
+        if isinstance(item, list) and isinstance(item[0], int) and len(item) == 1:
+            return [item[0] for _ in range(self.num_layers)]
+
         raise ValueError(
             "Layer arguments must be an int or sequence of ints with length `num_layers`."
         )
