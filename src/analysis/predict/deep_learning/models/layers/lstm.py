@@ -325,16 +325,18 @@ class ConvLSTM3d(Module):
         # t=0 in the loops below, we need to initialize before
         layer: ConvLSTMCell3d
         state: State
-        T, batch_size = x.size(1), x.size(0)
+        if len(x.shape) != 6:
+            raise ValueError("Inputs to ConvLSTM3d must have shape (B, T, C, *SPATIAL).")
+        batch_size, T, in_ch = x.size(0), x.size(1), x.size(2)
         x_layer = x
         for i, layer in enumerate(self.layers):
             state = layer.initialize(batch_size, x.device)
             hs = []
             for t in range(T):
                 if self.min_gpu:
-                    x_t = x_layer[:, t].unsqueeze(1).clone().to(device="cpu")
+                    x_t = x_layer[:, t].clone().to(device="cpu")
                 else:
-                    x_t = x_layer[:, t].unsqueeze(1)
+                    x_t = x_layer[:, t]
                 state = layer(x_t, state)
                 if self.min_gpu:
                     hs.append(state[0].clone().to(device="cpu"))

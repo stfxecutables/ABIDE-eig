@@ -7,10 +7,11 @@ sys.path.append(str(ROOT))
 # setup_environment()
 # fmt: on
 
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
 from logging import warn
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union, cast, no_type_check
 
+import numpy as np
 import torch
 from numpy import ndarray
 from pandas import DataFrame, Series
@@ -29,6 +30,7 @@ from torch.nn import (
     ReLU,
 )
 from torch.nn.modules.padding import ConstantPad3d
+from torch.optim.adam import Adam
 from torch.utils.data import DataLoader, Dataset, random_split
 from torch.utils.data.dataset import TensorDataset
 from torchmetrics.functional import accuracy
@@ -240,6 +242,7 @@ class MemTestCNN(LightningModule):
 class Conv3dToLstm3d(LightningModule):
     def __init__(self, config: Dict) -> None:
         super().__init__()
+        self.hparams: Namespace
         IN_CH = INPUT_SHAPE[0]
         final_conv_args: Dict = dict(
             in_channels=IN_CH,
@@ -249,6 +252,7 @@ class Conv3dToLstm3d(LightningModule):
             dilation=3,
             padding=3,
             bias=False,
+            groups=IN_CH,
         )
         self.save_hyperparameters()
         self.model = ConvLSTM3d(**config)
@@ -316,7 +320,7 @@ class Conv3dToLstm3d(LightningModule):
         self.log("test_acc", acc)
 
     def configure_optimizers(self) -> Any:
-        return torch.optim.Adam(self.parameters())
+        return Adam(self.parameters(), lr=self.hparams.lr)
 
     def inner_step(self, batch: Tuple[Tensor, Tensor]) -> Tuple[Tensor, Tensor]:
         loss: Tensor
@@ -408,6 +412,104 @@ class Lstm3dToConv(LightningModule):
 
     def configure_optimizers(self) -> Any:
         return torch.optim.Adam(self.parameters())
+
+    def inner_step(self, batch: Tuple[Tensor, Tensor]) -> Tuple[Tensor, Tensor]:
+        loss: Tensor
+        x, y_true = batch
+        y_pred = self(x)
+        criterion = BCEWithLogitsLoss()
+        loss = criterion(y_pred.squeeze(), y_true.squeeze())
+        acc = accuracy(
+            torch.sigmoid(y_pred.squeeze().unsqueeze(0)), y_true.squeeze().unsqueeze(0).int()
+        )
+        return acc, loss
+
+
+class Conv3dToConvLstm3d(LightningModule):
+    def __init__(self, config: Namespace) -> None:
+        super().__init__()
+        self.save_hyperparameters(config)
+        IN_CH = INPUT_SHAPE[0]
+        final_conv_args: Dict = dict(
+            in_channels=IN_CH,
+            out_channels=IN_CH,
+            kernel_size=3,
+            stride=2,
+            dilation=3,
+            padding=3,
+            bias=False,
+            groups=IN_CH,
+        )
+        self.padder = ConstantPad3d(EVEN_PAD, 0)
+        self.conv1 = Conv3d(**final_conv_args)
+        self.relu1 = PReLU()
+        self.norm1 = InstanceNorm3d(IN_CH)
+        self.conv2 = Conv3d(**final_conv_args)
+        self.relu2 = PReLU()
+        self.norm2 = InstanceNorm3d(IN_CH)
+        self.conv3 = Conv3d(**final_conv_args)
+        self.relu3 = PReLU()
+        self.norm3 = InstanceNorm3d(IN_CH)
+        # output shape after above is (1, IN_CH, 6, 8, 6)
+        SPATIAL_OUT = (6, 8, 6)
+        self.conv_lstm = ConvLSTM3d(
+            in_channels=self.hparams.in_channels,
+            in_spatial_dims=SPATIAL_OUT,
+            num_layers=self.hparams.num_layers,
+            hidden_sizes=self.hparams.hidden_sizes,
+            kernel_sizes=self.hparams.kernel_sizes,
+            dilations=self.hparams.dilations,
+        )
+        self.linear = Linear(
+            in_features=self.hparams.hidden_sizes[-1] * np.prod(SPATIAL_OUT),
+            out_features=1,
+            bias=True,
+        )  # If no pool
+
+    @no_type_check
+    def forward(self, x: Tensor) -> Tensor:
+        # input shape is (B, 175, 47, 59, 42)
+        x = self.padder(x)  # x.shape == (B, 175, 48, 60, 42)
+        x = self.conv1(x)  # x.shape == (B, 175, 24, 30, 21)
+        x = self.relu1(x)
+        x = self.norm1(x)
+        x = self.conv2(x)  # x.shape == (B, 175, 12, 15, 11)
+        x = self.relu2(x)
+        x = self.norm2(x)
+        x = self.conv3(x)  # x.shape == (B, 175, 6, 8, 6)
+        x = self.relu3(x)
+        x = self.norm3(x)
+        x = x.unsqueeze(2)
+        x, _ = self.conv_lstm(x)  # x.shape == (B, HIDDEN_SIZE, 6, 8, 6)
+        x = x.reshape((x.size(0), -1))
+        x = self.linear(x)
+        # x = self.gap(x)
+
+        # x = x.reshape([x.size(0), -1])  # flatten for if going straight to linear
+        # x = x.reshape([x.size(0), 1, -1])  # flatten and add 1-channel if Conv1D
+        return x
+
+    @no_type_check
+    def training_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> Tensor:
+        acc, loss = self.inner_step(batch)
+        self.log("train_acc", acc, prog_bar=True, on_epoch=True)
+        self.log("loss", loss, prog_bar=True, on_epoch=True)
+        return loss
+
+    @no_type_check
+    def validation_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> None:
+        acc, loss = self.inner_step(batch)
+        self.log("val_loss", loss, prog_bar=True)
+        self.log("val_acc", acc, prog_bar=True)
+
+    @no_type_check
+    def test_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> None:
+        acc, loss = self.inner_step(batch)
+        self.log("test_loss", loss)
+        self.log("test_acc", acc)
+
+    def configure_optimizers(self) -> Any:
+        return torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
 
     def inner_step(self, batch: Tuple[Tensor, Tensor]) -> Tuple[Tensor, Tensor]:
         loss: Tensor
@@ -518,7 +620,59 @@ def test_overfit_fmri_subset(is_eigimg: bool = False, preload: bool = False) -> 
     trainer.fit(model, train_loader, val_loader)
 
 
+def test_conv_to_conv_lstm(
+    config: Namespace, is_eigimg: bool = False, preload: bool = False
+) -> None:
+    data = FmriDataset(is_eigimg=is_eigimg, preload_data=preload)
+    test_length = 40 if len(data) == 100 else 100
+    train_length = len(data) - test_length
+    train, val = random_split(data, (train_length, test_length), generator=None)
+    val_aut = torch.cat(list(zip(*list(val)))[1]).sum().int().item()
+    train_aut = torch.cat(list(zip(*list(train)))[1]).sum().int().item()
+    print("For quick testing, subset sizes will be:")
+    print(f"train: {len(train)} (Autism={train_aut}, Control={len(train) - train_aut})")
+    print(f"val:   {len(val)} (Autism={val_aut}, Control={len(val) - val_aut})")
+    parser = ArgumentParser()
+    parser.add_argument("--batch_size", default=BATCH_SIZE, type=int)
+    parser = Trainer.add_argparse_args(parser)
+    args = parser.parse_args()
+    batch_size = args.batch_size
+    if len(train) % batch_size != 0:
+        warn(
+            "Batch size does not evenly divide training set. "
+            f"{len(train) % batch_size} subjects will be dropped each training epoch."
+        )
+    train_loader = DataLoader(
+        train,
+        batch_size=args.batch_size,
+        num_workers=8,
+        shuffle=True,
+        drop_last=False,
+    )
+    val_loader = DataLoader(
+        val,
+        batch_size=10,
+        num_workers=8,
+        shuffle=False,
+        drop_last=False,
+    )
+    model = Conv3dToConvLstm3d(config)
+    trainer = Trainer.from_argparse_args(args)
+    trainer.fit(model, train_loader, val_loader)
+
+
 if __name__ == "__main__":
     seed_everything(333, workers=True)
-    test_overfit_random()
+    # test_overfit_random()
     # test_overfit_fmri_subset(is_eigimg=True, preload=True)
+    config = Namespace(
+        **dict(
+            in_channels=1,
+            num_layers=1,
+            hidden_sizes=[32],
+            kernel_sizes=[3],
+            dilations=[1],
+            lr=1e-4,
+        )
+    )
+    test_conv_to_conv_lstm(config, is_eigimg=False, preload=False)
