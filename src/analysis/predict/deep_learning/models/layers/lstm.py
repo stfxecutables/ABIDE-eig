@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Sequence, Tuple, Union
+from typing import Dict, List, Optional, Sequence, Tuple, Union, cast
 
 import torch
 from torch import Tensor
@@ -7,6 +7,7 @@ from torch.nn import (
     ConstantPad3d,
     Conv3d,
     Dropout3d,
+    GroupNorm,
     Module,
     ModuleList,
     Parameter,
@@ -14,6 +15,8 @@ from torch.nn import (
     Sequential,
 )
 from torch.nn.modules.pooling import MaxPool3d
+
+from src.analysis.predict.deep_learning.models.layers.utils import NormLayer, norm_layer
 
 IntSeq = Union[int, Tuple[int, ...]]
 State = Tuple[Tensor, Tensor]
@@ -154,7 +157,10 @@ class ConvLSTMCell3d(Module):
         kernel_size: int = 3,
         dilation: int = 2,
         depthwise: bool = False,
+        norm: NormLayer = "batch",
+        norm_groups: int = 4,
         spatial_dropout: float = 0.0,
+        device: str = "cuda",
     ):
         super().__init__()
         if not isinstance(spatial_dropout, float):
@@ -171,7 +177,10 @@ class ConvLSTMCell3d(Module):
         self.effective_size = self.kernel_size + (self.kernel_size - 1) * (self.dilation - 1)
         self.padding = (self.effective_size - 1) // 2  # need to maintain size
         self.has_dropout = spatial_dropout != 0
+        self.norm = norm
+        self.norm_groups = norm_groups
         self.dropout = float(spatial_dropout)
+        self.device = device
 
         if self.depthwise:
             in_ch = self.in_channels + self.hidden_size
@@ -196,7 +205,7 @@ class ConvLSTMCell3d(Module):
                 groups=self.in_channels + self.hidden_size if self.depthwise else 1,
                 bias=True,
             ),
-            BatchNorm3d(4 * self.hidden_size),
+            norm_layer(self.norm, 4 * self.hidden_size, groups=self.norm_groups),
         ]
         if self.has_dropout:
             self.layers.append(Dropout3d(self.dropout))
@@ -204,9 +213,9 @@ class ConvLSTMCell3d(Module):
         # any function that can be applied recursively (maintains shape) works here?
         self.recursor = Sequential(*self.layers)
 
-        self.Wci = Parameter(torch.zeros((1, self.hidden_size, *self.spatial_dims)))
-        self.Wcf = Parameter(torch.zeros((1, self.hidden_size, *self.spatial_dims)))
-        self.Wco = Parameter(torch.zeros((1, self.hidden_size, *self.spatial_dims)))
+        self.Wci = Parameter(torch.zeros((1, self.hidden_size, *self.spatial_dims), device=device))
+        self.Wcf = Parameter(torch.zeros((1, self.hidden_size, *self.spatial_dims), device=device))
+        self.Wco = Parameter(torch.zeros((1, self.hidden_size, *self.spatial_dims), device=device))
 
     def forward(self, x: Tensor, state: State) -> State:
         """Requires x.shape == (B, C, *SPATIAL)"""
@@ -218,21 +227,21 @@ class ConvLSTMCell3d(Module):
         i_t = torch.sigmoid(ii + self.Wci * c)
         f_t = torch.sigmoid(ff + self.Wcf * c)
         c_t = i_t * torch.tanh(cc) + f_t * c
-        f_t = i_t = None  # try to free memory...
+        f_t = i_t = None  # type: ignore # try to free memory...
         o_t = torch.sigmoid(oo + self.Wco * c_t)
         h_t = o_t * torch.tanh(c_t)
         return h_t, c_t
 
-    def initialize(self, batch_size: int, device: str) -> State:
+    def initialize(self, batch_size: int) -> State:
         """Returns hidden and cell states for t = 0 initial case, and initializes
         Wc weights on correct device.
         """
         size = (batch_size, self.hidden_size, *self.spatial_dims)
-        if self.Wci is None:
-            self.Wci.to(device)
-            self.Wcf.to(device)
-            self.Wco.to(device)
-        return torch.zeros(size).to(device), torch.zeros(size).to(device)
+        # if self.Wci is None:
+        #     self.Wci.to(device)
+        #     self.Wcf.to(device)
+        #     self.Wco.to(device)
+        return torch.zeros(size, device=self.device), torch.zeros(size, device=self.device)
 
 
 class ConvLSTM3d(Module):
@@ -282,9 +291,12 @@ class ConvLSTM3d(Module):
         kernel_sizes: Sequence[int] = [3],
         dilations: Sequence[int] = [2],
         depthwise: bool = False,
+        norm: NormLayer = "batch",
+        norm_groups: int = 4,
         inner_spatial_dropout: float = 0.0,
         spatial_dropout: float = 0.0,
         min_gpu: bool = True,  # save results on cpu to save GPU memory
+        device: str = "cuda",
     ):
         super().__init__()
         self.in_channels = in_channels
@@ -294,9 +306,12 @@ class ConvLSTM3d(Module):
         self.kernel_sizes = self.listify(kernel_sizes)
         self.dilations = self.listify(dilations)
         self.depthwise = depthwise
+        self.norm = norm
+        self.norm_groups = norm_groups
         self.inner_spatial_dropout = inner_spatial_dropout
         self.spatial_dropout = spatial_dropout
         self.min_gpu = min_gpu
+        self.device = device
         if self.spatial_dropout > 0:
             raise NotImplementedError("Spatial dropout between layers is not yet implemented")
 
@@ -314,6 +329,9 @@ class ConvLSTM3d(Module):
                     hidden_size=self.hidden_sizes[i],
                     kernel_size=self.kernel_sizes[i],
                     dilation=self.dilations[i],
+                    device=self.device,
+                    norm=self.norm,
+                    norm_groups=self.norm_groups,
                     **cell_args,
                 )
             )
@@ -330,7 +348,7 @@ class ConvLSTM3d(Module):
         batch_size, T, in_ch = x.size(0), x.size(1), x.size(2)
         x_layer = x
         for i, layer in enumerate(self.layers):
-            state = layer.initialize(batch_size, x.device)
+            state = layer.initialize(batch_size)
             hs = []
             for t in range(T):
                 if self.min_gpu:
