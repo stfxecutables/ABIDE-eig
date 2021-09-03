@@ -326,6 +326,8 @@ class FmriDataset(Dataset):
         preload_data: bool = False,
     ) -> None:
         # self.mask = nib.load(MASK).get_fdata().astype(bool)  # more efficient to load just once
+        if os.environ.get("SLURM_TMPDIR") is not None:  # can't hold all full data in memory
+            preload_data = False
         self.preload = bool(preload_data)
         self.img_paths = prepare_data_files(is_eigimg)
         self.transform = transform
