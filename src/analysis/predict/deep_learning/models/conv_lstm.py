@@ -1,6 +1,6 @@
 # fmt: off
 from pathlib import Path  # isort:skip
-import sys # isort:skip
+import sys  # isort:skip
 ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent.parent
 sys.path.append(str(ROOT))
 # from src.run.cc_setup import setup_environment  # isort:skip
@@ -9,34 +9,26 @@ sys.path.append(str(ROOT))
 
 from argparse import ArgumentParser, Namespace
 from logging import warn
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union, cast, no_type_check
+from typing import Any, Dict, Tuple, Type, no_type_check
 
 import numpy as np
 import torch
-from numpy import ndarray
-from pandas import DataFrame, Series
 from pytorch_lightning import LightningModule, Trainer, seed_everything
 from pytorch_lightning.profiler import AdvancedProfiler
 from torch import Tensor
 from torch.nn import (
     AdaptiveMaxPool3d,
-    BatchNorm3d,
     BCEWithLogitsLoss,
     Conv3d,
     InstanceNorm3d,
     Linear,
-    LSTMCell,
-    Module,
     ModuleList,
     PReLU,
-    ReLU,
 )
 from torch.nn.modules.padding import ConstantPad3d
 from torch.optim.adam import Adam
-from torch.utils.data import DataLoader, Dataset, random_split
-from torch.utils.data.dataset import TensorDataset
+from torch.utils.data import DataLoader, random_split
 from torchmetrics.functional import accuracy
-from typing_extensions import Literal
 
 from src.analysis.predict.deep_learning.constants import INPUT_SHAPE, PADDED_SHAPE
 from src.analysis.predict.deep_learning.dataloader import FmriDataset
@@ -68,11 +60,6 @@ added with ratio 0.5 after the first and the sec- ond max pooling layers and rat
 third and the fourth max pooling layers. L2 regularization with regulari- sation 0.01 was used in
 each fully connected layer to avoid overfitting
 """
-
-
-class Downsample(Module):
-    def __init__(self) -> None:
-        super().__init__()
 
 
 # based on
@@ -176,58 +163,34 @@ class Conv3dToConvLstm3d(LightningModule):
     def __init__(self, config: Namespace) -> None:
         super().__init__()
         self.save_hyperparameters(config)
-        IN_CH = INPUT_SHAPE[0]
-        # final_conv_args: Dict = dict(
-        #     in_channels=IN_CH,
-        #     out_channels=IN_CH,
-        #     kernel_size=3,
-        #     stride=2,
-        #     dilation=3,
-        #     padding=3,
-        #     bias=False,
-        #     groups=IN_CH,
-        # )
         res_block_args: Dict = {
             key.replace("conv_", ""): val
             for key, val in config.__dict__.items()
             if key.startswith("conv")
         }
+        lstm_args: Dict = {
+            key.replace("lstm_", ""): val
+            for key, val in config.__dict__.items()
+            if key.startswith("lstm")
+        }
         self.conv_num_layers = res_block_args.pop("num_layers")
         self.padder = ConstantPad3d(EVEN_PAD, 0)
         self.convs = ModuleList([ResBlock3d(**res_block_args) for _ in range(self.conv_num_layers)])
 
-        # self.conv1 = Conv3d(**final_conv_args)
-        # self.relu1 = PReLU()
-        # self.norm1 = InstanceNorm3d(IN_CH)
-        # self.conv2 = Conv3d(**final_conv_args)
-        # self.relu2 = PReLU()
-        # self.norm2 = InstanceNorm3d(IN_CH)
-        # self.conv3 = Conv3d(**final_conv_args)
-        # self.relu3 = PReLU()
-        # self.norm3 = InstanceNorm3d(IN_CH)
-        # output shape after above is (1, IN_CH, 6, 8, 6)
-        # SPATIAL_OUT = (6, 8, 6)
-
-        SPATIAL_OUT = PADDED_SHAPE[1:]
+        spatial_out = PADDED_SHAPE[1:]
         for conv in self.convs:
-            SPATIAL_OUT = conv.output_shape(SPATIAL_OUT)
+            spatial_out = conv.output_shape(spatial_out)
+        self.spatial_out = spatial_out
         self.conv_lstm = ConvLSTM3d(
-            in_channels=self.hparams.lstm_in_channels,
-            in_spatial_dims=SPATIAL_OUT,
-            num_layers=self.hparams.lstm_num_layers,
-            hidden_sizes=self.hparams.lstm_hidden_sizes,
-            kernel_sizes=self.hparams.lstm_kernel_sizes,
-            dilations=self.hparams.lstm_dilations,
-            norm=self.hparams.lstm_norm,
-            norm_groups=self.hparams.lstm_norm_groups,
-            inner_spatial_dropout=self.hparams.lstm_spatial_dropout,
+            **lstm_args,
+            in_spatial_dims=spatial_out,
             min_gpu=False,
         )
         self.linear = Linear(
-            in_features=self.hparams.lstm_hidden_sizes[-1] * np.prod(SPATIAL_OUT),
+            in_features=self.hparams.lstm_hidden_sizes[-1] * np.prod(spatial_out),  # type: ignore
             out_features=1,
             bias=True,
-        )  # If no pool
+        )
 
     @no_type_check
     def forward(self, x: Tensor) -> Tensor:
@@ -241,18 +204,6 @@ class Conv3dToConvLstm3d(LightningModule):
             x = conv(x)
         x = x.unsqueeze(2)
         x, _ = self.conv_lstm(x)
-
-        # For manual conv setup
-        # x = self.conv1(x)  # x.shape == (B, 175, 24, 30, 21)
-        # x = self.relu1(x)
-        # x = self.norm1(x)
-        # x = self.conv2(x)  # x.shape == (B, 175, 12, 15, 11)
-        # x = self.relu2(x)
-        # x = self.norm2(x)
-        # x = self.conv3(x)  # x.shape == (B, 175, 6, 8, 6)
-        # x = self.relu3(x)
-        # x = self.norm3(x)
-
         x = x.reshape((x.size(0), -1))
         x = self.linear(x)
         return x
@@ -277,7 +228,8 @@ class Conv3dToConvLstm3d(LightningModule):
         self.log("test_acc", acc)
 
     def configure_optimizers(self) -> Any:
-        return Adam(self.parameters(), lr=self.hparams.lr, weight_decay=self.hparams.l2)
+        lr, wd = self.hparams.lr, self.hparams.l2  # type: ignore
+        return Adam(self.parameters(), lr=lr, weight_decay=wd)
 
     def inner_step(self, batch: Tuple[Tensor, Tensor]) -> Tuple[Tensor, Tensor]:
         loss: Tensor
@@ -291,105 +243,12 @@ class Conv3dToConvLstm3d(LightningModule):
         return acc, loss
 
 
-def random_data() -> Tuple[Tensor, Tensor, Tensor, Tensor]:
-    # if our model is flexible enough we should be  able to overfit random data
-    # we can!
-    print("Generating class 1 training data")
-    x1_train = torch.rand([20, *INPUT_SHAPE])
-    print("Generating class 2 training data")
-    x2_train = torch.rand([20, *INPUT_SHAPE])
-    x_train = torch.cat([x1_train, x2_train])
-    print("Normalizing")
-    x_train -= torch.mean(x_train)
-    y_train = torch.cat([torch.zeros(20), torch.ones(20)])
-    print("Generating class 1 validation data")
-    x1_val = torch.rand([5, *INPUT_SHAPE])
-    print("Generating class 2 validation data")
-    x2_val = torch.rand([5, *INPUT_SHAPE])
-    x_val = torch.cat([x1_val, x2_val])
-    print("Normalizing")
-    x_val -= torch.mean(x_val)
-    y_val = torch.cat([torch.zeros(5), torch.ones(5)])
-    return x_train, y_train, x_val, y_val
-
-
-class RandomSeparated(Dataset):
-    def __init__(self, size: int) -> None:
-        super().__init__()
-        self.size = size
-
-    def __getitem__(self, index: int) -> Tuple[Tensor, Tensor]:
-        if index < self.size // 2:
-            return torch.rand(INPUT_SHAPE) - 0.5, Tensor([0])
-        return torch.rand(INPUT_SHAPE), Tensor([1])
-
-    def __len__(self) -> int:
-        return self.size
-
-
-def test_overfit_random() -> None:
-    X_TRAIN, Y_TRAIN, X_VAL, Y_VAL = random_data()
-    train_loader = DataLoader(
-        TensorDataset(X_TRAIN, Y_TRAIN),
-        batch_size=BATCH_SIZE,
-        num_workers=8,
-        shuffle=True,
-        drop_last=True,
-    )
-    val_loader = DataLoader(TensorDataset(X_VAL, Y_VAL), batch_size=BATCH_SIZE, num_workers=8)
-    model = Lstm3dToConv(config=MODEL_ARGS)
-    parser = ArgumentParser()
-    parser.add_argument("--batch_size", default=BATCH_SIZE, type=int)
-    parser = Trainer.add_argparse_args(parser)
-    args = parser.parse_args()
-    args.default_root_dir = ROOT / "results/LSTM_rand_test"
-    trainer = Trainer.from_argparse_args(args)
-    trainer.fit(model, train_loader, val_loader)
-    # test_loader = DataLoader(RandomSeparated(100), batch_size=BATCH_SIZE, num_workers=8)
-    # trainer.test(model, test_loader)
-
-
-def test_overfit_fmri_subset(is_eigimg: bool = False, preload: bool = False) -> None:
-    data = FmriDataset(is_eigimg=is_eigimg, preload_data=preload)
-    test_length = 40 if len(data) == 100 else 100
-    train_length = len(data) - test_length
-    train, val = random_split(data, (train_length, test_length), generator=None)
-    val_aut = torch.cat(list(zip(*list(val)))[1]).sum().int().item()
-    train_aut = torch.cat(list(zip(*list(train)))[1]).sum().int().item()
-    print("For quick testing, subset sizes will be:")
-    print(f"train: {len(train)} (Autism={train_aut}, Control={len(train) - train_aut})")
-    print(f"val:   {len(val)} (Autism={val_aut}, Control={len(val) - val_aut})")
-    parser = ArgumentParser()
-    parser.add_argument("--batch_size", default=BATCH_SIZE, type=int)
-    parser = Trainer.add_argparse_args(parser)
-    args = parser.parse_args()
-    batch_size = args.batch_size
-    if len(train) % batch_size != 0:
-        warn(
-            "Batch size does not evenly divide training set. "
-            f"{len(train) % batch_size} subjects will be dropped each training epoch."
-        )
-    train_loader = DataLoader(
-        train,
-        batch_size=args.batch_size,
-        num_workers=8,
-        shuffle=True,
-        drop_last=False,
-    )
-    val_loader = DataLoader(
-        val,
-        batch_size=40 if len(data) == 100 else BATCH_SIZE,
-        num_workers=8,
-        shuffle=False,
-        drop_last=False,
-    )
-    model = MemTestCNN()
-    trainer = Trainer.from_argparse_args(args)
-    trainer.fit(model, train_loader, val_loader)
-
-
-def test_conv_to_conv_lstm(
-    config: Namespace, is_eigimg: bool = False, preload: bool = False, profile: bool = False
+def test_convlstm(
+    model_class: Type,
+    config: Namespace,
+    is_eigimg: bool = False,
+    preload: bool = False,
+    profile: bool = False,
 ) -> None:
     import logging
 
@@ -398,9 +257,9 @@ def test_conv_to_conv_lstm(
     test_length = 40 if len(data) == 100 else 100
     train_length = len(data) - test_length
     train, val = random_split(data, (train_length, test_length), generator=None)
-    val_aut = torch.cat(list(zip(*list(val)))[1]).sum().int().item()
-    train_aut = torch.cat(list(zip(*list(train)))[1]).sum().int().item()
-    root_dir = (ROOT / "lightning_logs") / ("eigimg" if is_eigimg else "func")
+    val_aut = torch.cat(list(zip(*list(val)))[1]).sum().int().item()  # type: ignore
+    train_aut = torch.cat(list(zip(*list(train)))[1]).sum().int().item()  # type: ignore
+    root_dir = ROOT / f"lightning_logs/{model_class.__name__}/{'eigimg' if is_eigimg else 'func'}"
     print("For quick testing, subset sizes will be:")
     print(f"train: {len(train)} (Autism={train_aut}, Control={len(train) - train_aut})")
     print(f"val:   {len(val)} (Autism={val_aut}, Control={len(val) - val_aut})")
@@ -423,7 +282,7 @@ def test_conv_to_conv_lstm(
             "Batch size does not evenly divide training set. "
             f"{len(train) % batch_size} subjects will be dropped each training epoch."
         )
-    model = Conv3dToConvLstm3d(config)
+    model = model_class(config)
     trainer = Trainer.from_argparse_args(args)
     trainer.logger.log_hyperparams(config)
     train_loader = DataLoader(
@@ -445,8 +304,6 @@ def test_conv_to_conv_lstm(
 
 if __name__ == "__main__":
     seed_everything(333, workers=True)
-    # test_overfit_random()
-    # test_overfit_fmri_subset(is_eigimg=True, preload=True)
     config = Namespace(
         **dict(
             conv_in_channels=INPUT_SHAPE[0],
@@ -467,9 +324,9 @@ if __name__ == "__main__":
             lstm_dilations=[1],
             lstm_norm="group",
             lstm_norm_groups=16,
-            lstm_spatial_dropout=0.4,
+            lstm_inner_spatial_dropout=0.4,
             lr=1e-4,
-            l2=1e-4,
+            l2=1e-5,
         )
     )
-    test_conv_to_conv_lstm(config, is_eigimg=False, preload=True, profile=False)
+    test_convlstm(Conv3dToConvLstm3d, config, is_eigimg=False, preload=True, profile=False)

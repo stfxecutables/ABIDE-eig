@@ -5,11 +5,13 @@ import sys  # isort:skip
 from pathlib import Path  # isort:skip
 ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent
 sys.path.append(str(ROOT))
+from argparse import ArgumentParser
+
 # from src.run.cc_setup import setup_environment  # isort:skip
 # setup_environment()
 # fmt: on
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple, Type
 
 import matplotlib.pyplot as plt
 import nibabel as nib
@@ -17,11 +19,13 @@ import numpy as np
 import pandas as pd
 import torch
 from pandas import DataFrame
+from pytorch_lightning import Trainer
 from torch import Tensor
-from torch.utils.data import Dataset
+from torch.utils.data import DataLoader, Dataset, TensorDataset
 from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 
+from src.analysis.predict.deep_learning.constants import INPUT_SHAPE
 from src.analysis.predict.reducers import subject_labels
 
 DATA = ROOT / "data"
@@ -326,3 +330,61 @@ class FmriDataset(Dataset):
         x -= np.mean(x)
         x /= np.std(x, ddof=1)
         return Tensor(x), Tensor([y])
+
+
+def random_data() -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+    # if our model is flexible enough we should be  able to overfit random data
+    # we can!
+    print("Generating class 1 training data")
+    x1_train = torch.rand([20, *INPUT_SHAPE])
+    print("Generating class 2 training data")
+    x2_train = torch.rand([20, *INPUT_SHAPE])
+    x_train = torch.cat([x1_train, x2_train])
+    print("Normalizing")
+    x_train -= torch.mean(x_train)
+    y_train = torch.cat([torch.zeros(20), torch.ones(20)])
+    print("Generating class 1 validation data")
+    x1_val = torch.rand([5, *INPUT_SHAPE])
+    print("Generating class 2 validation data")
+    x2_val = torch.rand([5, *INPUT_SHAPE])
+    x_val = torch.cat([x1_val, x2_val])
+    print("Normalizing")
+    x_val -= torch.mean(x_val)
+    y_val = torch.cat([torch.zeros(5), torch.ones(5)])
+    return x_train, y_train, x_val, y_val
+
+
+class RandomSeparated(Dataset):
+    def __init__(self, size: int) -> None:
+        super().__init__()
+        self.size = size
+
+    def __getitem__(self, index: int) -> Tuple[Tensor, Tensor]:
+        if index < self.size // 2:
+            return torch.rand(INPUT_SHAPE) - 0.5, Tensor([0])
+        return torch.rand(INPUT_SHAPE), Tensor([1])
+
+    def __len__(self) -> int:
+        return self.size
+
+
+def test_overfit_random(
+    model_class: Type, model_args: Dict, train_batch: int = 8, val_batch: int = 8
+) -> None:
+    X_TRAIN, Y_TRAIN, X_VAL, Y_VAL = random_data()
+    train_loader = DataLoader(
+        TensorDataset(X_TRAIN, Y_TRAIN),
+        batch_size=train_batch,
+        num_workers=8,
+        shuffle=True,
+        drop_last=True,
+    )
+    val_loader = DataLoader(TensorDataset(X_VAL, Y_VAL), batch_size=val_batch, num_workers=8)
+    model = model_class(config=model_args)
+    parser = ArgumentParser()
+    parser.add_argument("--batch_size", default=train_batch, type=int)
+    parser = Trainer.add_argparse_args(parser)
+    args = parser.parse_args()
+    args.default_root_dir = ROOT / f"results/{model_class.__name__}_rand_test"
+    trainer = Trainer.from_argparse_args(args)
+    trainer.fit(model, train_loader, val_loader)
