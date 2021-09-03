@@ -90,7 +90,7 @@ def generate_script(script_outdir: Path = SCRIPT_OUTDIR, is_eigimg: bool = False
     pythonfile = "$PROJECT/src/analysis/predict/deep_learning/models/conv_lstm.py"
     args = " ".join(sys.argv[1:])
     job_name = "deep_eigimg" if is_eigimg else "deep_fmri"
-    command = f"$PYTHON $PROJECT/{pythonfile} {args}"
+    command = f"$PYTHON {pythonfile} {args}"
     header = HEADER.format(time=RUNTIME, job_name=job_name)
 
     script = f"{header}{SCRIPT.format(command=command)}"
