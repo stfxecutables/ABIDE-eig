@@ -56,7 +56,7 @@ def prepare_data_files(is_eigimg: bool = False) -> List[Path]:
     os.makedirs(data, exist_ok=True)
     copies = [data / img.name for img in imgs]
     print("Copying data files to $SLURM_TMPDIR...")
-    process_map(copy, zip(imgs, copies), disable=True)
+    process_map(copy, list(zip(imgs, copies)), disable=True)
     print("files copied.")
     return copies
 
