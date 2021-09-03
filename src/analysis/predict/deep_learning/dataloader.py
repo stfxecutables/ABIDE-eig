@@ -1,10 +1,10 @@
 # fmt: off
-from concurrent.futures import process
-
 import sys  # isort:skip
 from pathlib import Path  # isort:skip
 ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent
 sys.path.append(str(ROOT))
+import os
+import shutil
 from argparse import ArgumentParser
 
 # from src.run.cc_setup import setup_environment  # isort:skip
@@ -28,6 +28,8 @@ from tqdm.contrib.concurrent import process_map
 from src.analysis.predict.deep_learning.constants import INPUT_SHAPE
 from src.analysis.predict.reducers import subject_labels
 
+FmriSlice = Tuple[int, int, int, int]  # just a convencience type to save space
+
 DATA = ROOT / "data"
 DEEP = DATA / "deep"  # for DL preprocessed fMRI data
 DEEP_FMRI = DEEP / "fmri"
@@ -38,6 +40,25 @@ PREPROC_EIG = sorted(DEEP_EIGIMG.rglob("*.npy"))
 PREPROC_FMRI = [DEEP_FMRI / str(p.name).replace("_eigimg", "") for p in PREPROC_EIG]
 LABELS: List[int] = subject_labels(PREPROC_EIG)
 SHAPE = (47, 59, 42, 175)
+
+
+def copy(src_dest: Tuple[Path, Path]) -> None:
+    src, dest = src_dest
+    shutil.copyfile(src, dest)
+
+
+def prepare_data_files(is_eigimg: bool = False) -> List[Path]:
+    imgs = PREPROC_EIG if is_eigimg else PREPROC_FMRI
+    slurm_tmpdir = os.environ.get("SLURM_TMPDIR")
+    if slurm_tmpdir is None:
+        return imgs
+    data = Path(slurm_tmpdir).resolve() / "data"
+    os.makedirs(data, exist_ok=True)
+    copies = [data / img.name for img in imgs]
+    print("Copying data files to $SLURM_TMPDIR...")
+    process_map(copy, zip(imgs, copies), disable=True)
+    print("files copied.")
+    return copies
 
 
 def verify(fmri_eig: Tuple[Path, Path]) -> bool:
@@ -87,8 +108,6 @@ def get_testing_subsample() -> None:
 
 # get_testing_subsample()
 # verify_matching()
-
-FmriSlice = Tuple[int, int, int, int]  # just a convencience type to save space
 
 
 class RandomFmriPatchDataset(Dataset):
@@ -308,7 +327,7 @@ class FmriDataset(Dataset):
     ) -> None:
         # self.mask = nib.load(MASK).get_fdata().astype(bool)  # more efficient to load just once
         self.preload = bool(preload_data)
-        self.img_paths = PREPROC_EIG if is_eigimg else PREPROC_FMRI
+        self.img_paths = prepare_data_files(is_eigimg)
         self.transform = transform
         self.imgs = []
         if self.preload:

@@ -246,33 +246,36 @@ class Conv3dToConvLstm3d(LightningModule):
 def test_convlstm(
     model_class: Type,
     config: Namespace,
-    is_eigimg: bool = False,
     preload: bool = False,
     profile: bool = False,
 ) -> None:
     import logging
 
     logging.basicConfig(level=logging.INFO)
+    parser = ArgumentParser()
+    parser.add_argument("--batch_size", default=BATCH_SIZE, type=int)
+    parser.add_argument("--is_eigimg", action="store_true")
+    parser = Trainer.add_argparse_args(parser)
+    args = parser.parse_args()
+
+    is_eigimg = args.is_eigimg
+    root_dir = ROOT / f"lightning_logs/{model_class.__name__}/{'eigimg' if is_eigimg else 'func'}"
+    batch_size = args.batch_size
+    # https://pytorch-lightning.readthedocs.io/en/stable/extensions/logging.html?highlight=logging#logging-frequency
+    args.log_every_n_steps = 5
+    args.flush_logs_every_n_steps = 20
+    args.default_root_dir = root_dir
+
     data = FmriDataset(is_eigimg=is_eigimg, preload_data=preload)
     test_length = 40 if len(data) == 100 else 100
     train_length = len(data) - test_length
     train, val = random_split(data, (train_length, test_length), generator=None)
     val_aut = torch.cat(list(zip(*list(val)))[1]).sum().int().item()  # type: ignore
     train_aut = torch.cat(list(zip(*list(train)))[1]).sum().int().item()  # type: ignore
-    root_dir = ROOT / f"lightning_logs/{model_class.__name__}/{'eigimg' if is_eigimg else 'func'}"
     print("For quick testing, subset sizes will be:")
     print(f"train: {len(train)} (Autism={train_aut}, Control={len(train) - train_aut})")
     print(f"val:   {len(val)} (Autism={val_aut}, Control={len(val) - val_aut})")
 
-    parser = ArgumentParser()
-    parser.add_argument("--batch_size", default=BATCH_SIZE, type=int)
-    parser = Trainer.add_argparse_args(parser)
-    args = parser.parse_args()
-    batch_size = args.batch_size
-    # https://pytorch-lightning.readthedocs.io/en/stable/extensions/logging.html?highlight=logging#logging-frequency
-    args.log_every_n_steps = 5
-    args.flush_logs_every_n_steps = 20
-    args.default_root_dir = root_dir
     if profile:
         profiler = AdvancedProfiler(dirpath=None, filename="profiling", line_count_restriction=2.0)
         args.profiler = profiler
@@ -329,4 +332,4 @@ if __name__ == "__main__":
             l2=1e-5,
         )
     )
-    test_convlstm(Conv3dToConvLstm3d, config, is_eigimg=False, preload=True, profile=False)
+    test_convlstm(Conv3dToConvLstm3d, config, preload=True, profile=False)
