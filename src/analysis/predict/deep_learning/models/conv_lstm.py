@@ -220,6 +220,7 @@ class Conv3dToConvLstm3d(LightningModule):
             dilations=self.hparams.lstm_dilations,
             norm=self.hparams.lstm_norm,
             norm_groups=self.hparams.lstm_norm_groups,
+            inner_spatial_dropout=self.hparams.lstm_spatial_dropout,
             min_gpu=False,
         )
         self.linear = Linear(
@@ -399,6 +400,7 @@ def test_conv_to_conv_lstm(
     train, val = random_split(data, (train_length, test_length), generator=None)
     val_aut = torch.cat(list(zip(*list(val)))[1]).sum().int().item()
     train_aut = torch.cat(list(zip(*list(train)))[1]).sum().int().item()
+    root_dir = (ROOT / "lightning_logs") / ("eigimg" if is_eigimg else "func")
     print("For quick testing, subset sizes will be:")
     print(f"train: {len(train)} (Autism={train_aut}, Control={len(train) - train_aut})")
     print(f"val:   {len(val)} (Autism={val_aut}, Control={len(val) - val_aut})")
@@ -411,6 +413,7 @@ def test_conv_to_conv_lstm(
     # https://pytorch-lightning.readthedocs.io/en/stable/extensions/logging.html?highlight=logging#logging-frequency
     args.log_every_n_steps = 5
     args.flush_logs_every_n_steps = 20
+    args.default_root_dir = root_dir
     if profile:
         profiler = AdvancedProfiler(dirpath=None, filename="profiling", line_count_restriction=2.0)
         args.profiler = profiler
@@ -464,8 +467,9 @@ if __name__ == "__main__":
             lstm_dilations=[1],
             lstm_norm="group",
             lstm_norm_groups=16,
+            lstm_spatial_dropout=0.4,
             lr=1e-4,
-            l2=1e-5,
+            l2=1e-4,
         )
     )
     test_conv_to_conv_lstm(config, is_eigimg=False, preload=True, profile=False)
