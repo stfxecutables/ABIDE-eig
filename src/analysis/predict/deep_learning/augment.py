@@ -54,35 +54,41 @@ class Cutout4d:
 
     SPATIAL_FMRI_MAX = 24
 
-    def __init__(self, max_spatial_size: int, max_temporal_size: int = -1) -> None:
+    def __init__(self, max_spatial_size: int, max_temporal_size: int = -1, p: float = 0.5) -> None:
         self.spatial = max_spatial_size
         self.temporal = max_temporal_size
+        self.p = np.clip(p, 0, 1)
 
     def __call__(self, img: ndarray) -> Any:
         # will cutout from start:start + cutsize, so highest start allowed is shape - cutsize
+        if np.random.uniform(0, 1) >= self.p:
+            return img
         img = np.copy(img)
         maxs = np.array(img.shape)
-        starts = np.array([np.random.randint(0, high + 1) for high in maxs])
+        starts = np.array([np.random.randint(0, high + 1 - self.spatial) for high in maxs])
         ends = starts + self.spatial
         if self.temporal <= 0:
             img[starts[0] : ends[0], starts[1] : ends[1], starts[2] : ends[2], :] = 0
             return img
-        t_start = np.random.randint(0, img.shape[-1] + 1)
+        t_start = np.random.randint(0, img.shape[-1] + 1 - self.temporal)
         t_end = t_start + self.temporal
         img[starts[0] : ends[0], starts[1] : ends[1], starts[2] : ends[2], t_start:t_end] = 0
         return img
-
-        pass
 
 
 class Blur4d:
     SIG_SPATIAL_FMRI_MAX = 0.5
     SIG_TEMPORAL_FMRI_MAX = 5.0
 
-    def __init__(self, sigma: Union[float, Tuple[float, float, float, float]]) -> None:
+    def __init__(
+        self, sigma: Union[float, Tuple[float, float, float, float]], p: float = 0.5
+    ) -> None:
         self.sigma = sigma
+        self.p = np.clip(p, 0, 1)
 
     def __call__(self, img: ndarray) -> Any:
+        if np.random.uniform(0, 1) >= self.p:
+            return img
         return gaussian_filter(img, self.sigma, mode="constant", cval=0)
 
 
@@ -152,8 +158,8 @@ if __name__ == "__main__":
     for file in files:
         orig = np.load(file)
         transforms: List[Callable[[ndarray], ndarray]] = [
-            Blur4d(sigma=SIGMA),
-            Cutout4d(max_spatial_size=20),
+            Blur4d(sigma=SIGMA, p=1.0),
+            Cutout4d(max_spatial_size=24, p=1.0),
             Remask(),
         ]
         for i, transform in enumerate(transforms):
