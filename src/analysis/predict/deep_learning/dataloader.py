@@ -6,6 +6,7 @@ sys.path.append(str(ROOT))
 import os
 import shutil
 from argparse import ArgumentParser
+from dataclasses import dataclass
 
 # from src.run.cc_setup import setup_environment  # isort:skip
 # setup_environment()
@@ -40,6 +41,12 @@ PREPROC_EIG = sorted(DEEP_EIGIMG.rglob("*.npy"))
 PREPROC_FMRI = [DEEP_FMRI / str(p.name).replace("_eigimg", "") for p in PREPROC_EIG]
 LABELS: List[int] = subject_labels(PREPROC_EIG)
 SHAPE = (47, 59, 42, 175)
+
+
+@dataclass
+class PreloadArgs:
+    img: Path
+    slicer: slice
 
 
 def copy(src_dest: Tuple[Path, Path]) -> None:
@@ -293,13 +300,14 @@ def plot_patch(size: Tuple[int, int, int, int] = (32, 32, 32, 12)) -> None:
     plt.show()
 
 
-def preload(img: Path) -> np.ndarray:
+def preload(args: PreloadArgs) -> np.ndarray:
     # need channels_first, but is currently channels last
+    img, slicer = args.img, args.slicer
     x = np.load(img)
     x = np.transpose(x, (3, 0, 1, 2))
     x -= np.mean(x)
     x /= np.std(x, ddof=1)
-    return x
+    return x[slicer]
 
 
 class FmriDataset(Dataset):
@@ -324,6 +332,7 @@ class FmriDataset(Dataset):
         transform: Optional[Callable] = None,
         is_eigimg: bool = False,
         preload_data: bool = False,
+        time_slice: slice = slice(None),
     ) -> None:
         # self.mask = nib.load(MASK).get_fdata().astype(bool)  # more efficient to load just once
         if os.environ.get("SLURM_TMPDIR") is not None:  # can't hold all full data in memory
@@ -331,11 +340,11 @@ class FmriDataset(Dataset):
         self.preload = bool(preload_data)
         self.img_paths = prepare_data_files(is_eigimg)
         self.transform = transform
+        self.time_slice = time_slice
         self.imgs = []
         if self.preload:
-            self.imgs = process_map(
-                preload, self.img_paths, total=len(self.img_paths), desc="Preloading all images..."
-            )
+            args = [PreloadArgs(img=img, slicer=self.time_slice) for img in self.img_paths]
+            self.imgs = process_map(preload, args, total=len(args), desc="Preloading all images...")
 
     def __len__(self) -> int:
         return len(self.img_paths)
@@ -350,6 +359,7 @@ class FmriDataset(Dataset):
         x = np.transpose(x, (3, 0, 1, 2))
         x -= np.mean(x)
         x /= np.std(x, ddof=1)
+        x = x[self.time_slice]
         return Tensor(x), Tensor([y])
 
 

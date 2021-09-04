@@ -11,7 +11,7 @@ import os
 import traceback
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Tuple, cast
+from typing import Callable, List, Tuple, cast
 
 import nibabel as nib
 import numpy as np
@@ -31,6 +31,8 @@ DATA = ROOT / "data"
 EIGS = DATA / "eigs"  # for normalizing
 NIIS = DATA / "niis"  # raw nii data
 DEEP = DATA / "deep"  # for DL preprocessed fMRI data
+SLURM_TMPDIR = os.environ.get("SLURM_TMPDIR")
+PREPROCESSED = SLURM_TMPDIR / "data" if SLURM_TMPDIR is not None else None
 DEEP_FMRI = DEEP / "fmri"
 DEEP_EIGIMG = DEEP / "eigimg"
 for dir in [DEEP_FMRI, DEEP_EIGIMG]:
@@ -46,6 +48,7 @@ T = 175
 EIGIMG_SHAPE = (61, 73, 61, T)
 
 Cropper = Tuple[slice, slice, slice, slice]
+Transform = Callable[[ndarray], ndarray]
 
 
 @dataclass
@@ -54,6 +57,7 @@ class PreprocArgs:
     mask: ndarray
     cropper: Cropper
     normalize: bool
+    transforms: List[Transform]
 
 
 def get_mask_bounds(mask: ndarray) -> Cropper:
@@ -93,12 +97,13 @@ def normalize(src: Path, cropped: ndarray) -> ndarray:
     return cast(ndarray, cropped / np.mean(cropped, axis=(0, 1, 2)))
 
 
-def save(args: PreprocArgs, img: ndarray) -> None:
+def save(args: PreprocArgs, img: ndarray) -> Path:
     src = args.nii
     norm = "_norm" if args.normalize else ""
     outdir = DEEP_EIGIMG if "eigimg" in src.name else DEEP_FMRI
     outfile = outdir / src.name.replace(".nii.gz", f"_cropped{norm}.npy")
     np.save(outfile, img.astype(np.float32), allow_pickle=False)
+    return outfile
 
 
 def preprocess_image(args: PreprocArgs) -> None:
@@ -112,6 +117,19 @@ def preprocess_image(args: PreprocArgs) -> None:
     except Exception as e:
         print(f"Got exception {e} for image {nii}")
         traceback.print_exc()
+
+
+def preprocess_images(is_eigimg: bool = False, transforms: List[Transform] = []) -> None:
+    mask = nib.load(str(MASK)).get_fdata().astype(bool)
+    cropper = get_mask_bounds(mask)
+    src_dir = EIGIMGS if is_eigimg else NIIS
+
+    niis = sorted(src_dir.rglob("*.nii.gz"))
+    args = [
+        PreprocArgs(nii=nii, mask=mask, cropper=cropper, normalize=True, transforms=transforms)
+        for nii in niis
+    ]
+    process_map(preprocess_image, args)
 
 
 if __name__ == "__main__":

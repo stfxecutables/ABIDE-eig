@@ -23,7 +23,7 @@ from numpy import ndarray
 from pandas import DataFrame, Series
 from pytorch_lightning import LightningModule, Trainer, seed_everything
 from pytorch_lightning.profiler import AdvancedProfiler
-from scipy.ndimage import gaussian_filter
+from scipy.ndimage import gaussian_filter, median_filter
 from torch import Tensor
 from torch.nn import (
     AdaptiveMaxPool3d,
@@ -76,7 +76,7 @@ class Cutout4d:
         return img
 
 
-class Blur4d:
+class GaussianBlur4d:
     SIG_SPATIAL_FMRI_MAX = 0.5
     SIG_TEMPORAL_FMRI_MAX = 5.0
 
@@ -90,6 +90,22 @@ class Blur4d:
         if np.random.uniform(0, 1) >= self.p:
             return img
         return gaussian_filter(img, self.sigma, mode="constant", cval=0)
+
+
+class MedianFilter4d:
+    SIG_SPATIAL_FMRI_MAX = 3
+    SIG_TEMPORAL_FMRI_MAX = 10
+
+    def __init__(
+        self, size: Union[float, Tuple[float, float, float, float]], p: float = 0.5
+    ) -> None:
+        self.size = size
+        self.p = np.clip(p, 0, 1)
+
+    def __call__(self, img: ndarray) -> Any:
+        if np.random.uniform(0, 1) >= self.p:
+            return img
+        return median_filter(img, size=self.size, mode="nearest")
 
 
 class Remask:
@@ -153,15 +169,18 @@ if __name__ == "__main__":
     from src.analysis.predict.deep_learning.dataloader import prepare_data_files
 
     SIG_SPATIAL = 0.5
+    SIG_SIZE = 2
     SIGMA = (SIG_SPATIAL, SIG_SPATIAL, SIG_SPATIAL, 5)
+    SIZE = (SIG_SIZE, SIG_SIZE, SIG_SIZE, 10)
     files = prepare_data_files(is_eigimg=False)[:10]
     for file in files:
         orig = np.load(file)
         transforms: List[Callable[[ndarray], ndarray]] = [
-            Blur4d(sigma=SIGMA, p=1.0),
-            Cutout4d(max_spatial_size=24, p=1.0),
+            # GaussianBlur4d(sigma=SIGMA, p=1.0),
+            MedianFilter4d(size=SIZE, p=1.0),
+            # Cutout4d(max_spatial_size=24, p=1.0),
             Remask(),
         ]
         for i, transform in enumerate(transforms):
             aug = transform(orig) if i == 0 else transform(aug)
-        _plot_augment(orig, aug, f"sigma={SIGMA}")
+        _plot_augment(orig, aug, f"sigma={SIGMA}, size={SIZE}")

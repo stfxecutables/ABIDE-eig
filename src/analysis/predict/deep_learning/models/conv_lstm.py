@@ -243,30 +243,38 @@ class Conv3dToConvLstm3d(LightningModule):
         return acc, loss
 
 
-def test_convlstm(
-    model_class: Type,
-    config: Namespace,
-    preload: bool = False,
-    profile: bool = False,
-) -> None:
-    import logging
-
-    logging.basicConfig(level=logging.INFO)
+def get_args(model_class: Type) -> Namespace:
     parser = ArgumentParser()
     parser.add_argument("--batch_size", default=BATCH_SIZE, type=int)
     parser.add_argument("--is_eigimg", action="store_true")
+    parser.add_argument("--preload", action="store_true")
     parser = Trainer.add_argparse_args(parser)
     args = parser.parse_args()
 
     is_eigimg = args.is_eigimg
     root_dir = ROOT / f"lightning_logs/{model_class.__name__}/{'eigimg' if is_eigimg else 'func'}"
-    batch_size = args.batch_size
     # https://pytorch-lightning.readthedocs.io/en/stable/extensions/logging.html?highlight=logging#logging-frequency
     args.log_every_n_steps = 5
     args.flush_logs_every_n_steps = 20
     args.default_root_dir = root_dir
+    return args
 
-    data = FmriDataset(is_eigimg=is_eigimg, preload_data=preload)
+
+def test_convlstm(
+    model_class: Type,
+    config: Namespace,
+    slicer: slice = slice(None),
+    profile: bool = False,
+) -> None:
+    import logging
+
+    logging.basicConfig(level=logging.INFO)
+    args = get_args(model_class)
+    if profile:
+        profiler = AdvancedProfiler(dirpath=None, filename="profiling", line_count_restriction=2.0)
+        args.profiler = profiler
+
+    data = FmriDataset(is_eigimg=args.is_eigimg, preload_data=args.preload, time_slice=slicer)
     test_length = 40 if len(data) == 100 else 100
     train_length = len(data) - test_length
     train, val = random_split(data, (train_length, test_length), generator=None)
@@ -276,14 +284,11 @@ def test_convlstm(
     print(f"train: {len(train)} (Autism={train_aut}, Control={len(train) - train_aut})")
     print(f"val:   {len(val)} (Autism={val_aut}, Control={len(val) - val_aut})")
 
-    if profile:
-        profiler = AdvancedProfiler(dirpath=None, filename="profiling", line_count_restriction=2.0)
-        args.profiler = profiler
     # args.default_root_dir =
-    if len(train) % batch_size != 0:
+    if len(train) % args.batch_size != 0:
         warn(
             "Batch size does not evenly divide training set. "
-            f"{len(train) % batch_size} subjects will be dropped each training epoch."
+            f"{len(train) % args.batch_size} subjects will be dropped each training epoch."
         )
     model = model_class(config)
     trainer = Trainer.from_argparse_args(args)
@@ -307,10 +312,12 @@ def test_convlstm(
 
 if __name__ == "__main__":
     seed_everything(333, workers=True)
+    SLICER = slice(100, 175)
+    CHANNELS = SLICER.stop - SLICER.start
     config = Namespace(
         **dict(
-            conv_in_channels=INPUT_SHAPE[0],
-            conv_out_channels=INPUT_SHAPE[0],
+            conv_in_channels=CHANNELS,
+            conv_out_channels=CHANNELS,
             conv_num_layers=4,
             conv_kernel_size=3,
             conv_dilation=1,
@@ -332,4 +339,4 @@ if __name__ == "__main__":
             l2=1e-5,
         )
     )
-    test_convlstm(Conv3dToConvLstm3d, config, preload=True, profile=False)
+    test_convlstm(Conv3dToConvLstm3d, config, profile=False, slicer=SLICER)
