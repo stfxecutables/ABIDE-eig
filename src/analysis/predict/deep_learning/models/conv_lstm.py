@@ -30,8 +30,10 @@ from torch.optim.adam import Adam
 from torch.utils.data import DataLoader, random_split
 from torchmetrics.functional import accuracy
 
+from src.analysis.predict.deep_learning.callbacks import callbacks
 from src.analysis.predict.deep_learning.constants import INPUT_SHAPE, PADDED_SHAPE
 from src.analysis.predict.deep_learning.dataloader import FmriDataset
+from src.analysis.predict.deep_learning.logging import tableify_logs
 from src.analysis.predict.deep_learning.models.layers.conv import ResBlock3d
 from src.analysis.predict.deep_learning.models.layers.lstm import ConvLSTM3d
 from src.analysis.predict.deep_learning.models.layers.reduce import GlobalAveragePooling
@@ -291,7 +293,7 @@ def test_convlstm(
             f"{len(train) % args.batch_size} subjects will be dropped each training epoch."
         )
     model = model_class(config)
-    trainer = Trainer.from_argparse_args(args)
+    trainer = Trainer.from_argparse_args(args, callbacks=callbacks(config))
     trainer.logger.log_hyperparams(config)
     train_loader = DataLoader(
         train,
@@ -308,6 +310,7 @@ def test_convlstm(
         drop_last=False,
     )
     trainer.fit(model, train_loader, val_loader)
+    tableify_logs(trainer)
 
 
 if __name__ == "__main__":
@@ -327,6 +330,8 @@ if __name__ == "__main__":
             conv_depthwise_factor=None,
             conv_norm="group",
             conv_norm_groups=5,
+            conv_cbam=True,
+            conv_cbam_reduction=8,
             lstm_in_channels=1,
             lstm_num_layers=1,
             lstm_hidden_sizes=[32],

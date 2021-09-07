@@ -8,7 +8,7 @@ from pl_bolts.callbacks import TrainingDataMonitor
 from pytorch_lightning.callbacks import Callback, ModelCheckpoint
 
 
-def callbacks(hparams: Namespace) -> List[Callback]:
+def callbacks(config: Namespace) -> List[Callback]:
     ckpt_args: Dict = dict(
         auto_insert_metric_name=True,
         save_last=False,
