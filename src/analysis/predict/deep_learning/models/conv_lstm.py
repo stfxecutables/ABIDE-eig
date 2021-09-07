@@ -30,6 +30,7 @@ from torch.optim.adam import Adam
 from torch.utils.data import DataLoader, random_split
 from torchmetrics.functional import accuracy
 
+from src.analysis.predict.deep_learning.arguments import get_args
 from src.analysis.predict.deep_learning.callbacks import callbacks
 from src.analysis.predict.deep_learning.constants import INPUT_SHAPE, PADDED_SHAPE
 from src.analysis.predict.deep_learning.dataloader import FmriDataset
@@ -38,16 +39,6 @@ from src.analysis.predict.deep_learning.models.layers.conv import ResBlock3d
 from src.analysis.predict.deep_learning.models.layers.lstm import ConvLSTM3d
 from src.analysis.predict.deep_learning.models.layers.reduce import GlobalAveragePooling
 from src.analysis.predict.deep_learning.models.layers.utils import EVEN_PAD
-
-BATCH_SIZE = 1
-MODEL_ARGS = dict(
-    in_channels=1,
-    in_spatial_dims=INPUT_SHAPE[1:],
-    num_layers=1,
-    hidden_sizes=[4],
-    kernel_sizes=[3],
-    dilations=[2],
-)
 
 """
 Notes from https://ieeexplore.ieee.org/document/8363798
@@ -244,68 +235,66 @@ class Conv3dToConvLstm3d(LightningModule):
         )
         return acc, loss
 
-
-def get_args(model_class: Type) -> Namespace:
-    parser = ArgumentParser()
-    parser.add_argument("--batch_size", default=BATCH_SIZE, type=int)
-    parser.add_argument("--is_eigimg", action="store_true")
-    parser.add_argument("--preload", action="store_true")
-    parser = Trainer.add_argparse_args(parser)
-    args = parser.parse_args()
-
-    is_eigimg = args.is_eigimg
-    root_dir = ROOT / f"lightning_logs/{model_class.__name__}/{'eigimg' if is_eigimg else 'func'}"
-    # https://pytorch-lightning.readthedocs.io/en/stable/extensions/logging.html?highlight=logging#logging-frequency
-    args.log_every_n_steps = 5
-    args.flush_logs_every_n_steps = 20
-    args.default_root_dir = root_dir
-    return args
-
-
-def test_convlstm(
-    model_class: Type,
-    config: Namespace,
-    slicer: slice = slice(None),
-    profile: bool = False,
-) -> None:
-    import logging
-
-    logging.basicConfig(level=logging.INFO)
-    args = get_args(model_class)
-    if profile:
-        profiler = AdvancedProfiler(dirpath=None, filename="profiling", line_count_restriction=2.0)
-        args.profiler = profiler
-
-    data = FmriDataset(is_eigimg=args.is_eigimg, preload_data=args.preload, time_slice=slicer)
-    test_length = 40 if len(data) == 100 else 100
-    train_length = len(data) - test_length
-    train, val = random_split(data, (train_length, test_length), generator=None)
-    val_aut = torch.cat(list(zip(*list(val)))[1]).sum().int().item()  # type: ignore
-    train_aut = torch.cat(list(zip(*list(train)))[1]).sum().int().item()  # type: ignore
-    print("For quick testing, subset sizes will be:")
-    print(f"train: {len(train)} (Autism={train_aut}, Control={len(train) - train_aut})")
-    print(f"val:   {len(val)} (Autism={val_aut}, Control={len(val) - val_aut})")
-
-    # args.default_root_dir =
-    if len(train) % args.batch_size != 0:
-        warn(
-            "Batch size does not evenly divide training set. "
-            f"{len(train) % args.batch_size} subjects will be dropped each training epoch."
+    @staticmethod
+    def config(args: Namespace) -> Namespace:
+        T = INPUT_SHAPE[0]
+        idx = list(range(T))
+        if args.slicer is None:
+            raise RuntimeError(
+                "`Conv3dToConvLstm3d.config` can be called only on updated `args` object."
+            )
+        channels = len(idx[args.slicer])
+        return Namespace(
+            **dict(
+                conv_in_channels=channels,
+                conv_out_channels=channels,
+                conv_num_layers=4,
+                conv_kernel_size=3,
+                conv_dilation=1,
+                conv_residual=True,
+                conv_halve=True,
+                conv_depthwise=True,
+                conv_depthwise_factor=None,
+                conv_norm="group",
+                conv_norm_groups=5,
+                conv_cbam=True,
+                conv_cbam_reduction=8,
+                lstm_in_channels=1,
+                lstm_num_layers=1,
+                lstm_hidden_sizes=[32],
+                lstm_kernel_sizes=[3],
+                lstm_dilations=[1],
+                lstm_norm="group",
+                lstm_norm_groups=16,
+                lstm_inner_spatial_dropout=0.4,
+                lr=1e-4,
+                l2=1e-5,
+            )
         )
+
+
+def train_model(
+    model_class: Type,
+) -> None:
+    args = get_args(model_class)
+    config = model_class.config(args)
+
+    data = FmriDataset(args)
+    train, val = data.train_val_split(args)
     model = model_class(config)
     trainer = Trainer.from_argparse_args(args, callbacks=callbacks(config))
     trainer.logger.log_hyperparams(config)
     train_loader = DataLoader(
         train,
         batch_size=args.batch_size,
-        num_workers=8,
+        num_workers=args.num_workers,
         shuffle=True,
         drop_last=False,
     )
     val_loader = DataLoader(
         val,
-        batch_size=2,
-        num_workers=8,
+        batch_size=args.val_batch_size,
+        num_workers=args.num_workers,
         shuffle=False,
         drop_last=False,
     )
@@ -315,33 +304,4 @@ def test_convlstm(
 
 if __name__ == "__main__":
     seed_everything(333, workers=True)
-    SLICER = slice(100, 175)
-    CHANNELS = SLICER.stop - SLICER.start
-    config = Namespace(
-        **dict(
-            conv_in_channels=CHANNELS,
-            conv_out_channels=CHANNELS,
-            conv_num_layers=4,
-            conv_kernel_size=3,
-            conv_dilation=1,
-            conv_residual=True,
-            conv_halve=True,
-            conv_depthwise=True,
-            conv_depthwise_factor=None,
-            conv_norm="group",
-            conv_norm_groups=5,
-            conv_cbam=True,
-            conv_cbam_reduction=8,
-            lstm_in_channels=1,
-            lstm_num_layers=1,
-            lstm_hidden_sizes=[32],
-            lstm_kernel_sizes=[3],
-            lstm_dilations=[1],
-            lstm_norm="group",
-            lstm_norm_groups=16,
-            lstm_inner_spatial_dropout=0.4,
-            lr=1e-4,
-            l2=1e-5,
-        )
-    )
-    test_convlstm(Conv3dToConvLstm3d, config, profile=False, slicer=SLICER)
+    train_model(Conv3dToConvLstm3d)

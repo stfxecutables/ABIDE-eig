@@ -5,7 +5,7 @@ from datetime import timedelta
 from typing import Dict, List
 
 from pl_bolts.callbacks import TrainingDataMonitor
-from pytorch_lightning.callbacks import Callback, ModelCheckpoint
+from pytorch_lightning.callbacks import Callback, GPUStatsMonitor, ModelCheckpoint
 
 
 def callbacks(config: Namespace) -> List[Callback]:
@@ -31,5 +31,13 @@ def callbacks(config: Namespace) -> List[Callback]:
             mode="min",
             **ckpt_args
         ),
+        GPUStatsMonitor(
+            memory_utilization=True,
+            gpu_utilization=True,
+            intra_step_time=True,
+            inter_step_time=True,
+            fan_speed=False,
+            temperature=False,
+        )
     ]
     return list(filter(lambda c: c is not None, cbs))  # type: ignore

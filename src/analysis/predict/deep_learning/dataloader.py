@@ -5,7 +5,7 @@ ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent
 sys.path.append(str(ROOT))
 import os
 import shutil
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
 from dataclasses import dataclass
 
 # from src.run.cc_setup import setup_environment  # isort:skip
@@ -13,6 +13,7 @@ from dataclasses import dataclass
 # fmt: on
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple, Type
+from warnings import warn
 
 import matplotlib.pyplot as plt
 import nibabel as nib
@@ -23,6 +24,7 @@ from pandas import DataFrame
 from pytorch_lightning import Trainer
 from torch import Tensor
 from torch.utils.data import DataLoader, Dataset, TensorDataset
+from torch.utils.data.dataset import Subset, random_split
 from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 
@@ -329,18 +331,14 @@ class FmriDataset(Dataset):
 
     def __init__(
         self,
+        args: Namespace,
         transform: Optional[Callable] = None,
-        is_eigimg: bool = False,
-        preload_data: bool = False,
-        time_slice: slice = slice(None),
     ) -> None:
         # self.mask = nib.load(MASK).get_fdata().astype(bool)  # more efficient to load just once
-        if os.environ.get("SLURM_TMPDIR") is not None:  # can't hold all full data in memory
-            preload_data = False
-        self.preload = bool(preload_data)
-        self.img_paths = prepare_data_files(is_eigimg)
+        self.preload = bool(args.preload)
+        self.img_paths = prepare_data_files(args.is_eigimg)
         self.transform = transform
-        self.time_slice = time_slice
+        self.time_slice = args.slicer
         self.imgs = []
         if self.preload:
             args = [PreloadArgs(img=img, slicer=self.time_slice) for img in self.img_paths]
@@ -361,6 +359,24 @@ class FmriDataset(Dataset):
         x /= np.std(x, ddof=1)
         x = x[self.time_slice]
         return Tensor(x), Tensor([y])
+
+    def train_val_split(self, args: Namespace) -> Tuple[Subset, Subset]:
+        test_length = 40 if len(self.img_paths) == 100 else 100
+        train_length = len(self.img_paths) - test_length
+        train, val = random_split(self, (train_length, test_length), generator=None)
+        val_aut = torch.cat(list(zip(*list(val)))[1]).sum().int().item()  # type: ignore
+        train_aut = torch.cat(list(zip(*list(train)))[1]).sum().int().item()  # type: ignore
+        print("Subset sizes will be:")
+        print(f"train: {len(train)} (Autism={train_aut}, Control={len(train) - train_aut})")
+        print(f"val:   {len(val)} (Autism={val_aut}, Control={len(val) - val_aut})")
+
+        if len(train) % args.batch_size != 0:
+            warn(
+                "Batch size does not evenly divide training set. "
+                f"{len(train) % args.batch_size} subjects will be dropped each training epoch."
+            )
+        return train, val
+
 
 
 def random_data() -> Tuple[Tensor, Tensor, Tensor, Tensor]:
