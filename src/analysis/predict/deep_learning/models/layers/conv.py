@@ -4,18 +4,25 @@ from typing import Dict, Tuple, Union, cast
 from torch import Tensor
 from torch.nn import (
     BatchNorm3d,
+    BCEWithLogitsLoss,
     ConstantPad3d,
     Conv3d,
+    Dropout,
     GroupNorm,
     InstanceNorm3d,
     LayerNorm,
+    Linear,
+    MaxPool3d,
     Module,
     PReLU,
+    ReLU,
+    Sequential,
 )
 from torch.nn.modules.pooling import MaxPool3d
 from typing_extensions import Literal
 
 from src.analysis.predict.deep_learning.constants import INPUT_SHAPE
+from src.analysis.predict.deep_learning.models.layers.cbam import CBAM
 from src.analysis.predict.deep_learning.models.layers.utils import (
     EVEN_PAD,
     norm_layer,
@@ -138,6 +145,8 @@ class ResBlock3d(Module):
         depthwise_factor: int = None,
         norm: Literal["batch", "group", "instance", "layer"] = "batch",
         norm_groups: int = 5,
+        cbam: bool = False,
+        cbam_reduction: int = 4,
     ) -> None:
         """Summary
 
@@ -172,6 +181,8 @@ class ResBlock3d(Module):
         self.padding = (self.kernel + (self.kernel - 1) * (self.dilation - 1)) // 2
         self.norm_groups = norm_groups
         self.norm = norm
+        self.is_cbam = cbam
+        self.cbam_reduction = cbam_reduction
 
         conv_args: Dict = dict(
             out_channels=self.out_channels,
@@ -192,6 +203,8 @@ class ResBlock3d(Module):
         self.norm2 = norm_layer(self.norm, in_channels=self.out_channels, groups=norm_groups)
         if halve:
             self.pool = MaxPool3d(2, 2)
+        if self.is_cbam:
+            self.cbam = CBAM(in_channels=self.out_channels, reduction=self.cbam_reduction)
 
     def forward(self, x: Tensor) -> Tensor:
         # we use modern identity mapping here in the hopes of better performance
@@ -202,6 +215,8 @@ class ResBlock3d(Module):
         out = self.relu1(out)
         out = self.norm1(out)
         out = self.conv2(out)
+        if self.is_cbam:
+            out = self.cbam(out)
         out = self.relu2(out)
         out = self.norm2(out)
         out += identity  # we are assuming padding="same"
@@ -220,3 +235,33 @@ class ResBlock3d(Module):
             return input_shape
         # now calculate size from pooling
         return tuple(map(outsize, input_shape))  # type: ignore
+
+
+# This implements CBAM after a ResNet ResBlock, e.g. something like Fig 3 of
+# https://arxiv.org/abs/1807.06521, or see also the code for that paper, e.g.
+# https://github.com/Jongchan/attention-module/blob/master/MODELS/model_resnet.py#L17-L51
+class CBAMResBlock(Module):
+    """Inserts sequential channel and spatial attention layers into a ResNet-style residual block."""
+
+    def __init__(self, in_channels: int, out_channels: int, cbam: bool = True, reduction: int = 4):
+        super().__init__()
+        self.has_cbam = cbam
+        self.res = Sequential(
+            Conv3d(in_channels, out_channels, 3, padding=1, bias=False),
+            ReLU(inplace=True),
+            BatchNorm3d(out_channels),
+            Conv3d(out_channels, out_channels, 3, padding=1, bias=False),
+        )
+        self.relu = ReLU(inplace=True)
+        self.bnorm = BatchNorm3d(out_channels)
+        if cbam:
+            self.cbam = CBAM(in_channels=in_channels, reduction=reduction)
+
+    def forward(self, x: Tensor) -> Tensor:
+        identity = x
+        x = self.res(x)
+        if self.has_cbam:
+            x = self.cbam(x)
+        x += identity
+        x = self.relu(x)
+        return x
