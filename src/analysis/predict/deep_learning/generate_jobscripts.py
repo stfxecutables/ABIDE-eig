@@ -33,10 +33,10 @@ HEADER_COMMON = """#!/bin/bash
 #SBATCH --mail-type=FAIL
 """
 if CC_CLUSTER == "siku":
-    RESOURCES = """#SBATCH --gres=gpu:v100:2
+    RESOURCES = """#SBATCH --gres=gpu:v100:1
 #SBATCH --partition=all_gpus
 #SBATCH --cpus-per-task=16
-#SBATCH --mem=32G
+#SBATCH --mem=64G
 """
     NUM_WORKERS = 8
 elif CC_CLUSTER == "beluga":
