@@ -174,5 +174,5 @@ if __name__ == "__main__":
     print(study.trials_dataframe().to_markdown(tablefmt="simple", floatfmt="0.2f"))
     study.optimize(objective, n_trials=200, timeout=almost_day)
     df = study.trials_dataframe()
-    df.to_json("trials_df.json")
+    df.to_json(f"{study_name}_trials.json")
     print(df.to_markdown(tablefmt="simple", floatfmt="0.3f"))
