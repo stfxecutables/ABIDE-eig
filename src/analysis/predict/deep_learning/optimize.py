@@ -151,7 +151,17 @@ class Objective:
             shuffle=False,
             drop_last=False,
         )
-        trainer.fit(model, train_loader, val_loader)
+        try:
+            trainer.fit(model, train_loader, val_loader)
+        except RuntimeError as e:
+            if "out of memory" in str(e):
+                print("Ran out of memory. Cleaning up and returning zero acc.")
+                train_loader = val_loader = self.train = self.val = trainer = model = None  # type: ignore
+                gc.collect()
+                time.sleep(10)  # Optuna too dumb to wait for CPU memory to free
+                return 0.0
+            else:
+                raise e
         try:
             torch.cuda.empty_cache()
         except Exception:
@@ -162,12 +172,12 @@ class Objective:
         except:
             traceback.print_exc()
             warn("No data logged to dataframes, returning 0. Traceback above.")
-            self.train = self.val = trainer = model = None
+            train_loader = val_loader = self.train = self.val = trainer = model = None  # type: ignore
             gc.collect()
             time.sleep(10)  # Optuna too dumb to wait for CPU memory to free
             return 0.0
 
-        self.train = self.val = trainer = model = None
+        train_loader = val_loader = self.train = self.val = trainer = model = None  # type: ignore
         gc.collect()
         time.sleep(10)  # Optuna too dumb to wait for CPU memory to free
         return float(df["val_acc"].max())
