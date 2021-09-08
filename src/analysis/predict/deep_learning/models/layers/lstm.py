@@ -372,7 +372,10 @@ class ConvLSTM3d(Module):
                 return items
         if isinstance(item, list) and isinstance(item[0], int) and len(item) == 1:
             return [item[0] for _ in range(self.num_layers)]
+        if isinstance(item, list) and all([isinstance(i, int) for i in item]):
+            return item
 
         raise ValueError(
-            "Layer arguments must be an int or sequence of ints with length `num_layers`."
+            "Layer arguments must be an int or sequence of ints with length `num_layers`. "
+            f"Got {item} instead."
         )

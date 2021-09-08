@@ -7,15 +7,12 @@ sys.path.append(str(ROOT))
 # setup_environment()
 # fmt: on
 
-from argparse import ArgumentParser, Namespace
-from logging import warn
+from argparse import Namespace
 from typing import Any, Dict, Tuple, Type, no_type_check
 
 import numpy as np
 import torch
-from optuna import Trial
 from pytorch_lightning import LightningModule, Trainer, seed_everything
-from pytorch_lightning.profiler import AdvancedProfiler
 from torch import Tensor
 from torch.nn import (
     AdaptiveMaxPool3d,
@@ -35,11 +32,11 @@ from src.analysis.predict.deep_learning.arguments import get_args
 from src.analysis.predict.deep_learning.callbacks import callbacks
 from src.analysis.predict.deep_learning.constants import INPUT_SHAPE, PADDED_SHAPE
 from src.analysis.predict.deep_learning.dataloader import FmriDataset
-from src.analysis.predict.deep_learning.logging import tableify_logs
 from src.analysis.predict.deep_learning.models.layers.conv import ResBlock3d
 from src.analysis.predict.deep_learning.models.layers.lstm import ConvLSTM3d
 from src.analysis.predict.deep_learning.models.layers.reduce import GlobalAveragePooling
 from src.analysis.predict.deep_learning.models.layers.utils import EVEN_PAD
+from src.analysis.predict.deep_learning.tables import tableify_logs
 
 """
 Notes from https://ieeexplore.ieee.org/document/8363798

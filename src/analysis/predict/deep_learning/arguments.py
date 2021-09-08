@@ -8,15 +8,10 @@ sys.path.append(str(ROOT))
 # fmt: on
 
 from argparse import ArgumentParser, Namespace
-from typing import Any, Dict, Tuple, Type, no_type_check
-from warnings import warn
+from typing import Dict, Type
 
-import numpy as np
-import torch
-from pytorch_lightning import LightningModule, Trainer, seed_everything
+from pytorch_lightning import Trainer
 from pytorch_lightning.profiler import AdvancedProfiler
-
-from src.analysis.predict.deep_learning.constants import INPUT_SHAPE
 
 DEFAULTS = Namespace(
     **dict(
@@ -28,7 +23,7 @@ DEFAULTS = Namespace(
 OVERRIDE_DEFAULTS: Dict = dict(
     # https://pytorch-lightning.readthedocs.io/en/stable/extensions/logging.html?highlight=logging#logging-frequency
     log_every_n_steps=5,
-    flush_logs_every_n_steps=20,
+    # flush_logs_every_n_steps=20,
     max_time={"hours": 2},
 )
 

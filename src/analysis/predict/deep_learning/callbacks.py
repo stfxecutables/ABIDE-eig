@@ -22,10 +22,8 @@ class OptunaHelper(Callback):
         self.pruning_metric = pruning_metric
         self.smooth = smooth
 
-    def on_validation_end(self, trainer: Trainer, pl_module: LightningModule) -> None:
-        self.val_step += 1
-
     def on_validation_epoch_end(self, trainer: Trainer, pl_module: LightningModule) -> None:
+        self.val_step += 1
         metrics = deepcopy(trainer.callback_metrics)
         for name, value in metrics.items():
             if name not in self.metrics:

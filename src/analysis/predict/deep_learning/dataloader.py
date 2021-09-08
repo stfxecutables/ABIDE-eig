@@ -1,16 +1,16 @@
 # fmt: off
 import sys  # isort:skip
 from pathlib import Path  # isort:skip
-ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent
-sys.path.append(str(ROOT))
+ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent  # isort:skip
+sys.path.append(str(ROOT))  # isort:skip
+# from src.run.cc_setup import setup_environment  # isort:skip
+# setup_environment()
+# fmt: on
+
 import os
 import shutil
 from argparse import ArgumentParser, Namespace
 from dataclasses import dataclass
-
-# from src.run.cc_setup import setup_environment  # isort:skip
-# setup_environment()
-# fmt: on
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple, Type
 from warnings import warn
@@ -376,7 +376,6 @@ class FmriDataset(Dataset):
                 f"{len(train) % args.batch_size} subjects will be dropped each training epoch."
             )
         return train, val
-
 
 
 def random_data() -> Tuple[Tensor, Tensor, Tensor, Tensor]:

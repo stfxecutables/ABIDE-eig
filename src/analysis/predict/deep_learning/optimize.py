@@ -1,19 +1,16 @@
 # fmt: off
 from pathlib import Path  # isort:skip
-import sys
-from logging import StreamHandler
-
-import joblib
-
-from analysis.predict.deep_learning.models.conv_lstm import Conv3dToConvLstm3d  # isort:skip
-ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent
-sys.path.append(str(ROOT))
+import sys  # isort:skip
+ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent  # isort:skip
+sys.path.append(str(ROOT))  # isort:skip
 # from src.run.cc_setup import setup_environment  # isort:skip
 # setup_environment()
 # fmt: on
 
+import uuid
 from argparse import Namespace
 from typing import Any, Dict, Tuple, Type, no_type_check
+from warnings import warn
 
 import optuna
 from optuna import Trial
@@ -24,7 +21,8 @@ from src.analysis.predict.deep_learning.arguments import get_args
 from src.analysis.predict.deep_learning.callbacks import callbacks
 from src.analysis.predict.deep_learning.constants import INPUT_SHAPE
 from src.analysis.predict.deep_learning.dataloader import FmriDataset
-from src.analysis.predict.deep_learning.logging import tableify_logs
+from src.analysis.predict.deep_learning.models.conv_lstm import Conv3dToConvLstm3d
+from src.analysis.predict.deep_learning.tables import tableify_logs
 
 """
 Notes
@@ -47,9 +45,9 @@ def conv3d_to_lstm32_config(args: Namespace, trial: Trial) -> Namespace:
     hidden_sizes = 2 ** trial.suggest_int("lstm_hidden_sizes_log2", 2, 6)
     kernel_sizes = trial.suggest_int("lstm_kernel_sizes", 3, 5, 2)
     dilations = trial.suggest_int("lstm_dilations", 1, 3)
-    lstm_hidden_sizes = ([hidden_sizes for _ in range(lstm_num_layers)],)
-    lstm_kernel_sizes = ([kernel_sizes for _ in range(lstm_num_layers)],)
-    lstm_dilations = ([dilations for _ in range(lstm_num_layers)],)
+    lstm_hidden_sizes = [hidden_sizes for _ in range(lstm_num_layers)]
+    lstm_kernel_sizes = [kernel_sizes for _ in range(lstm_num_layers)]
+    lstm_dilations = [dilations for _ in range(lstm_num_layers)]
     # fmt: off
     return Namespace(
         **dict(
@@ -65,17 +63,18 @@ def conv3d_to_lstm32_config(args: Namespace, trial: Trial) -> Namespace:
             conv_norm=trial.suggest_categorical("conv_norm", ["group", "batch"]),
             conv_norm_groups=trial.suggest_categorical("conv_norm_groups", [1, 5, 10]),
             conv_cbam=trial.suggest_categorical("conv_cbam", [True, False]),
-            conv_cbam_reduction=2**trial.suggest_int("conv_cbam_reduction_log2", [1, 2, 3, 4]),
+            conv_cbam_reduction=2**trial.suggest_int("conv_cbam_reduction_log2", 1, 4),
             lstm_in_channels=1,
             lstm_num_layers=lstm_num_layers,
             lstm_hidden_sizes=lstm_hidden_sizes,
             lstm_kernel_sizes=lstm_kernel_sizes,
             lstm_dilations=lstm_dilations,
-            lstm_norm=trial.suggest_categorical("lstm_norm", "group", "batch"),
+            lstm_norm=trial.suggest_categorical("lstm_norm", ["group", "batch"]),
             lstm_norm_groups=trial.suggest_int("lstm_norm_groups_factor", 2, 4, 2),  # must divide hidden_sizes # noqa
             lstm_inner_spatial_dropout=trial.suggest_float("lstm_inner_spatial_dropout", 0, 0.6),
             lr=trial.suggest_loguniform("LR", 1e-6, 1e-3),
             l2=trial.suggest_loguniform("L2", 1e-7, 1e-3),
+            uuid=str(uuid.uuid4()),
         )
     )
     # fmt: on
@@ -118,8 +117,8 @@ def train_model(
 
 class Objective:
     def __init__(self, model_class: Type, args: Namespace, data: FmriDataset) -> None:
-        self.args = get_args(self.model_class)
         self.model_class = model_class
+        self.args = get_args(self.model_class)
         self.train, self.val = data.train_val_split(args)
         pass
 
@@ -144,8 +143,12 @@ class Objective:
             drop_last=False,
         )
         trainer.fit(model, train_loader, val_loader)
-        df = tableify_logs(trainer)
-        return float(df["val_acc"].max())
+        try:
+            df = tableify_logs(trainer)
+            return float(df["val_acc"].max())
+        except:
+            warn("No data logged to dataframes, returning 0")
+            return 0.0
 
 
 if __name__ == "__main__":
@@ -154,7 +157,7 @@ if __name__ == "__main__":
     data = FmriDataset(args)
     objective = Objective(model_class, args, data)
 
-    optuna.logging.get_logger("optuna").addHandler(StreamHandler(sys.stdout))
+    # optuna.logging.get_logger("optuna").addHandler(StreamHandler(sys.stdout))
     optuna.logging.set_verbosity(optuna.logging.DEBUG)
     study_name = Conv3dToConvLstm3d.__name__
     storage_name = f"sqlite:///{study_name}.db"
@@ -166,7 +169,9 @@ if __name__ == "__main__":
         direction="maximize",
         load_if_exists=True,
     )
-    study.optimize(objective, n_trials=10, timeout=20*60)
+    print("Resuming from previous study with data: ")
+    print(study.trials_dataframe().to_markdown(tablefmt="simple", floatfmt="0.2f"))
+    study.optimize(objective, n_trials=10, timeout=20 * 60)  # seconds
     df = study.trials_dataframe()
     df.to_json("trials_df.json")
     print(df.to_markdown(tablefmt="simple", floatfmt="0.3f"))
