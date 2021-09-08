@@ -17,7 +17,15 @@
       "request": "launch",
       "program": "${file}",
       "console": "integratedTerminal",
-      "args": ["--gpus=1", "--max_epochs=1", "--check_val_every_n_epoch=1"]
+      "args": [
+        "--gpus=1",
+        "--max_epochs=5",
+        "--preload",
+        "--slice_start=100",
+        "--slice_end=170",
+        "--batch_size=8",
+        "--check_val_every_n_epoch=1"
+      ]
     }
   ]
 }

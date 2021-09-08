@@ -13,6 +13,7 @@ from typing import Any, Dict, Tuple, Type, no_type_check
 
 import numpy as np
 import torch
+from optuna import Trial
 from pytorch_lightning import LightningModule, Trainer, seed_everything
 from pytorch_lightning.profiler import AdvancedProfiler
 from torch import Tensor
@@ -27,7 +28,7 @@ from torch.nn import (
 )
 from torch.nn.modules.padding import ConstantPad3d
 from torch.optim.adam import Adam
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader
 from torchmetrics.functional import accuracy
 
 from src.analysis.predict.deep_learning.arguments import get_args

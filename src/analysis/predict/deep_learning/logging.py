@@ -23,7 +23,7 @@ def merge_dfs(df1: DataFrame, df2: DataFrame) -> DataFrame:
     return pd.merge(left, right, how="inner", on="step")
 
 
-def tableify_logs(trainer: Trainer) -> None:
+def tableify_logs(trainer: Trainer) -> DataFrame:
     # magic below from https://stackoverflow.com/a/45899735
     logdir = trainer.logger.experiment.log_dir
     accum = EventAccumulator(logdir)
@@ -57,6 +57,7 @@ def tableify_logs(trainer: Trainer) -> None:
     print("\nKendall correlations:")
     print(kendalls_all.to_markdown(tablefmt="simple", floatfmt="1.2f"))
     print(acc_kendalls.to_markdown(tablefmt="simple", floatfmt="1.2f"))
+    return df
 
 
 def save_test_results(trainer: Trainer) -> None:
