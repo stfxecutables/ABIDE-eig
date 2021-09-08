@@ -7,12 +7,14 @@ sys.path.append(str(ROOT))  # isort:skip
 # setup_environment()
 # fmt: on
 
+import traceback
 import uuid
 from argparse import Namespace
 from typing import Any, Dict, Tuple, Type, no_type_check
 from warnings import warn
 
 import optuna
+import torch
 from optuna import Trial
 from pytorch_lightning import Trainer, seed_everything
 from torch.utils.data import DataLoader
@@ -144,6 +146,11 @@ class Objective:
         )
         trainer.fit(model, train_loader, val_loader)
         try:
+            torch.cuda.empty_cache()
+        except Exception:
+            print("Got an error clearing CUDA cache")
+            traceback.print_exc()
+        try:
             df = tableify_logs(trainer)
             return float(df["val_acc"].max())
         except:
@@ -172,7 +179,13 @@ if __name__ == "__main__":
     )
     print("Resuming from previous study with data: ")
     print(study.trials_dataframe().to_markdown(tablefmt="simple", floatfmt="0.2f"))
-    study.optimize(objective, n_trials=200, timeout=almost_day)
+    study.optimize(
+        objective,
+        n_trials=200,
+        timeout=almost_day,
+        gc_after_trial=True,
+        show_progress_bar=False,
+    )
     df = study.trials_dataframe()
     df.to_json(f"{study_name}_trials.json")
     print(df.to_markdown(tablefmt="simple", floatfmt="0.3f"))
