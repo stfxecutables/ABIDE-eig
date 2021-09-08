@@ -7,6 +7,7 @@ sys.path.append(str(ROOT))  # isort:skip
 # setup_environment()
 # fmt: on
 
+import os
 import traceback
 import uuid
 from argparse import Namespace
@@ -36,6 +37,9 @@ very agressive early-stopping. So we have to get this right. Unfortunately,
 Optuna handles this poorly
 """
 
+HTUNE_RESULTS = ROOT / "htune_results"
+os.makedirs(HTUNE_RESULTS, exist_ok=True)
+
 
 def conv3d_to_lstm32_config(args: Namespace, trial: Trial) -> Namespace:
     T = INPUT_SHAPE[0]
@@ -63,7 +67,7 @@ def conv3d_to_lstm32_config(args: Namespace, trial: Trial) -> Namespace:
             conv_depthwise=trial.suggest_categorical("conv_depthwise", [True, False]),
             conv_depthwise_factor=None,
             conv_norm=trial.suggest_categorical("conv_norm", ["group", "batch"]),
-            conv_norm_groups=5**trial.suggest_int("conv_norm_groups", 0, 1, 2),
+            conv_norm_groups=5**trial.suggest_int("conv_norm_groups", 0, 2),
             conv_cbam=trial.suggest_categorical("conv_cbam", [True, False]),
             conv_cbam_reduction=2**trial.suggest_int("conv_cbam_reduction_log2", 1, 4),
             lstm_in_channels=1,
@@ -168,7 +172,7 @@ if __name__ == "__main__":
     # optuna.logging.get_logger("optuna").addHandler(StreamHandler(sys.stdout))
     optuna.logging.set_verbosity(optuna.logging.DEBUG)
     study_name = f"{Conv3dToConvLstm3d.__name__}_{'eigimg' if args.is_eigimg else 'fmri'}"
-    storage_name = f"sqlite:///{study_name}.db"
+    storage_name = f"sqlite:///{HTUNE_RESULTS}/{study_name}.db"
     study = optuna.create_study(
         storage=storage_name,
         sampler=optuna.samplers.TPESampler(n_startup_trials=10),
