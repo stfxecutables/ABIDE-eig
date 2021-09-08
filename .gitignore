@@ -12,6 +12,7 @@ data/seqs
 job_scripts/submit_deep_*.sh
 job_scripts/submit_htune_*.sh
 
+htune_results/*.db
 lightning_logs
 *.tar.gz
 

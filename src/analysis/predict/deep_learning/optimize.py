@@ -7,7 +7,9 @@ sys.path.append(str(ROOT))  # isort:skip
 # setup_environment()
 # fmt: on
 
+import gc
 import os
+import time
 import traceback
 import uuid
 from argparse import Namespace
@@ -17,6 +19,7 @@ from warnings import warn
 import optuna
 import torch
 from optuna import Trial
+from pandas import DataFrame
 from pytorch_lightning import Trainer, seed_everything
 from torch.utils.data import DataLoader
 
@@ -39,6 +42,36 @@ Optuna handles this poorly
 
 HTUNE_RESULTS = ROOT / "htune_results"
 os.makedirs(HTUNE_RESULTS, exist_ok=True)
+
+
+def print_htune_table(df: DataFrame) -> None:
+    def renamer(s: str) -> str:
+        if "params" not in s:
+            s = f"{s}_"
+        return s
+
+    shortened = {
+        "params_conv_num_layers": "c_n_lay",
+        "params_conv_kernel": "c_kern",
+        "params_conv_dilation": "c_dil",
+        "params_conv_residual": "c_resid",
+        "params_conv_depthwise": "c_depth",
+        "params_conv_norm": "c_norm",
+        "params_conv_norm_groups": "c_n_grp",
+        "params_conv_cbam": "cbam",
+        "params_conv_cbam_reduction_log2": "cbam_r",
+        "params_lstm_num_layers": "l_n_lay",
+        "params_lstm_hidden_sizes_log2": "l_n_hid",
+        "params_lstm_kernel_sizes": "l_kern",
+        "params_lstm_dilations": "l_dil",
+        "params_lstm_norm": "l_norm",
+        "params_lstm_norm_groups_factor": "l_n_grp",
+        "params_lstm_inner_spatial_dropout": "l_drop",
+        "params_LR": "LR",
+        "params_L2": "L2",
+    }
+    renamed = df.rename(mapper=renamer, axis=1).rename(mapper=shortened, axis=1)
+    print(renamed.to_markdown(tablefmt="simple", floatfmt="0.3f"))
 
 
 def conv3d_to_lstm32_config(args: Namespace, trial: Trial) -> Namespace:
@@ -80,6 +113,7 @@ def conv3d_to_lstm32_config(args: Namespace, trial: Trial) -> Namespace:
             lstm_inner_spatial_dropout=trial.suggest_float("lstm_inner_spatial_dropout", 0, 0.6),
             lr=trial.suggest_loguniform("LR", 1e-6, 1e-3),
             l2=trial.suggest_loguniform("L2", 1e-7, 1e-3),
+            trial_id=trial.number,
             uuid=str(uuid.uuid4()),
         )
     )
@@ -91,42 +125,10 @@ def suggest_config(args: Namespace, model: Type, trial: Trial) -> Namespace:
     return func_map[model.__name__](args, trial)
 
 
-def train_model(
-    model_class: Type,
-) -> None:
-    seed_everything(333)
-    args = get_args(model_class)
-    config = model_class.config(args)
-
-    data = FmriDataset(args)
-    train, val = data.train_val_split(args)
-    model = model_class(config)
-    trainer = Trainer.from_argparse_args(args, callbacks=callbacks(config))
-    trainer.logger.log_hyperparams(config)
-    train_loader = DataLoader(
-        train,
-        batch_size=args.batch_size,
-        num_workers=args.num_workers,
-        shuffle=True,
-        drop_last=False,
-    )
-    val_loader = DataLoader(
-        val,
-        batch_size=args.val_batch_size,
-        num_workers=args.num_workers,
-        shuffle=False,
-        drop_last=False,
-    )
-    trainer.fit(model, train_loader, val_loader)
-    tableify_logs(trainer)
-
-
 class Objective:
-    def __init__(self, model_class: Type, args: Namespace, data: FmriDataset) -> None:
+    def __init__(self, model_class: Type, args: Namespace) -> None:
         self.model_class = model_class
-        self.args = get_args(self.model_class)
-        self.train, self.val = data.train_val_split(args)
-        pass
+        self.args = args
 
     def __call__(self, trial: Trial) -> float:
         seed_everything(333)
@@ -134,15 +136,16 @@ class Objective:
         model = self.model_class(config)
         trainer = Trainer.from_argparse_args(self.args, callbacks=callbacks(config, trial))
         trainer.logger.log_hyperparams(config)
+        train, val = FmriDataset(args).train_val_split(args)
         train_loader = DataLoader(
-            self.train,
+            train,
             batch_size=self.args.batch_size,
             num_workers=self.args.num_workers,
             shuffle=True,
             drop_last=False,
         )
         val_loader = DataLoader(
-            self.val,
+            val,
             batch_size=self.args.val_batch_size,
             num_workers=self.args.num_workers,
             shuffle=False,
@@ -156,18 +159,25 @@ class Objective:
             traceback.print_exc()
         try:
             df = tableify_logs(trainer)
-            return float(df["val_acc"].max())
         except:
-            warn("No data logged to dataframes, returning 0")
+            traceback.print_exc()
+            warn("No data logged to dataframes, returning 0. Traceback above.")
+            self.train = self.val = trainer = model = None
+            gc.collect()
+            time.sleep(10)  # Optuna too dumb to wait for CPU memory to free
             return 0.0
+
+        self.train = self.val = trainer = model = None
+        gc.collect()
+        time.sleep(10)  # Optuna too dumb to wait for CPU memory to free
+        return float(df["val_acc"].max())
 
 
 if __name__ == "__main__":
     almost_day = int(23.5 * 60 * 60)
     model_class = Conv3dToConvLstm3d
     args = get_args(model_class)
-    data = FmriDataset(args)
-    objective = Objective(model_class, args, data)
+    objective = Objective(model_class, args)
 
     # optuna.logging.get_logger("optuna").addHandler(StreamHandler(sys.stdout))
     optuna.logging.set_verbosity(optuna.logging.DEBUG)
@@ -182,7 +192,7 @@ if __name__ == "__main__":
         load_if_exists=True,
     )
     print("Resuming from previous study with data: ")
-    print(study.trials_dataframe().to_markdown(tablefmt="simple", floatfmt="0.2f"))
+    print_htune_table(study.trials_dataframe())
     study.optimize(
         objective,
         n_trials=200,
@@ -191,5 +201,6 @@ if __name__ == "__main__":
         show_progress_bar=False,
     )
     df = study.trials_dataframe()
-    df.to_json(f"{study_name}_trials.json")
-    print(df.to_markdown(tablefmt="simple", floatfmt="0.3f"))
+    df.to_json(HTUNE_RESULTS / f"{study_name}_trials.json")
+    print(f"Updated hypertuning results for {model_class.__name__}:")
+    print_htune_table(df)
