@@ -38,7 +38,7 @@ if CC_CLUSTER == "siku":
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=32G
 """
-    NUM_WORKERS = 16
+    NUM_WORKERS = 8
 elif CC_CLUSTER == "beluga":
     RESOURCES = """#SBATCH --gres=gpu:v100:1
 #SBATCH --cpus-per-task=16
