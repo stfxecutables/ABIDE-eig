@@ -22,6 +22,23 @@ class OptunaHelper(Callback):
         self.pruning_metric = pruning_metric
         self.smooth = smooth
 
+    def on_train_batch_start(
+        self,
+        trainer: Trainer,
+        pl_module: LightningModule,
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int,
+    ) -> None:
+        if self.pruning_metric not in self.metrics:  # e.g. val sanity check
+            return
+        # get last `smooth` metric values
+        smoothed_metric = np.mean(self.metrics[self.pruning_metric][-self.smooth :])
+        if smoothed_metric < 0.5 and self.val_step > 20:
+            # https://pytorch-lightning.readthedocs.io/en/latest/common/early_stopping.html#stopping-an-epoch-early
+            self.trial.report(smoothed_metric, self.val_step)
+            return -1
+
     def on_validation_epoch_end(self, trainer: Trainer, pl_module: LightningModule) -> None:
         self.val_step += 1
         metrics = deepcopy(trainer.callback_metrics)
