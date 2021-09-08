@@ -152,6 +152,7 @@ class Objective:
 
 
 if __name__ == "__main__":
+    almost_day = int(23.5 * 60 * 60)
     model_class = Conv3dToConvLstm3d
     args = get_args(model_class)
     data = FmriDataset(args)
@@ -171,7 +172,7 @@ if __name__ == "__main__":
     )
     print("Resuming from previous study with data: ")
     print(study.trials_dataframe().to_markdown(tablefmt="simple", floatfmt="0.2f"))
-    study.optimize(objective, n_trials=10, timeout=20 * 60)  # seconds
+    study.optimize(objective, n_trials=200, timeout=almost_day)
     df = study.trials_dataframe()
     df.to_json("trials_df.json")
     print(df.to_markdown(tablefmt="simple", floatfmt="0.3f"))
