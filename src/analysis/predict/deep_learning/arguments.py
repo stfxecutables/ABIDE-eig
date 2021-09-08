@@ -6,7 +6,7 @@ sys.path.append(str(ROOT))
 # from src.run.cc_setup import setup_environment  # isort:skip
 # setup_environment()
 # fmt: on
-
+import os
 from argparse import ArgumentParser, Namespace
 from typing import Dict, Type
 
@@ -26,6 +26,7 @@ OVERRIDE_DEFAULTS: Dict = dict(
     # flush_logs_every_n_steps=20,
     max_time={"hours": 2},
 )
+PBAR = 0 if os.environ.get("CC_CLUSTER") is not None else 1
 
 
 def update_args(args: Namespace, model_class: Type) -> Namespace:
@@ -38,6 +39,8 @@ def update_args(args: Namespace, model_class: Type) -> Namespace:
         profiler = AdvancedProfiler(dirpath=None, filename="profiling", line_count_restriction=2.0)
         args.profiler = profiler
     args.slicer = slice(args.slice_start, args.slice_end)
+    # Compute Canada overrides
+    args.progress_bar_refresh_rate = PBAR
     return args
 
 
