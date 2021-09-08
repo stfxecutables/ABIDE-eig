@@ -9,8 +9,8 @@ data/niis/*.nii.gz
 data/rois
 data/seqs
 
-job_scripts/submit_deep_eigimg.sh
-job_scripts/submit_deep_fmri.sh
+job_scripts/submit_deep_*.sh
+job_scripts/submit_htune_*.sh
 
 lightning_logs
 *.tar.gz
