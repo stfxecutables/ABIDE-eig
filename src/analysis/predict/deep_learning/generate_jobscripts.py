@@ -38,22 +38,26 @@ if CC_CLUSTER == "siku":
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=32G
 """
+    NUM_WORKERS = 16
 elif CC_CLUSTER == "beluga":
     RESOURCES = """#SBATCH --gres=gpu:v100:1
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=32G
 """
+    NUM_WORKERS = 16
 elif CC_CLUSTER == "cedar":
     RESOURCES = """#SBATCH --gres=gpu:v100l:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32G
 """
+    NUM_WORKERS = 8
 elif CC_CLUSTER == "graham":
     RESOURCES = """#SBATCH --gres=gpu:t4:1
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=32G
 #SBATCH --constraint=cascade
 """
+    NUM_WORKERS = 16
 # elif CC_CLUSTER == "graham":
 #     RESOURCES = """#SBATCH --gres=gpu:v100:1
 # #SBATCH --cpus-per-task=5
@@ -102,7 +106,25 @@ def generate_script(script_outdir: Path = SCRIPT_OUTDIR, is_eigimg: bool = False
     return script
 
 
+def generate_htune_scripts(script_outdir: Path = SCRIPT_OUTDIR, is_eigimg: bool = False) -> str:
+    pythonfile = "$PROJECT/src/analysis/predict/deep_learning/optimize.py"
+    args = " ".join(sys.argv[1:])
+    job_name = "htune_eigimg" if is_eigimg else "htune_fmri"
+    command = f"$PYTHON {pythonfile} {args} --num_workers={NUM_WORKERS}"
+    header = HEADER.format(time=RUNTIME, job_name=job_name)
+
+    script = f"{header}{SCRIPT.format(command=command)}"
+    out = script_outdir / f"submit_{job_name}.sh"
+    with open(out, mode="w") as file:
+        file.write(script)
+    print(f"Saved job script to {out}")
+
+    return script
+
+
 if __name__ == "__main__":
     print(f"Will save scripts in {SCRIPT_OUTDIR}")
     generate_script(is_eigimg=False)
     generate_script(is_eigimg=True)
+    generate_htune_scripts(is_eigimg=False)
+    generate_htune_scripts(is_eigimg=True)

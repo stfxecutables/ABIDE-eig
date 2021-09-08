@@ -159,7 +159,7 @@ if __name__ == "__main__":
 
     # optuna.logging.get_logger("optuna").addHandler(StreamHandler(sys.stdout))
     optuna.logging.set_verbosity(optuna.logging.DEBUG)
-    study_name = Conv3dToConvLstm3d.__name__
+    study_name = f"{Conv3dToConvLstm3d.__name__}_{'eigimg' if args.is_eigimg else 'fmri'}"
     storage_name = f"sqlite:///{study_name}.db"
     study = optuna.create_study(
         storage=storage_name,
