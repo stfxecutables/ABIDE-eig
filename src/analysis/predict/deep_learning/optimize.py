@@ -61,7 +61,7 @@ def conv3d_to_lstm32_config(args: Namespace, trial: Trial) -> Namespace:
             conv_depthwise=trial.suggest_categorical("conv_depthwise", [True, False]),
             conv_depthwise_factor=None,
             conv_norm=trial.suggest_categorical("conv_norm", ["group", "batch"]),
-            conv_norm_groups=trial.suggest_categorical("conv_norm_groups", [1, 5, 10]),
+            conv_norm_groups=5**trial.suggest_int("conv_norm_groups", 0, 1, 2),
             conv_cbam=trial.suggest_categorical("conv_cbam", [True, False]),
             conv_cbam_reduction=2**trial.suggest_int("conv_cbam_reduction_log2", 1, 4),
             lstm_in_channels=1,
