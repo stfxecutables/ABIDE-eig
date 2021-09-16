@@ -37,6 +37,7 @@ class OptunaHelper(Callback):
         if smoothed_metric < 0.5 and self.val_step > 20:
             # https://pytorch-lightning.readthedocs.io/en/latest/common/early_stopping.html#stopping-an-epoch-early
             self.trial.report(smoothed_metric, self.val_step)
+            trainer.logger.experiment.flush()
             return -1
 
     def on_validation_epoch_end(self, trainer: Trainer, pl_module: LightningModule) -> None:
@@ -54,10 +55,11 @@ class OptunaHelper(Callback):
         smoothed_metric = np.mean(self.metrics[self.pruning_metric][-self.smooth :])
         self.trial.report(smoothed_metric, self.val_step)
         if self.trial.should_prune():
+            trainer.logger.experiment.flush()
             raise TrialPruned()
 
 
-def callbacks(config: Namespace, trial: Trial) -> List[Callback]:
+def callbacks(trial: Trial = None, include_optuna: bool = True) -> List[Callback]:
     ckpt_args: Dict = dict(
         auto_insert_metric_name=True,
         save_last=False,
@@ -88,6 +90,6 @@ def callbacks(config: Namespace, trial: Trial) -> List[Callback]:
             fan_speed=False,
             temperature=False,
         ),
-        OptunaHelper(trial),
+        OptunaHelper(trial) if include_optuna else None,
     ]
     return list(filter(lambda c: c is not None, cbs))  # type: ignore

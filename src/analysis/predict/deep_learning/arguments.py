@@ -7,6 +7,7 @@ sys.path.append(str(ROOT))
 # setup_environment()
 # fmt: on
 import os
+import uuid
 from argparse import ArgumentParser, Namespace
 from typing import Dict, Type
 
@@ -57,4 +58,47 @@ def get_args(model_class: Type) -> Namespace:
     parser = Trainer.add_argparse_args(parser)
     args = parser.parse_args()
     args = update_args(args, model_class)
+    return args
+
+
+def get_conv3d_to_lstm3d_config() -> Namespace:
+    from src.analysis.predict.deep_learning.models.conv_lstm import Conv3dToConvLstm3d
+
+    parser = ArgumentParser()
+    parser.add_argument("--batch_size", default=DEFAULTS.batch_size, type=int)
+    parser.add_argument("--val_batch_size", default=DEFAULTS.val_batch_size, type=int)
+    parser.add_argument("--num_workers", default=DEFAULTS.num_workers, type=int)
+    parser.add_argument("--is_eigimg", action="store_true")
+    parser.add_argument("--preload", action="store_true")
+    parser.add_argument("--profile", action="store_true")
+    parser.add_argument("--slice_start", type=int, default=None)
+    parser.add_argument("--slice_end", type=int, default=None, help="index one past last timepoint")
+
+    parser.add_argument("--conv_in_channels", type=int)
+    parser.add_argument("--conv_out_channels", type=int)
+    parser.add_argument("--conv_num_layers", type=int)
+    parser.add_argument("--conv_kernel_size", type=int)
+    parser.add_argument("--conv_dilation", type=int)
+    parser.add_argument("--conv_residual", action="store_true")
+    parser.add_argument("--conv_halve", action="store_true", default=True)
+    parser.add_argument("--conv_depthwise", action="store_true")
+    parser.add_argument("--conv_depthwise_factor", type=int)
+    parser.add_argument("--conv_norm", choices=["group", "batch"])
+    parser.add_argument("--conv_norm_groups", type=int)
+    parser.add_argument("--conv_cbam", action="store_true")
+    parser.add_argument("--conv_cbam_reduction", type=int, choices=[2, 4, 8, 16])
+    parser.add_argument("--lstm_in_channels", type=int, default=1)
+    parser.add_argument("--lstm_num_layers", type=int)
+    parser.add_argument("--lstm_hidden_sizes", nargs="+", type=int)
+    parser.add_argument("--lstm_kernel_sizes", nargs="+", type=int)
+    parser.add_argument("--lstm_dilations", nargs="+", type=int)
+    parser.add_argument("--lstm_norm", choices=["group", "batch"])
+    parser.add_argument("--lstm_norm_groups", type=int, choices=[2, 4])
+    parser.add_argument("--lstm_inner_spatial_dropout", type=float)
+    parser.add_argument("--lr", type=float)
+    parser.add_argument("--l2", type=float)
+    parser.add_argument("--uuid", type=str, default=str(uuid.uuid4()))
+    parser = Trainer.add_argparse_args(parser)
+    args = parser.parse_args()
+    args = update_args(args, Conv3dToConvLstm3d)
     return args

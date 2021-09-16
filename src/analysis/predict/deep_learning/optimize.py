@@ -134,7 +134,7 @@ class Objective:
         seed_everything(333)
         config = suggest_config(self.args, self.model_class, trial)
         model = self.model_class(config)
-        trainer = Trainer.from_argparse_args(self.args, callbacks=callbacks(config, trial))
+        trainer = Trainer.from_argparse_args(self.args, callbacks=callbacks(trial))
         trainer.logger.log_hyperparams(config)
         train, val = FmriDataset(args).train_val_split(args)
         train_loader = DataLoader(
