@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 from optuna import Trial, TrialPruned
+from optuna.integration.pytorch_lightning import PyTorchLightningPruningCallback
 from pl_bolts.callbacks import TrainingDataMonitor
 from pytorch_lightning import LightningModule, Trainer
 from pytorch_lightning.callbacks import Callback, GPUStatsMonitor, ModelCheckpoint
@@ -82,14 +83,15 @@ def callbacks(trial: Trial = None, include_optuna: bool = True) -> List[Callback
             mode="min",
             **ckpt_args
         ),
-        GPUStatsMonitor(
-            memory_utilization=True,
-            gpu_utilization=True,
-            intra_step_time=True,
-            inter_step_time=True,
-            fan_speed=False,
-            temperature=False,
-        ),
-        OptunaHelper(trial) if include_optuna else None,
+        # GPUStatsMonitor(
+        #     memory_utilization=True,
+        #     gpu_utilization=True,
+        #     intra_step_time=True,
+        #     inter_step_time=True,
+        #     fan_speed=False,
+        #     temperature=False,
+        # ),
+        # OptunaHelper(trial) if include_optuna else None,
+        PyTorchLightningPruningCallback(trial, "val_acc"),
     ]
     return list(filter(lambda c: c is not None, cbs))  # type: ignore

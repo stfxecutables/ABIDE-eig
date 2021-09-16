@@ -202,8 +202,8 @@ class Conv3dToConvLstm3d(LightningModule):
     @no_type_check
     def training_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> Tensor:
         acc, loss = self.inner_step(batch)
-        self.log("train_acc", acc, prog_bar=True, on_epoch=True, on_step=True)
-        self.log("loss", loss, prog_bar=True, on_epoch=True, on_step=True)
+        self.log("train_acc", acc, prog_bar=True)
+        self.log("loss", loss, prog_bar=True)
         return loss
 
     @no_type_check
