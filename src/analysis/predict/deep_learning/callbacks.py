@@ -92,6 +92,6 @@ def callbacks(trial: Trial = None, include_optuna: bool = True) -> List[Callback
         #     temperature=False,
         # ),
         # OptunaHelper(trial) if include_optuna else None,
-        PyTorchLightningPruningCallback(trial, "val_acc"),
+        PyTorchLightningPruningCallback(trial, "val_acc") if include_optuna else None,
     ]
     return list(filter(lambda c: c is not None, cbs))  # type: ignore
