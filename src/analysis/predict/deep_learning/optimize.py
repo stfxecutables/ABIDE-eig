@@ -13,6 +13,7 @@ import time
 import traceback
 import uuid
 from argparse import Namespace
+from copy import deepcopy
 from typing import Any, Dict, Tuple, Type, no_type_check
 from warnings import warn
 
@@ -133,6 +134,8 @@ class Objective:
     def __call__(self, trial: Trial) -> float:
         seed_everything(333)
         config = suggest_config(self.args, self.model_class, trial)
+        args = deepcopy(self.args)
+        args.default_root_dir = self.args.default_root_dir / config.uuid
         model = self.model_class(config)
         trainer = Trainer.from_argparse_args(self.args, callbacks=callbacks(trial))
         trainer.logger.log_hyperparams(config)
@@ -156,7 +159,7 @@ class Objective:
         except RuntimeError as e:
             if "out of memory" in str(e):
                 print("Ran out of memory. Cleaning up and returning zero acc.")
-                train_loader = val_loader = self.train = self.val = trainer = model = None  # type: ignore
+                train_loader = val_loader = self.train = self.val = trainer = model = None  # type: ignore # noqa
                 gc.collect()
                 time.sleep(10)  # Optuna too dumb to wait for CPU memory to free
                 return 0.0
@@ -169,10 +172,10 @@ class Objective:
             traceback.print_exc()
         try:
             df = tableify_logs(trainer)
-        except:
+        except:  # noqa
             traceback.print_exc()
             warn("No data logged to dataframes, returning 0. Traceback above.")
-            train_loader = val_loader = self.train = self.val = trainer = model = None  # type: ignore
+            train_loader = val_loader = self.train = self.val = trainer = model = None  # type: ignore # noqa
             gc.collect()
             time.sleep(10)  # Optuna too dumb to wait for CPU memory to free
             return 0.0

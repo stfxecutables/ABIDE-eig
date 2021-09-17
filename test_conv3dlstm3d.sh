@@ -4,7 +4,6 @@ python src/analysis/predict/deep_learning/assess_tuned.py \
     --batch_size=25 \
     --val_batch_size=20 \
     --is_eigimg \
-    --preload \
     --slice_start=125 \
     --slice_end=175 \
     --conv_in_channels=50 \
