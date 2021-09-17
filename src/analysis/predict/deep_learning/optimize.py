@@ -20,6 +20,7 @@ from warnings import warn
 import optuna
 import torch
 from optuna import Trial
+from optuna.pruners import PatientPruner
 from pandas import DataFrame
 from pytorch_lightning import Trainer, seed_everything
 from torch.utils.data import DataLoader
@@ -199,7 +200,7 @@ if __name__ == "__main__":
     study = optuna.create_study(
         storage=storage_name,
         sampler=optuna.samplers.TPESampler(n_startup_trials=10),
-        pruner=optuna.pruners.SuccessiveHalvingPruner(min_resource=10),
+        pruner=PatientPruner(optuna.pruners.SuccessiveHalvingPruner(), patience=5),
         study_name=study_name,
         direction="maximize",
         load_if_exists=True,
@@ -208,12 +209,12 @@ if __name__ == "__main__":
     print_htune_table(study.trials_dataframe())
     study.optimize(
         objective,
-        n_trials=200,
+        n_trials=400,
         timeout=almost_day,
         gc_after_trial=True,
         show_progress_bar=False,
     )
-    df = study.trials_dataframe()
-    df.to_json(HTUNE_RESULTS / f"{study_name}_trials.json")
+    # df = study.trials_dataframe()
+    # df.to_json(HTUNE_RESULTS / f"{study_name}_trials.json")
     print(f"Updated hypertuning results for {model_class.__name__}:")
     print_htune_table(df)
