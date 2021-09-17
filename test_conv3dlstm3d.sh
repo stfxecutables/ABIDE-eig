@@ -1,8 +1,8 @@
 python src/analysis/predict/deep_learning/assess_tuned.py \
     --gpus=1 \
-    --batch_size=10 \
-    --val_batch_size=10 \
-    --num_workers=8 \
+    --max_epochs=200 \
+    --batch_size=25 \
+    --val_batch_size=20 \
     --is_eigimg \
     --preload \
     --slice_start=125 \
