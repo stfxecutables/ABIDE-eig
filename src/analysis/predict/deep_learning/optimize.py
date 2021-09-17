@@ -137,20 +137,20 @@ class Objective:
         args = deepcopy(self.args)
         args.default_root_dir = self.args.default_root_dir / config.uuid
         model = self.model_class(config)
-        trainer = Trainer.from_argparse_args(self.args, callbacks=callbacks(trial))
+        trainer = Trainer.from_argparse_args(args, callbacks=callbacks(trial))
         trainer.logger.log_hyperparams(config)
         train, val = FmriDataset(args).train_val_split(args)
         train_loader = DataLoader(
             train,
-            batch_size=self.args.batch_size,
-            num_workers=self.args.num_workers,
+            batch_size=args.batch_size,
+            num_workers=args.num_workers,
             shuffle=True,
             drop_last=False,
         )
         val_loader = DataLoader(
             val,
-            batch_size=self.args.val_batch_size,
-            num_workers=self.args.num_workers,
+            batch_size=args.val_batch_size,
+            num_workers=args.num_workers,
             shuffle=False,
             drop_last=False,
         )
