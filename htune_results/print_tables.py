@@ -4,15 +4,11 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union, cast
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pytest
-import seaborn as sbn
 from numpy import ndarray
 from pandas import DataFrame, Series
-from typing_extensions import Literal
 
 ROOT = Path(__file__).resolve().parent
-CC = ROOT / "cc/htune_results"
-JSONS = sorted(CC.rglob("*.json"))
+JSONS = sorted(ROOT.rglob("*.json"))
 
 
 def print_htune_table(df: DataFrame) -> None:
