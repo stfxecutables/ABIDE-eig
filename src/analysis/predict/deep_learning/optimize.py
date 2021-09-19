@@ -201,7 +201,7 @@ if __name__ == "__main__":
         storage=storage_name,
         sampler=optuna.samplers.TPESampler(n_startup_trials=10),
         # note patience also effectively sets a min number of steps before pruning
-        pruner=PatientPruner(optuna.pruners.SuccessiveHalvingPruner(), patience=30),
+        pruner=PatientPruner(optuna.pruners.SuccessiveHalvingPruner(), patience=50),
         study_name=study_name,
         direction="maximize",
         load_if_exists=True,
