@@ -1,4 +1,22 @@
 
+@inproceedings{el-gazzarHybrid3DCNN3DCLSTM2019,
+  title = {A {{Hybrid 3DCNN}} and {{3DC}}-{{LSTM Based Model}} for {{4D Spatio}}-{{Temporal fMRI Data}}: {{An ABIDE Autism Classification Study}}},
+  shorttitle = {A {{Hybrid 3DCNN}} and {{3DC}}-{{LSTM Based Model}} for {{4D Spatio}}-{{Temporal fMRI Data}}},
+  booktitle = {{{OR}} 2.0 {{Context}}-{{Aware Operating Theaters}} and {{Machine Learning}} in {{Clinical Neuroimaging}}},
+  author = {{El-Gazzar}, Ahmed and Quaak, Mirjam and Cerliani, Leonardo and Bloem, Peter and {van Wingen}, Guido and Mani Thomas, Rajat},
+  editor = {Zhou, Luping and Sarikaya, Duygu and Kia, Seyed Mostafa and Speidel, Stefanie and Malpani, Anand and Hashimoto, Daniel and Habes, Mohamad and L{\"o}fstedt, Tommy and Ritter, Kerstin and Wang, Hongzhi},
+  year = {2019},
+  series = {Lecture {{Notes}} in {{Computer Science}}},
+  pages = {95--102},
+  publisher = {{Springer International Publishing}},
+  address = {{Cham}},
+  doi = {10.1007/978-3-030-32695-1_11},
+  abstract = {Functional Magnetic Resonance Imaging (fMRI) captures the temporal dynamics of neural activity as a function of spatial location in the brain. Thus, fMRI scans are represented as 4-Dimensional (3-space + 1-time) tensors. And it is widely believed that the spatio-temporal patterns in fMRI manifests as behaviour and clinical symptoms. Because of the high dimensionality ({$\sim\sim\backslash$}sim 1 Million) of fMRI, and the added constraints of limited cardinality of data sets, extracting such patterns are challenging. A standard approach to overcome these hurdles is to reduce the dimensionality of the data by either summarizing activation over time or space at the expense of possible loss of useful information. Here, we introduce an end-to-end algorithm capable of extracting spatiotemporal features from the full 4-D data using 3-D CNNs and 3-D Convolutional LSTMs. We evaluate our proposed model on the publicly available ABIDE dataset to demonstrate the capability of our model to classify Autism Spectrum Disorder (ASD) from resting-state fMRI data. Our results show that the proposed model achieves state of the art results on single sites with F1-scores of 0.78 and 0.7 on NYU and UM sites, respectively.},
+  isbn = {978-3-030-32695-1},
+  language = {en},
+  keywords = {3D convolutional-LSTM,3D convolutions,ASD,Deep learning,rs-fMRI}
+}
+
 @article{heinsfeldIdentificationAutismSpectrum2018,
   title = {Identification of Autism Spectrum Disorder Using Deep Learning and the {{ABIDE}} Dataset},
   author = {Heinsfeld, Anibal S{\'o}lon and Franco, Alexandre Rosa and Craddock, R. Cameron and Buchweitz, Augusto and Meneguzzi, Felipe},
@@ -13,6 +31,23 @@
   language = {en},
   keywords = {ABIDE,Autism,Deep learning,fMRI,Resting state},
   file = {/home/derek/Zotero/storage/FXYTVJ5M/Heinsfeld et al. - 2018 - Identification of autism spectrum disorder using d.pdf;/home/derek/Zotero/storage/WUBYZQHG/S2213158217302073.html}
+}
+
+@article{liMultisiteFMRIAnalysis2020,
+  title = {Multi-Site {{fMRI}} Analysis Using Privacy-Preserving Federated Learning and Domain Adaptation: {{ABIDE}} Results},
+  shorttitle = {Multi-Site {{fMRI}} Analysis Using Privacy-Preserving Federated Learning and Domain Adaptation},
+  author = {Li, Xiaoxiao and Gu, Yufeng and Dvornek, Nicha and Staib, Lawrence H. and Ventola, Pamela and Duncan, James S.},
+  year = {2020},
+  month = oct,
+  journal = {Medical Image Analysis},
+  volume = {65},
+  pages = {101765},
+  issn = {1361-8415},
+  doi = {10.1016/j.media.2020.101765},
+  abstract = {Deep learning models have shown their advantage in many different tasks, including neuroimage analysis. However, to effectively train a high-quality deep learning model, the aggregation of a significant amount of patient information is required. The time and cost for acquisition and annotation in assembling, for example, large fMRI datasets make it difficult to acquire large numbers at a single site. However, due to the need to protect the privacy of patient data, it is hard to assemble a central database from multiple institutions. Federated learning allows for population-level models to be trained without centralizing entities' data by transmitting the global model to local entities, training the model locally, and then averaging the gradients or weights in the global model. However, some studies suggest that private information can be recovered from the model gradients or weights. In this work, we address the problem of multi-site fMRI classification with a privacy-preserving strategy. To solve the problem, we propose a federated learning approach, where a decentralized iterative optimization algorithm is implemented and shared local model weights are altered by a randomization mechanism. Considering the systemic differences of fMRI distributions from different sites, we further propose two domain adaptation methods in this federated learning formulation. We investigate various practical aspects of federated model optimization and compare federated learning with alternative training strategies. Overall, our results demonstrate that it is promising to utilize multi-site data without data sharing to boost neuroimage analysis performance and find reliable disease-related biomarkers. Our proposed pipeline can be generalized to other privacy-sensitive medical data analysis problems. Our code is publicly available at: https://github.com/xxlya/Fed\_ABIDE/.},
+  language = {en},
+  keywords = {ABIDE,Data sharing,Domain adaptation,Federated learning,Privacy,Rs-fmri},
+  file = {/home/derek/Zotero/storage/TEQXZTPG/Li et al. - 2020 - Multi-site fMRI analysis using privacy-preserving .pdf;/home/derek/Zotero/storage/HFNX25HS/S1361841520301298.html}
 }
 
 

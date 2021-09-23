@@ -34,9 +34,60 @@
 \keywords{fMRI \and ABIDE \and deep learing \and convolutional neural network \and random matrix theory \and eigenvalues \and perturbation}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\section{Introduction}
+\section{Key Articles}
 
-So far the best accuracy is \citep{heinsfeldIdentificationAutismSpectrum2018}.
+\subsection{\citet{heinsfeldIdentificationAutismSpectrum2018}}
+
+\begin{itemize}
+  \item 70\% with C-PAC preprocessing pipeline
+  \item used CC200 atlas to reduce to ROI feature vectors (i.e. not CNN)
+  \item actually used functional connectivity as the predictor
+  \item used 10-fold validation across all sites (good!)
+  \item used a deep denoising autoencoder (really just MLP with some augmentation / dropout on inputs)
+\end{itemize}
+
+\subsection{\citet{liMultisiteFMRIAnalysis2020}}
+
+\begin{itemize}
+  \item 70\% with C-PAC preprocessing pipeline
+  \item similar number of subjects to us
+  \item used sliding windows (32 timepoints long) of mean ROI sequences (HO Atlas, 111 ROIs)
+  \item interesting comparison points is \emph{sex classification accuracy} which was only between
+  \item report no overall accuracy, but NYU hardest to classify (67.6\% at best), USM easiest (up to
+  84.9\%)
+  \item validation splits are unclear
+\end{itemize}
+
+\subsection{\citet{el-gazzarHybrid3DCNN3DCLSTM2019}}
+
+\begin{itemize}
+  \item used Conv3D to Conv1D or ConvLSTM (they test both)
+  \item CPAC pipeline for ABIDE
+  \item only use single-site validation (losers) also NYU and UM (easiest)
+  \item also do one multi-site with 19 sites 1100 subjects
+  \item patch-based training where prediction is average prediction over crops
+  \item max 5-fold acc of \(0.77 \pm 0.05\) on NYU with Conv3dConvLSTM3d
+\end{itemize}
+
+\begin{table}
+\caption{\citet{el-gazzarHybrid3DCNN3DCLSTM2019} 5-fold cross-site results}
+\centering
+  \begin{tabular}{lll}
+    \toprule
+    % \multicolumn{2}{c}{Part}                   \\
+    % \cmidrule(r){1-2}
+    Model     & Accuracy     & F1-score \\
+    \midrule
+    AE MLP        [8]   &  0.63 \(\pm\) 0.02  & 0.64 \\
+    SVM           [5]   &  0.58 \(\pm\) 0.04  & 0.60 \\
+    1D Conv       [7]   &  0.64 \(\pm\) 0.06  & 0.64 \\
+    3DCNN 1D     (ours) &  0.54 \(\pm\) 0.02  & 0.50 \\
+    3DCNN C-LSTM (ours) &  0.58 \(\pm\) 0.03  & 0.53 \\
+
+    \bottomrule
+  \end{tabular}
+  \label{tab:table}
+\end{table}
 
 \section{Headings: first level}
 \label{sec:headings}
