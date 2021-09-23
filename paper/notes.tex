@@ -1,0 +1,54 @@
+\documentclass[10pt]{article}
+\usepackage{arxiv}
+
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage[english]{babel} % hyphenation
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+% \usepackage{lipsum}		% Can be removed after putting your text content
+\usepackage{graphicx}
+\usepackage{natbib}
+\usepackage{doi}
+
+\include{meta.tex}
+
+\begin{document}
+\maketitle
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{abstract}
+  Functional magnetic resonance imaging (fMRI) data has considerable potential
+  for predicting neuropsychological and neurophysiological disorders. However, processing this data
+  for use in machine learning (ML) and/or deep learning (DL) algorithms is challenging. In this
+  paper we implement both novel deep learning architectures and a preprocessing step for converting
+  fMRI images into spatially-rich 4D summary images with the same or greater predictive potential as
+  the raw fMRI. We show that tuned models on these summary "eigen-perturbation" images are just as
+  accurate as on the fMRI original images, despite a \(10-20\) times reduction in size, and achieve
+  state-of-the-art accuracy of [over 70\% we hope!] on a \emph{large}, cross-site validation set.
+\end{abstract}
+\keywords{fMRI \and ABIDE \and deep learing \and convolutional neural network \and random matrix theory \and eigenvalues \and perturbation}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Introduction}
+
+So far the best accuracy is \citep{heinsfeldIdentificationAutismSpectrum2018}.
+
+\section{Headings: first level}
+\label{sec:headings}
+
+See Section \ref{sec:headings}.
+
+\subsection{Headings: second level}
+\paragraph{Paragraph}
+
+A footnote \footnote{Sample of the first footnote.}.
+
+\bibliographystyle{unsrtnat}
+\bibliography{references}
+
+\end{document}
