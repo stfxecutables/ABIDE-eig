@@ -4,9 +4,12 @@ from typing import no_type_check
 
 import numpy as np
 import pandas as pd
+import yaml
 from pandas import DataFrame
 from pytorch_lightning import LightningDataModule, LightningModule, Trainer
+from pytorch_lightning.core.saving import load_hparams_from_yaml
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
+from tqdm import tqdm
 
 
 def merge_dfs(df1: DataFrame, df2: DataFrame) -> DataFrame:
@@ -72,3 +75,41 @@ def save_predictions(
     preds_df = DataFrame(dict(y_pred=preds, y_true=y_true, nii=niis))
     print(preds_df.to_markdown(tablefmt="simple"))
     preds_df.to_json(outdir / "predictions.json")
+
+
+def load_yaml_unsafe(path: Path) -> DataFrame:
+    if not path.exists():
+        return None
+    res = load_hparams_from_yaml(str(path))
+    return res
+
+
+def get_hparam_info(root: Path) -> DataFrame:
+    root = root.resolve()
+    event_files = sorted(
+        root.rglob("events.out.tfevents.*"), key=lambda p: p.parent.parent.parent.name
+    )
+    hparams = [load_yaml_unsafe(f.parent / "hparams.yaml") for f in event_files]
+    dfs = []
+    train_dfs = []
+    for event in tqdm(event_files, desc="Converting tfevents"):
+        accum = EventAccumulator(str(event), dict(scalars=0))  # load all scalars
+        accum.Reload()
+        metric_names = [tag for tag in accum.Tags()["scalars"] if tag != "hp_metric"]
+        metrics = DataFrame()
+        train_metrics = DataFrame()
+        for metric in metric_names:
+            walltimes, steps, values = zip(*accum.Scalars(metric))
+            if "epoch" in metric:
+                continue
+            if "train" in metric:
+                train_metrics[f"wtime"] = walltimes
+                train_metrics[f"step"] = steps
+                train_metrics[metric] = values
+            elif "val" in metric:
+                metrics[f"wtime"] = walltimes
+                metrics[f"step"] = steps
+                metrics[metric] = values
+        dfs.append(metrics)
+        train_dfs.append(train_metrics)
+    return dfs, train_dfs, hparams
