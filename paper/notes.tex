@@ -42,6 +42,10 @@ Of studies that get above e.g. 70.3\% accuracy, there is \emph{almost always} so
 selection using all subjects, completely negating the final 10-fold or whatever accuracy values. No
 \emph{honest} techniques make it above 70\% accuracy across sites yet.
 
+\subsection{Use of Eigenvalues for Prediction! \citet{mostafaDiagnosisAutismSpectrum2019}}
+
+
+
 \subsection{\citet{heinsfeldIdentificationAutismSpectrum2018}}
 
 \begin{itemize}
@@ -51,6 +55,47 @@ selection using all subjects, completely negating the final 10-fold or whatever 
   \item used 10-fold validation across all sites (good!)
   \item used a deep denoising autoencoder (really just MLP with some augmentation / dropout on inputs)
 \end{itemize}
+\subsection{\citet{eslamiASDDiagNetHybridLearning2019}}
+
+Decent. Very similar to ours in spirit.
+
+\begin{itemize}
+  \item 1112 subjects from almost all sites
+  \item CPAC pipeline with CC200 functional ROIs
+  \item use only some correlations (e.g. select smallest and largest correlations (most negative?))
+  \item train single-layer autoencoder first to do e.g. a non-linear PCA first for reduction /
+  embedding
+  \item use SMOTE to \textbf{augment their data!} (basically, linearly interpolate a new sample from
+  5 nearest samples), effectively doubles the training set size
+  \item get to 70.3\% accuracy (their augmentation adds only 1\%)
+\end{itemize}
+
+\subsection{\citet{yinDiagnosisAutismSpectrum2021}}
+
+\textbf{VERY GOOD}, same authors as \citet{mostafaDiagnosisAutismSpectrum2019}.
+
+\begin{itemize}
+  \item 871 subjects, custom preprocessing (minimal), 264 ROI parcellation, Pearson corrs
+  \item also threshold map to largest (in abs. value) correlations (e.g. all correlations greater in
+  absolute value then a threshold go to 1 or -1, so matrix becomes an adjacency matrix)
+  \item then compute a Laplacian matrix (very simple, see article) from adjacency matrix
+  \item then get eigenvalues from this
+  \item compute a bunch of other graph-theoretic metrics from this Laplacian matrix
+  \item interestingly \textbf{min-max normalize} their eigenvalues within subjects
+  \item do not contaminate their autoencoder (proper splitting of training and testing)
+  \begin{itemize}
+    \item however the splitting is a little bit fucky since it means pre-training
+  \end{itemize}
+  \item without autoencoder pre-training and just using their graph features, get DNN acc of 76.2\%
+  \begin{itemize}
+    \item interestingly find that need a lower threshold (allow all correlations above 0.2) for this
+    deep learner, which might be relevant for me since right now I am taking only top 25
+    eigenvalues, which is probably not enough (see Table 2 of their study, very interesting!)
+  \end{itemize}
+\end{itemize}
+
+\section{Other Articles}
+
 
 \subsection{\citet{liMultisiteFMRIAnalysis2020}}
 
@@ -166,20 +211,6 @@ out-of-bag accuracies of 0.90 or on tiny sample. Otherwise, of note is
   \item no overall reported accuracy, just report stratified by ages, sad, lame, (lol Frontiers)
 \end{itemize}
 
-\subsection{\citet{eslamiASDDiagNetHybridLearning2019}}
-
-Decent. Very similar to ours in spirit.
-
-\begin{itemize}
-  \item 1112 subjects from almost all sites
-  \item CPAC pipeline with CC200 functional ROIs
-  \item use only some correlations (e.g. select smallest and largest correlations (most negative?))
-  \item train single-layer autoencoder first to do e.g. a non-linear PCA first for reduction /
-  embedding
-  \item use SMOTE to \textbf{augment their data!} (basically, linearly interpolate a new sample from
-  5 nearest samples), effectively doubles the training set size
-  \item get to 70.3\% accuracy (their augmentation adds only 1\%)
-\end{itemize}
 
 \subsection{\citet{khoslaEnsembleLearning3D2019}}
 
@@ -266,6 +297,7 @@ Probably \textbf{worth trying to replicate this} given the stupid simplicity
   \item sparse autoencoder to force embedding
   \item get 10-fold overall acc of 70.8\%
 \end{itemize}
+k
 
 \section{Headings: first level}
 \label{sec:headings}
