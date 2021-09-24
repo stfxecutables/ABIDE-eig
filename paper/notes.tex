@@ -36,6 +36,12 @@
 
 \section{Key Articles}
 
+Note for below I also seem to use the CPAC minimal pipeline, I think.
+
+Of studies that get above e.g. 70.3\% accuracy, there is \emph{almost always} some cheaty feature
+selection using all subjects, completely negating the final 10-fold or whatever accuracy values. No
+\emph{honest} techniques make it above 70\% accuracy across sites yet.
+
 \subsection{\citet{heinsfeldIdentificationAutismSpectrum2018}}
 
 \begin{itemize}
@@ -162,8 +168,103 @@ out-of-bag accuracies of 0.90 or on tiny sample. Otherwise, of note is
 
 \subsection{\citet{eslamiASDDiagNetHybridLearning2019}}
 
+Decent. Very similar to ours in spirit.
+
 \begin{itemize}
-  \item
+  \item 1112 subjects from almost all sites
+  \item CPAC pipeline with CC200 functional ROIs
+  \item use only some correlations (e.g. select smallest and largest correlations (most negative?))
+  \item train single-layer autoencoder first to do e.g. a non-linear PCA first for reduction /
+  embedding
+  \item use SMOTE to \textbf{augment their data!} (basically, linearly interpolate a new sample from
+  5 nearest samples), effectively doubles the training set size
+  \item get to 70.3\% accuracy (their augmentation adds only 1\%)
+\end{itemize}
+
+\subsection{\citet{khoslaEnsembleLearning3D2019}}
+
+\textbf{Note that choice of atlas doesn't matter}, we could use this as a citation for motivating
+our non-atlas-based approach!
+
+\begin{itemize}
+  \item CPAC pipeline, but did some extra expert / manual scrubbing and quality control (manual and
+  automatic), exclude very young and very old, which brought them down to  \textbf{163 ASD / 230
+  CTRL}
+  \item looked at all ROIs from all atlases
+  \item get to about 72.8\% acc with CC200 parcellation and 3D-CNN (Table 2)
+  \item various other models all get to around 71.2\%, 71.7\%, 72.3\%, etc
+\end{itemize}
+
+\subsection{\citet{wangIdentifyingAutismSpectrum2020}}
+
+\begin{itemize}
+  \item 468 subjects, CPAC pipeline, AAL 116 mean time series
+  \item don't really report clean overall accuracies because they are doing domain adaptation
+  (training on non-NYU data and predicting NYU data) but basically when having similar validation
+  sizes as us (e.g. about 40\%) are also in the 69-73\% range of accuracy
+\end{itemize}
+
+\subsection{\citet{sherkatghanadAutomatedDetectionAutism2020}}
+
+\textbf{Would be good to try to replicate these dubious results}
+
+\begin{itemize}
+  \item CPAC pipeline, 871 "quality" images, CC400 parcellation
+  \item shallow (but wide) CNN used directly on correlation matrix
+  \item 10-fold acc of 70.2\%
+\end{itemize}
+
+\subsection{\citet{wangFunctionalConnectivitybasedClassification2019}}
+
+Very curious, given how shallow network is and how simple approach is...
+
+\begin{itemize}
+  \item reports a crazy cross-site accuracy of \textbf{over 90\%}
+  \item  531 subjects(255AD / 276CTRL), DPARSF pipeline, also did some QC
+  \item 75-95\% acc based on "leave-one-site-out"
+  \item 90.6\% acc on all sites with SVM
+  \item key thing is a recursive, SVM-based step-down feature selection procedure on ROIs
+  \item \textbf{HOWEVER is overfit because all 531 subjects used in feature selection... lol}
+\end{itemize}
+
+\subsection{\citet{yangDeepNeuralNetwork2020}}
+
+Probably \textbf{worth trying to replicate this} given the stupid simplicity
+
+\begin{itemize}
+  \item CC400 atlas, ROI correlation matrix, pathetically simply MLP, 1035 subjects
+  \item claim to get 5-fold acc of 75.3\%
+  \item cross-validated grid-search of classifiers, so perhaps just overfitting the extra 4\%?
+\end{itemize}
+
+\subsection{\citet{wangMAGEAutomaticDiagnosis2021}}
+
+\begin{itemize}
+  \item 949 subjects, CPAC pipeline
+  \item 75.86\% accuracy, 10-fold
+  \item multi-atlas Graph CNNs (ensemble learning), recursive feature elimination
+  \item show single-atlas based models get 70-72\% acc
+  \item \textbf{feature selection subjects completely unclear, another cheat}
+\end{itemize}
+
+\subsection{\citet{ingalhalikarFunctionalConnectivitybasedPrediction2021}}
+
+\begin{itemize}
+  \item most subjects, DPARSF pipeline, "cross-site harmomnization" with denoising autoencoder
+  \item 71.35\% 10-fold ACC with ANN
+\end{itemize}
+
+\subsection{\citet{yangLargeScaleBrainFunctional2021}}
+
+77.74\% 1-fold mean acc but with small number of subjects, only NYU (lame)
+
+\subsection{\citet{almuqhimASDSAENetSparseAutoencoder2021}}
+
+\begin{itemize}
+  \item claims \citet{eslamiASDDiagNetHybridLearning2019} is current state of art (70.3\%)
+  \item CPAC pipeline, CC200, correlation matrix, only one triangle, 1/4 largest, 1/4 smallest
+  \item sparse autoencoder to force embedding
+  \item get 10-fold overall acc of 70.8\%
 \end{itemize}
 
 \section{Headings: first level}
