@@ -89,6 +89,83 @@
   \label{tab:table}
 \end{table}
 
+\subsection{\citet{shaoClassificationASDBased2021}}
+
+\begin{itemize}
+  \item GCN (graph convolutional network) plus another network that learns feature weights
+  \item use CPAC preprocessed data, but \textbf{discard 241 ghosty / bad-looking data} to get a
+  total of 871 subjects
+  \item used mean series on some of HO (Harvard-Oxford) atlas, standardized to zero mean and unit variance
+  \item 111 ROIs total
+  \item do feature selection and also test various models
+  \item GCN gets \(79.5\pm3.3\)\% acc (3.3 is sd), 10-fold validation
+\end{itemize}
+
+\subsection{\citet{dekhilUsingRestingState2018}}
+\begin{itemize}
+  \item  fMRI data for 123 ASD and 160 TD children and adolescents (for a total number of 283
+  subjects) from the National Database for Autism Research (NDAR: http://ndar.nih.gov)
+  \item all Ps have both MRI and rs-fMRI scans
+  \item do register, BET, slicetime, motion, and then spatial Gaussian spatial smoothing
+  \item extract 34 ROIs via ICA
+  \item features for prediction are the \textbf{power spectral densities}
+  \item get very high accuracy, but isn't ABIDE, and is one site
+\end{itemize}
+
+\subsection{\citet{parisotDiseasePredictionUsing2018}}
+\begin{itemize}
+  \item ``Our analysis shows that our novel framework can improve over state-of-the-art results on
+  both databases, with 70.4\% classification accuracy for ABIDE''
+  \item 871 subjects (remove a lot of bad scans) from CPAC pipeline
+  \item GCN on correlation matrices between HO atlas mean ROI signals (plus some fancy normalization
+  / filtering), with recursive feature selection
+  \item stratified grouped 10-fold to get the 70.4\% acc
+\end{itemize}
+
+\subsection{\citet{sakaiMachineLearningStudies2019}}
+
+See Table 9 of this one for ABIDE accuracies. There are some spuriously high and extremely unlikely
+out-of-bag accuracies of 0.90 or on tiny sample. Otherwise, of note is
+\citet{iidakaRestingStateFunctional2015} who apparently get an LOOCV of 0.90 (??? dubious).
+
+\subsection{\citet{iidakaRestingStateFunctional2015}}
+
+\begin{itemize}
+  \item only subjects under 20
+  \item 640 subjects total
+  \item 2-fold acc was 77.2\%, 10-fold was 86.9\%
+  \item did do some bandpass filtering as pre-processing, drop first 5 volumes
+  \item features are 90 AAL mean normalized ROI regions correlation matrix (r-values fisher
+  normalized to Z-scores)
+\end{itemize}
+
+\subsection{\citet{liNovelTransferLearning2018}}
+
+\begin{itemize}
+  \item pre-train stacked autoencoder on different data healthy rs-fMRI first
+  \item ABIDE used Connectome Computation System preprocessed
+  \item \textbf{regressed out height, age, sex, site} from among ROI correlations
+  \item never get above 70.4\% acc, and only within USM, so not good
+\end{itemize}
+
+\subsection{\citet{kazeminejadTopologicalPropertiesRestingState2019}}
+
+\begin{itemize}
+  \item CPAC pipeline, 116 AAL regions
+  \item features are multiple correlation matrices (e.g. Pearson, Spearman, partial correlation,
+  mutual information) converted to graphs via thresholding
+  \item Gaussian SVM classifier (sklearn), step-up feature selection
+  \item validation is 10-fold, but very dubious procedure, sounds / unclear how feature selection is
+  being done here, almost certainly overfitting a lot
+  \item no overall reported accuracy, just report stratified by ages, sad, lame, (lol Frontiers)
+\end{itemize}
+
+\subsection{\citet{eslamiASDDiagNetHybridLearning2019}}
+
+\begin{itemize}
+  \item
+\end{itemize}
+
 \section{Headings: first level}
 \label{sec:headings}
 
