@@ -195,7 +195,12 @@ if __name__ == "__main__":
 
     # optuna.logging.get_logger("optuna").addHandler(StreamHandler(sys.stdout))
     optuna.logging.set_verbosity(optuna.logging.DEBUG)
-    study_name = f"{Conv3dToConvLstm3d.__name__}_{'eigimg' if args.is_eigimg else 'fmri'}"
+
+    if args.is_eigimg:
+        start, stop = args.slicer.start, args.slicer.stop
+        study_name = f"{Conv3dToConvLstm3d.__name__}_eigimg_[{start},{stop}]"
+    else:
+        study_name = f"{Conv3dToConvLstm3d.__name__}_fmri"
     storage_name = f"sqlite:///{HTUNE_RESULTS}/{study_name}.db"
     study = optuna.create_study(
         storage=storage_name,
@@ -217,5 +222,5 @@ if __name__ == "__main__":
     )
     # df = study.trials_dataframe()
     # df.to_json(HTUNE_RESULTS / f"{study_name}_trials.json")
-    print(f"Updated hypertuning results for {model_class.__name__}:")
-    print_htune_table(df)
+    # print(f"Updated hypertuning results for {model_class.__name__}:")
+    # print_htune_table(df)
