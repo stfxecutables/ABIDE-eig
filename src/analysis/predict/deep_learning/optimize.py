@@ -138,7 +138,7 @@ class Objective:
         args = deepcopy(self.args)
         args.default_root_dir = self.args.default_root_dir / config.uuid
         model = self.model_class(config)
-        trainer = Trainer.from_argparse_args(args, callbacks=callbacks(trial))
+        trainer = Trainer.from_argparse_args(args, callbacks=callbacks(trial), precision=16)
         trainer.logger.log_hyperparams(config)
         train, val = FmriDataset(args).train_val_split(args)
         train_loader = DataLoader(
