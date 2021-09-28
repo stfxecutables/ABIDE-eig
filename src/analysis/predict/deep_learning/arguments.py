@@ -36,8 +36,6 @@ PBAR = 0 if os.environ.get("CC_CLUSTER") is not None else 1
 
 def update_args(args: Namespace, model_class: Type) -> Namespace:
     is_eigimg = args.is_eigimg
-    root_dir = ROOT / f"lightning_logs/{model_class.__name__}/{'eigimg' if is_eigimg else 'func'}"
-    args.default_root_dir = root_dir
     for key, value in OVERRIDE_DEFAULTS.items():
         setattr(args, key, value)
     if args.profile:
@@ -46,11 +44,20 @@ def update_args(args: Namespace, model_class: Type) -> Namespace:
     args.slicer = slice(args.slice_start, args.slice_end)
     # Compute Canada overrides
     args.progress_bar_refresh_rate = PBAR
+    if is_eigimg:
+        start, stop = args.slicer.start, args.slicer.stop
+        root_dir = ROOT / f"lightning_logs/{model_class.__name__}/eigimg[{start},{stop}]"
+    else:
+        root_dir = ROOT / f"lightning_logs/{model_class.__name__}/func"
+    args.default_root_dir = root_dir
     return args
+
 
 def update_test_args(args: Namespace, model_class: Type) -> Namespace:
     is_eigimg = args.is_eigimg
-    root_dir = ROOT / f"lightning_logs_test/{model_class.__name__}/{'eigimg' if is_eigimg else 'func'}"
+    root_dir = (
+        ROOT / f"lightning_logs_test/{model_class.__name__}/{'eigimg' if is_eigimg else 'func'}"
+    )
     args.default_root_dir = root_dir
     if args.profile:
         profiler = AdvancedProfiler(dirpath=None, filename="profiling", line_count_restriction=2.0)
