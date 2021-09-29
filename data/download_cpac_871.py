@@ -1,13 +1,11 @@
 import os
 import subprocess
-import sys
 import traceback
-from os import system
+from argparse import ArgumentParser
 from pathlib import Path
 from time import strftime
 from urllib.request import urlretrieve
 
-import numpy as np
 import pandas as pd
 from pandas import DataFrame
 from tqdm import tqdm
@@ -181,7 +179,9 @@ def download_csv(filter: bool = False) -> DataFrame:
 
 
 def download_file(url: str, outdir: Path) -> subprocess.CompletedProcess:
-    return subprocess.run(f"cd {outdir} && wget --continue {url}", capture_output=True, check=True, shell=True)
+    return subprocess.run(
+        f"cd {outdir} && wget --continue {url}", capture_output=True, check=True, shell=True
+    )
 
 
 def download_rois() -> None:
@@ -233,5 +233,29 @@ def download_fmri() -> None:
                 print(e.stdout, stream)
 
 
+def download_fmri_subset() -> None:
+    csv = download_csv()
+    sids = DataFrame(index=pd.Index(SIDS, name="sid", dtype="int64"))
+    fids = csv.join(sids, how="inner").fname.to_list()
+    for fid in tqdm(fids):
+        url = FUNC_TEMPLATE.format(fname=fid)
+        subprocess.run(
+            f"cd {NII_OUT} && wget --continue {url}", capture_output=False, check=False, shell=True
+        )
+
+
 if __name__ == "__main__":
-    download_rois()
+    parser = ArgumentParser()
+    parser.add_argument("--subsample", action="store_true")
+    parser.add_argument("--rois", action="store_true")
+    parser.add_argument("--fmri", action="store_true")
+    args = parser.parse_args()
+    subsample = args.subsample
+    if args.rois:
+        download_rois()
+    if args.subsample:
+        download_fmri_subset()
+    elif args.fmri:
+        download_fmri()
+    else:
+        print("Done.")
