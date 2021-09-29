@@ -40,27 +40,50 @@ capable of handling higher-dimensional tensors are less established. For example
 well-known and well-tested networks that are freely-available pre-trained for processing 2D images
 (e.g. ResNet, ResNext, MobileNet), models for processing video data are less well known. For
 example, PyTorch makes available only the models from \citet{tranCloserLookSpatiotemporal2018}. The
-principles underlying good design of 3D CNNs are still just beginning to be investigated
+principles underlying good design of 3D CNNs are still just being investigated
 \citep{xieRethinkingSpatiotemporalFeature2018}.
 
-Likewise, performance on messy
-data or data that has been corrupted even slightly results in often dramatically degraded
-performance
+In deep learning, it is common to divide the dimensions of the data into spatial and channel
+dimensions. For example, colour images are usually described as multi-channel 2D, as there are
+typically three colour dimensions (RGB), and two spatial dimensions (height and width). Channel
+dimensions are special in that their \emph{ordering} is largely arbitrary: shuffling the order of
+the channels has no meaningful impact on the semantics or usable information in the inputs.
+Intuitively, channels represent parallel features with the same spatial dimensions.
+
+Thus color video is multi-channel 3D: there are three color channels, and 3 spatial dimensions
+(height, width, and time). The most natural approach to processing video is thus to take successful
+multi-channel 2D networks (e.g. ResNet) and expand the convolutions to be 3D. However, the
+computational costs of 3D convolution are considerably larger (a factor of [cite]
+\citet{tranCloserLookSpatiotemporal2018}), and so much more successful papers have instead used
+"channel-separated" or (2 + 1)D convolutions (\citet{tranCloserLookSpatiotemporal2018}), or other
+methods like ..., or even methods which rethink how temporal information can be encoded via
+correlations \cite{wangVideoModelingCorrelation2020}.
+
+\subsection{fMRI and Prediction}
+
+However, fMRI is truly one-channel 4D spatial data. To properly process
+this would require 4D convolution, which is not implemented in most popular frameworks, and is
+extremely compute intensive. As simple three-channel 2D video (i.e. three-channel 3D) already runs
+into compute problems, the 3D video data that comprise an fMRI image is especially difficult to
+handle effectively.
+
+In particular, the increased GPU memory and compute demands means that hyperparameter tuning, an
+absolutely necessary step when investigating new network architectures, can be extremely expensive
+
+
+Likewise, performance on messy data or data that has been corrupted even slightly results in often
+dramatically degraded performance
 \citep{metzUsingLearnedOptimizers2019,dodgeStudyComparisonHuman2017,hendrycksBenchmarkingNeuralNetwork2019,azulayWhyDeepConvolutional2019,rosenfeldElephantRoom2018}.
+Whether or nor fMRI images contain a large amount of "noise" relative to "signal" depends on one's
+analytic goals, however a number of factors (eye movement, heart rate, head movements, respiration
+...) are detectable in fMRI signals [cite], and /emph{a priori} not of clear causal relevance to a
+number of predictive goals.
 
-The analysis of fMRI data is challenging.
-
-In deep learning, it is common to divide the dimensions of
-the data into spatial and channel dimensions. For example, colour images are usually described as
-multi-channel 2D, as there are typically three colour dimensions (RGB), and two spatial dimensions (height
-and width). Channel dimensions are special in that their \emph{ordering} is largely arbitrary:
-shuffling the order of the channels has no meaningful impact on the semantics or usable information
-in the inputs. Intuitively, channels represent different, parallel features.
+\subsection{Previous Approaches}
 
 
 An additional challenge with fMRI is the number of confounding variables that ultimately result in a
 
-Use of correlation as well \cite{wangVideoModelingCorrelation2020}.
 
 \section{Methods}
 
@@ -72,7 +95,7 @@ and 573 of which are typical development (TD). The data are collected from 17 di
 varying scan parameters, and subjects vary considerably in age, making the dataset analytically
 challenging. However, the high heterogeneity of the data also makes it more suitable for testing the
 generalizability of modern predictive methods, and methods that perform well on the ABIDE data
-\emph{a prior} have more potential clinical utility.
+\emph{a priori} have more potential clinical utility.
 
 The ABIDE I data is available fully-preprocessed, and investigators can choose from a number of
 pre-processing pipelines and options. The main options involve filtering (bandpass filtering, global
@@ -81,9 +104,23 @@ However, to keep analyses consistent with similar papers
 \citet{abrahamDerivingReproducibleBiomarkers2017, mostafaDiagnosisAutismSpectrum2019,
 yinDiagnosisAutismSpectrum2021, heinsfeldIdentificationAutismSpectrum2018} we use the subjects from
 the Configurable Pipeline for the Analysis of Connectomes
-\citep{cameronAutomatedAnalysisConnectomes2013}, and exclude 241 subjects that fail to pass quality
+\citep{cameronAutomatedAnalysisConnectomes2013}, and exclude subjects that fail to pass quality
 control checks from three independent experts \citep[see][for
-details]{abrahamDerivingReproducibleBiomarkers2017}.
+details]{abrahamDerivingReproducibleBiomarkers2017}, giving a final total of 871 subjects (XXX ASD,
+XXX TD).
+
+\subsection{Feature Extraction}
+
+\subsubsection{ROI Means}
+
+These are available from the CPAC pipeline for direct download [cite]. In the interest of reproducibility we simply
+use these directly.
+
+\subsubsection{ROI Standard Deviations}
+
+
+
+
 
 
 \newpage
