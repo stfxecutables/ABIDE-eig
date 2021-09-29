@@ -26,8 +26,8 @@ paper/__*.tex
 
 id_rsa*
 
-
 *.tar.gz
+**/*.out
 
 
 
