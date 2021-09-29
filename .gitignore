@@ -1,6 +1,8 @@
 ################################################################################
 #                           Project-specific ignores                           #
 ################################################################################
+cc_logs
+
 data/atlases/*ALIGNED.nii.gz
 data/deep
 data/eigs
@@ -14,12 +16,15 @@ job_scripts/submit_deep_*.sh
 job_scripts/submit_htune_*.sh
 
 htune_results/*.db
+htune_results/*.json
+htune_results/cc
 lightning_logs
 
 paper/notes.pdf
 paper/.vscode
 paper/__*.tex
 
+id_rsa*
 
 
 *.tar.gz
