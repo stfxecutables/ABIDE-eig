@@ -181,7 +181,7 @@ def download_csv(filter: bool = False) -> DataFrame:
 
 
 def download_file(url: str, outdir: Path) -> subprocess.CompletedProcess:
-    return subprocess.run(f"cd {outdir} && wget {url}", capture_output=True, check=True, shell=True)
+    return subprocess.run(f"cd {outdir} && wget --continue {url}", capture_output=True, check=True, shell=True)
 
 
 def download_rois() -> None:
@@ -207,6 +207,30 @@ def download_rois() -> None:
                     print(e.stderr, stream)
                     print("stdout:", file=stream)
                     print(e.stdout, stream)
+
+
+def download_fmri() -> None:
+    start = strftime("%Y-%h-%d--%H:%M")
+    LOGFILE = Path(__file__).resolve().parent / f"rois_{start}.log"
+    if not LOGFILE.exists():
+        LOGFILE.touch()
+    csv = download_csv()
+    sids = DataFrame(index=pd.Index(SIDS, name="sid", dtype="int64"))
+    fids = csv.join(sids, how="inner").fname.to_list()
+    for fid in tqdm(fids, desc=f"Downloading fMRI images"):
+        url = FUNC_TEMPLATE.format(fname=fid)
+        try:
+            download_file(url=url, outdir=NII_OUT)
+        except subprocess.CalledProcessError as e:
+            with open(LOGFILE, "w+") as stream:
+                err = traceback.format_exc()
+                print(f"Error downloading {url}:", file=stream)
+                print("Traceback: ", file=stream)
+                print(err, file=stream)
+                print("stderr:", file=stream)
+                print(e.stderr, stream)
+                print("stdout:", file=stream)
+                print(e.stdout, stream)
 
 
 if __name__ == "__main__":
