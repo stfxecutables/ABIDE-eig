@@ -6,7 +6,8 @@ data/deep
 data/eigs
 data/eigimgs
 data/niis/*.nii.gz
-data/rois
+data/nii_cpac/*.nii.gz
+data/rois*
 data/seqs
 
 job_scripts/submit_deep_*.sh
@@ -14,6 +15,13 @@ job_scripts/submit_htune_*.sh
 
 htune_results/*.db
 lightning_logs
+
+paper/notes.pdf
+paper/.vscode
+paper/__*.tex
+
+
+
 *.tar.gz
 
 

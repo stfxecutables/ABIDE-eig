@@ -33,6 +33,60 @@
 \end{abstract}
 \keywords{fMRI \and ABIDE \and deep learing \and convolutional neural network \and random matrix theory \and eigenvalues \and perturbation}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Introduction}
+
+Despite tremendous successive in multi-channel 2D and natural language processing, algorithms
+capable of handling higher-dimensional tensors are less established. For example, while there are
+well-known and well-tested networks that are freely-available pre-trained for processing 2D images
+(e.g. ResNet, ResNext, MobileNet), models for processing video data are less well known. For
+example, PyTorch makes available only the models from \citet{tranCloserLookSpatiotemporal2018}. The
+principles underlying good design of 3D CNNs are still just beginning to be investigated
+\citep{xieRethinkingSpatiotemporalFeature2018}.
+
+Likewise, performance on messy
+data or data that has been corrupted even slightly results in often dramatically degraded
+performance
+\citep{metzUsingLearnedOptimizers2019,dodgeStudyComparisonHuman2017,hendrycksBenchmarkingNeuralNetwork2019,azulayWhyDeepConvolutional2019,rosenfeldElephantRoom2018}.
+
+The analysis of fMRI data is challenging.
+
+In deep learning, it is common to divide the dimensions of
+the data into spatial and channel dimensions. For example, colour images are usually described as
+multi-channel 2D, as there are typically three colour dimensions (RGB), and two spatial dimensions (height
+and width). Channel dimensions are special in that their \emph{ordering} is largely arbitrary:
+shuffling the order of the channels has no meaningful impact on the semantics or usable information
+in the inputs. Intuitively, channels represent different, parallel features.
+
+
+An additional challenge with fMRI is the number of confounding variables that ultimately result in a
+
+Use of correlation as well \cite{wangVideoModelingCorrelation2020}.
+
+\section{Methods}
+
+\subsection{ABIDE Data}
+
+The ABIDE I dataset \citep{dimartinoAutismBrainImaging2014} is a publicly acessible rs-fMRI dataset of over
+1112 subjects, 539 of which are diagnosed with Autism Spectrum Disorder (ASD),
+and 573 of which are typical development (TD). The data are collected from 17 different sites with
+varying scan parameters, and subjects vary considerably in age, making the dataset analytically
+challenging. However, the high heterogeneity of the data also makes it more suitable for testing the
+generalizability of modern predictive methods, and methods that perform well on the ABIDE data
+\emph{a prior} have more potential clinical utility.
+
+The ABIDE I data is available fully-preprocessed, and investigators can choose from a number of
+pre-processing pipelines and options. The main options involve filtering (bandpass filtering, global
+signal regression), and a choice of one of four pipelines \citep{dimartinoAutismBrainImaging2014}.
+However, to keep analyses consistent with similar papers
+\citet{abrahamDerivingReproducibleBiomarkers2017, mostafaDiagnosisAutismSpectrum2019,
+yinDiagnosisAutismSpectrum2021, heinsfeldIdentificationAutismSpectrum2018} we use the subjects from
+the Configurable Pipeline for the Analysis of Connectomes
+\citep{cameronAutomatedAnalysisConnectomes2013}, and exclude 241 subjects that fail to pass quality
+control checks from three independent experts \citep[see][for
+details]{abrahamDerivingReproducibleBiomarkers2017}.
+
+
+\newpage
 
 \section{Key Articles}
 
@@ -40,7 +94,9 @@ Note for below I also seem to use the CPAC minimal pipeline, I think.
 
 Of studies that get above e.g. 70.3\% accuracy, there is \emph{almost always} some cheaty feature
 selection using all subjects, completely negating the final 10-fold or whatever accuracy values. No
-\emph{honest} techniques make it above 70\% accuracy across sites yet.
+\emph{honest} techniques make it above 70\% accuracy across sites yet \emph{except}
+\citet{mostafaDiagnosisAutismSpectrum2019,yinDiagnosisAutismSpectrum2021}, who use eigenvalues of
+the graph of the Laplacian of the thresholded correlation matrix.
 
 \subsection{Use of Eigenvalues for Prediction! \citet{mostafaDiagnosisAutismSpectrum2019}}
 
