@@ -8,6 +8,7 @@
 \usepackage{url}            % simple URL typesetting
 \usepackage{booktabs}       % professional-quality tables
 \usepackage{amsfonts}       % blackboard math symbols
+\usepackage{bm}             % proper bolding
 \usepackage{nicefrac}       % compact symbols for 1/2, etc.
 \usepackage{microtype}      % microtypography
 % \usepackage{lipsum}		% Can be removed after putting your text content
@@ -15,7 +16,7 @@
 \usepackage{natbib}
 \usepackage{doi}
 
-\include{meta.tex}
+\include{meta}
 
 \begin{document}
 \maketitle
@@ -33,6 +34,7 @@
 \end{abstract}
 \keywords{fMRI \and ABIDE \and deep learing \and convolutional neural network \and random matrix theory \and eigenvalues \and perturbation}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 \section{Introduction}
 
 Despite tremendous successive in multi-channel 2D and natural language processing, algorithms
@@ -79,10 +81,37 @@ analytic goals, however a number of factors (eye movement, heart rate, head move
 ...) are detectable in fMRI signals [cite], and /emph{a priori} not of clear causal relevance to a
 number of predictive goals.
 
+
+\subsection{Feature Extraction via Correlation Eigenvalues}
+
+An fMRI image \(\bm{F}\) is a tensor or array with shape \texttt{(H,W,D,T)}, where \texttt{H},
+\texttt{W}, \texttt{D}, and \texttt{T} are the sizes of the height, width, depth, and time
+dimensions, respectively. The flattened array \(F\) thus has shape \((N = \texttt{H} \times
+\texttt{W} \times \texttt{D}, \texttt{T})\), such that \texttt{N} is the total number of voxels in
+the image (air voxels included). A region of interest (ROI) we denote with \(R\), and each of the
+\(n\) ROIs \(R_i\) of \(\bm{F}\) has shape \((N_i, \texttt{T})\), where \(\sum_i^n N_i= N\). ROIs
+are defined by an \emph{atlas}, which is an array of integers of shape \texttt{(H,W,D)}, with
+integer values up to \(n\).
+
+DUe to the multi-site nature of the ABIDE data, the number of timepoints and repetition time (TR)
+vary across scans. ([TODO]: see Table or Histogram). However, deep or machine learning algorithms
+require inputs to be of the same size (if not generally, then in mini-batches of more than one
+input). While cropping, padding or interpolation are usually used to overcome such issues, these
+techniques are more difficult to justify when the underlying sampling rates differ and signals are
+noisy, and are likely to lead to poor generalization and memorization when sampling rates and image
+sizes vary significantly. I.e. padded inputs occupy completely different regions of space and so
+will form a clearly separable cluster, cropped inputs with different sampling rates represent
+different amounts of measurement time, and interpolated inputs are likely to have increased
+correlations between features (voxels) unless the interpolation is downsampling and does not apply
+any averaging or smoothing (e.g. as in nearest-neighbour interpolation).
+
+Thus there is a challenge of converting all images to some common representation which is relatively
+insensitive to these temporal differences, or which eliminates these differences while retaining . One of the most natural approaches
+
 \subsection{Previous Approaches}
 
-
-An additional challenge with fMRI is the number of confounding variables that ultimately result in a
+[TODO]
+\citet{eslamiASDDiagNetHybridLearning2019} use an autoencoder to
 
 
 \section{Methods}
@@ -109,7 +138,7 @@ control checks from three independent experts \citep[see][for
 details]{abrahamDerivingReproducibleBiomarkers2017}, giving a final total of 871 subjects (XXX ASD,
 XXX TD).
 
-\subsection{Feature Extraction}
+
 
 \subsubsection{ROI Means}
 
