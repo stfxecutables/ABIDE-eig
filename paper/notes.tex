@@ -23,27 +23,40 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{abstract}
-  Functional magnetic resonance imaging (fMRI) data has considerable potential for predicting
-  neuropsychological and neurophysiological disorders. However, processing this data for use in
-  machine learning (ML) and/or deep learning (DL) algorithms is challenging. We implement both novel
-  deep learning architectures and a preprocessing step for converting fMRI images into
-  spatially-rich 4D summary images with the same or greater predictive potential as the raw fMRI. We
-  show that tuned models on these summary "eigen-perturbation" images are just as accurate as on the
-  fMRI original images, despite a \(10-20\) times reduction in size, and achieve state-of-the-art
-  accuracy of [over 70\% so far] on a \emph{large}, cross-site validation set.
+  Resting-state functional magnetic resonance imaging (rs-fMRI) data has considerable potential for
+  predicting neuropsychological and neurophysiological disorders, especially with modern machine
+  learning (ML) and deep learning (DL) techniques. However, the low signal-to-noise ratio, and high
+  dimensionality of this data make preparing rs-fMRI data for use in (ML) and/or (DL) challenging.
+  We develop a preprocessing step for converting rs-fMRI images into spatially-rich 4D summary
+  images by examining the eigenvalues of perturbations to the functional connectivity (FC). We use
+  both classical ML algorithms and novel DL architectures developed to exploit this 4D information,
+  and show that these "eigenperturbation" images have equal or greater predictive potential to the
+  raw fMRI or other common FC-based approaches. We demonstrate the potential of these
+  eigenperturbation images using the difficult ABIDE dataset, and obtain start of the art overall
+  accuracies of [70\%-80\%].
 \end{abstract}
 \keywords{fMRI \and ABIDE \and deep learing \and convolutional neural network \and random matrix theory \and eigenvalues \and perturbation}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \section{Introduction}
 
-Despite tremendous successive in multi-channel 2D and natural language processing, algorithms
-capable of handling higher-dimensional data are less established. For example, while there are
-well-known and well-tested networks that are freely-available pre-trained for processing 2D images
-(e.g. ResNet, ResNext, MobileNet), models for processing video data are less well known. For
-example, PyTorch makes available only the models from \citet{tranCloserLookSpatiotemporal2018}. The
-principles underlying good design of 3D CNNs are still just being investigated
-\citep{xieRethinkingSpatiotemporalFeature2018}.
+Despite tremendous successes in computer vision and natural language processing, machine learning
+(ML) and deep learning (DL) algorithms capable of handling higher-dimensional natural data are much
+less well-established. The handling of 3D medical images is particularly challenging, due to
+necessary pre-processing, unique normalization challenges, larger compute costs, and limited
+sample sizes \citep[see][for a general review]{singh3DDeepLearning2020}.
+
+Functional magnetic resonance images (fMRI) is especially difficult. The 4D nature of the data means
+that a single preprocessed fMRI image can be hundreds of megabytes: a single fMRI is a (3D) video
+file\footnote{Except that while in a video file pixel values are in \([0, 255]\), in fMRI the voxel
+values can be any floating point value.}. And while there are well-known and well-tested networks
+that are freely-available pre-trained for processing 2D images (e.g. ResNet, ResNext, MobileNet),
+models for processing even standard 2D video data are less well known, with the principles
+underlying good design of 3D CNNs still just being investigated
+\citep{xieRethinkingSpatiotemporalFeature2018,tranCloserLookSpatiotemporal2018,wangVideoModelingCorrelation2020}.
+There are only a small number of models that process fMRI data in full [cites].
+
+Thus there is a need
 
 In deep learning, it is common to divide the dimensions of the data into spatial and channel
 dimensions. For example, colour images are usually described as multi-channel 2D, as there are
@@ -60,6 +73,7 @@ computational costs of 3D convolution are considerably larger (a factor of [cite
 "channel-separated" or (2 + 1)D convolutions (\citet{tranCloserLookSpatiotemporal2018}), or other
 methods like ..., or even methods which rethink how temporal information can be encoded via
 correlations \cite{wangVideoModelingCorrelation2020}.
+
 
 \subsection{fMRI and Prediction}
 
@@ -123,6 +137,21 @@ in table or other condensed form.
 \section{Methods}
 
 \subsection{ABIDE Data}
+
+Publicly availabile fMRI data is limited. While databases such as OpenNeuro
+\citep{markiewiczOpenNeuroOpenResource2021} exist and cover a wide variety of domains, the number
+of subjects is typically far too small for machine learning applications, and the studies are far
+too heterogenous to be usefully combined. Perhaps the most popular publicly available fMRI dataset
+is the ABIDE I dataset, which includes 1112 resting-state fMRI (rs-fMRI) scans from 539 subjects
+with autism spectrum disorders (ASD) and 573 age-matched controls with typical development (TD)
+\citep{dimartinoAutismBrainImaging2014}.
+
+The ABIDE I dataset is an appropriate size for ML and DL approaches, but is particularly challenging
+due to the inclusion of subjects from 20 different sites. This results in highly varied demographic
+and psychological characteristics and scanning parameters. While this heterogeneity makes ML and DL
+approaches difficult, it also means that if such an approach performs well on this data, that it has
+much more potential clinical utility and relevance.
+
 
 The ABIDE I dataset \citep{dimartinoAutismBrainImaging2014} is a publicly acessible rs-fMRI dataset of over
 1112 subjects, 539 of which are diagnosed with Autism Spectrum Disorder (ASD),
