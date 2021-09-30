@@ -92,39 +92,47 @@ ABIDE data.
 \end{itemize}
 
 \begin{table}
-	\caption{Overall accuracies of existing approaches. \(N\) = total number of subjects, \(N_{\text{ASD}}\) =
-    total number of ASD subjects, \(N_{\text{TD}}\) = total number of TD subjects. LOOSO =
-    Leave-one-site-out cross-validation. LOOCV = leave-one-out cross-validation.}
-	\centering
-	\begin{tabular}{lllllll}
-		\toprule
-		Study                                                         & Pipeline     & \(N\) & \(N_\text{ASD}\) & \(N_{\text{TD}}\) & Validation & Overall Accuracy \\
-		\midrule
-    \citet{heinsfeldIdentificationAutismSpectrum2018}             &              &       &                  &                   &            &                  \\
-    \citet{eslamiASDDiagNetHybridLearning2019}                    &              &       &                  &                   &            &                  \\
-    \citet{yinDiagnosisAutismSpectrum2021}                        &              &       &                  &                   &            &                  \\
-		\citet{liMultisiteFMRIAnalysis2020}                           &              &       &                  &                   &            &                  \\
-		\citet{el-gazzarHybrid3DCNN3DCLSTM2019}                       &              &       &                  &                   &            &                  \\
-    \citet{shaoClassificationASDBased2021}                        &              &       &                  &                   &            &                  \\
-    \citet{dekhilUsingRestingState2018}                           &              &       &                  &                   &            &                  \\
-    \citet{parisotDiseasePredictionUsing2018}                     &              &       &                  &                   &            &                  \\
-    \citet{sakaiMachineLearningStudies2019}                       &              &       &                  &                   &            &                  \\
-    \citet{iidakaRestingStateFunctional2015}                      &              &       &                  &                   &            &                  \\
-    \citet{liNovelTransferLearning2018}                           &              &       &                  &                   &            &                  \\
-    \citet{kazeminejadTopologicalPropertiesRestingState2019}      &              &       &                  &                   &            &                  \\
-    \citet{khoslaEnsembleLearning3D2019}                          &              &       &                  &                   &            &                  \\
-    \citet{wangIdentifyingAutismSpectrum2020}                     &              &       &                  &                   &            &                  \\
-    \citet{sherkatghanadAutomatedDetectionAutism2020}             &              &       &                  &                   &            &                  \\
-    \citet{wangFunctionalConnectivitybasedClassification2019}     &              &       &                  &                   &            &                  \\
-    \citet{yangDeepNeuralNetwork2020}                             &              &       &                  &                   &            &                  \\
-    \citet{wangMAGEAutomaticDiagnosis2021}                        &              &       &                  &                   &            &                  \\
-    \citet{ingalhalikarFunctionalConnectivitybasedPrediction2021} &              &       &                  &                   &            &                  \\
-    \citet{yangLargeScaleBrainFunctional2021}                     &              &       &                  &                   &            &                  \\
-    \citet{almuqhimASDSAENetSparseAutoencoder2021}                &              &       &                  &                   &            &                  \\
-    \citet{byeonArtificialNeuralNetwork2020}                      &              &       &                  &                   &            &                  \\
-		\bottomrule
-	\end{tabular}
-	\label{tab:existing-attempts}
+  \small
+  \centering
+  \begin{tabular}{lccccrrrcc}
+    \toprule
+    Study                                                         & Pipeline & Model  & Features & Atlas  & \(N\) & \(N_\text{ASD}\) & \(N_{\text{TD}}\) & Validation & OA \\
+    \midrule
+    \citet{heinsfeldIdentificationAutismSpectrum2018}             &     CPAC &   ANN  &  ROI-FC  & CC-200 & 1035  &  505  &  530  &  10-fold   &       70.0        \\
+    \citet{heinsfeldIdentificationAutismSpectrum2018}             &     CPAC &   RF   &  ROI-FC  & CC-200 & 1035  &  505  &  530  &  10-fold   &       63.0        \\
+    \citet{heinsfeldIdentificationAutismSpectrum2018}             &     CPAC &   SVM  &  ROI-FC  & CC-200 & 1035  &  505  &  530  &  10-fold   &       65.0        \\
+    \citet{eslamiASDDiagNetHybridLearning2019}                    &          &        &          &        &       &       &       &            &                  \\
+    \citet{yinDiagnosisAutismSpectrum2021}                        &          &        &          &        &       &       &       &            &                  \\
+    \citet{liMultisiteFMRIAnalysis2020}                           &          &        &          &        &       &       &       &            &                  \\
+    \citet{el-gazzarHybrid3DCNN3DCLSTM2019}                       &          &        &          &        &       &       &       &            &                  \\
+    \citet{shaoClassificationASDBased2021}                        &          &        &          &        &       &       &       &            &                  \\
+    \citet{dekhilUsingRestingState2018}                           &          &        &          &        &       &       &       &            &                  \\
+    \citet{parisotDiseasePredictionUsing2018}                     &          &        &          &        &       &       &       &            &                  \\
+    \citet{sakaiMachineLearningStudies2019}                       &          &        &          &        &       &       &       &            &                  \\
+    \citet{iidakaRestingStateFunctional2015}                      &          &        &          &        &       &       &       &            &                  \\
+    \citet{liNovelTransferLearning2018}                           &          &        &          &        &       &       &       &            &                  \\
+    \citet{kazeminejadTopologicalPropertiesRestingState2019}      &          &        &          &        &       &       &       &            &                  \\
+    \citet{khoslaEnsembleLearning3D2019}                          &          &        &          &        &       &       &       &            &                  \\
+    \citet{wangIdentifyingAutismSpectrum2020}                     &          &        &          &        &       &       &       &            &                  \\
+    \citet{sherkatghanadAutomatedDetectionAutism2020}             &          &        &          &        &       &       &       &            &                  \\
+    \citet{wangFunctionalConnectivitybasedClassification2019}     &          &        &          &        &       &       &       &            &                  \\
+    \citet{yangDeepNeuralNetwork2020}                             &          &        &          &        &       &       &       &            &                  \\
+    \citet{wangMAGEAutomaticDiagnosis2021}                        &          &        &          &        &       &       &       &            &                  \\
+    \citet{ingalhalikarFunctionalConnectivitybasedPrediction2021} &          &        &          &        &       &       &       &            &                  \\
+    \citet{yangLargeScaleBrainFunctional2021}                     &          &        &          &        &       &       &       &            &                  \\
+    \citet{almuqhimASDSAENetSparseAutoencoder2021}                &          &        &          &        &       &       &       &            &                  \\
+    \citet{byeonArtificialNeuralNetwork2020}                      &          &        &          &        &       &       &       &            &                  \\
+    \bottomrule
+  \end{tabular} \label{tab:existing-attempts}
+  \caption{
+    Overall accuracies of existing approaches. \(N\) = total number of subjects, \(N_{\text{ASD}}\)
+    = total number of ASD subjects, \(N_{\text{TD}}\) = total number of TD subjects. LOOSO =
+    Leave-one-site-out cross-validation. LOOCV = leave-one-out cross-validation. ANN = Aritificial
+    Neural Network (linear layers). RF = Random forest. SVM = support vector machine. ROI-FC =
+    ROI-based FC matrix.  CC-200/400 = Cameron-Craddock 200/400. HO = Harvard-Oxford. OA = Overall
+    Accuracy.
+  }
+  \normalsize
 \end{table}
 
 
