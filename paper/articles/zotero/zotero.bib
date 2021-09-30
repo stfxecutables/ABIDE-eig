@@ -1,0 +1,652 @@
+
+@misc{ABIDEPreprocessed,
+  title = {{{ABIDE Preprocessed}}},
+  howpublished = {http://preprocessed-connectomes-project.org/abide/quality\_assessment.html},
+  file = {files/1417/quality_assessment.html}
+}
+
+@article{abrahamDerivingReproducibleBiomarkers2017,
+  title = {Deriving Reproducible Biomarkers from Multi-Site Resting-State Data: An {{Autism}}-Based Example},
+  shorttitle = {Deriving Reproducible Biomarkers from Multi-Site Resting-State Data},
+  author = {Abraham, Alexandre and Milham, Michael P. and Di Martino, Adriana and Craddock, R. Cameron and Samaras, Dimitris and Thirion, Bertrand and Varoquaux, Gael},
+  year = {2017},
+  month = feb,
+  journal = {NeuroImage},
+  volume = {147},
+  pages = {736--745},
+  issn = {1053-8119},
+  doi = {10.1016/j.neuroimage.2016.10.045},
+  abstract = {Resting-state functional Magnetic Resonance Imaging (R-fMRI) holds the promise to reveal functional biomarkers of neuropsychiatric disorders. However, extracting such biomarkers is challenging for complex multi-faceted neuropathologies, such as autism spectrum disorders. Large multi-site datasets increase sample sizes to compensate for this complexity, at the cost of uncontrolled heterogeneity. This heterogeneity raises new challenges, akin to those face in realistic diagnostic applications. Here, we demonstrate the feasibility of inter-site classification of neuropsychiatric status, with an application to the Autism Brain Imaging Data Exchange (ABIDE) database, a large (N=871) multi-site autism dataset. For this purpose, we investigate pipelines that extract the most predictive biomarkers from the data. These R-fMRI pipelines build participant-specific connectomes from functionally-defined brain areas. Connectomes are then compared across participants to learn patterns of connectivity that differentiate typical controls from individuals with autism. We predict this neuropsychiatric status for participants from the same acquisition sites or different, unseen, ones. Good choices of methods for the various steps of the pipeline lead to 67\% prediction accuracy on the full ABIDE data, which is significantly better than previously reported results. We perform extensive validation on multiple subsets of the data defined by different inclusion criteria. These enables detailed analysis of the factors contributing to successful connectome-based prediction. First, prediction accuracy improves as we include more subjects, up to the maximum amount of subjects available. Second, the definition of functional brain areas is of paramount importance for biomarker discovery: brain areas extracted from large R-fMRI datasets outperform reference atlases in the classification tasks.},
+  langid = {english},
+  keywords = {Autism spectrum disorders,Biomarkers,Connectome,Data heterogeneity,Data pipelines,Resting-state fMRI},
+  file = {files/1410/Abraham et al. - 2017 - Deriving reproducible biomarkers from multi-site r.pdf;files/1411/S1053811916305924.html}
+}
+
+@article{almuqhimASDSAENetSparseAutoencoder2021,
+  title = {{{ASD}}-{{SAENet}}: A {{Sparse Autoencoder}}, and {{Deep}}-{{Neural Network Model}} for {{Detecting Autism Spectrum Disorder}} ({{ASD}}) {{Using fMRI Data}}},
+  shorttitle = {{{ASD}}-{{SAENet}}},
+  author = {Almuqhim, Fahad and Saeed, Fahad},
+  year = {2021},
+  journal = {Frontiers in Computational Neuroscience},
+  volume = {15},
+  pages = {27},
+  issn = {1662-5188},
+  doi = {10.3389/fncom.2021.654315},
+  abstract = {Autism spectrum disorder (ASD) is a heterogenous neurodevelopmental disorder which is characterized by impaired communication, and limited social interactions. The shortcomings of current clinical approaches which are based exclusively on behavioral observation of symptomology, and poor understanding of the neurological mechanisms underlying ASD necessitates the identification of new biomarkers that can aid in study of brain development, and functioning, and can lead to accurate and early detection of ASD. In this paper, we developed a deep-learning model called ASD-SAENet for classifying patients with ASD from typical control subjects using fMRI data. We designed and implemented a sparse autoencoder (SAE) which results in optimized extraction of features that can be used for classification. These features are then fed into a deep neural network (DNN) which results in superior classification of fMRI brain scans more prone to ASD. Our proposed model is trained to optimize the classifier while improving extracted features based on both reconstructed data error and the classifier error. We evaluated our proposed deep-learning model using publicly available Autism Brain Imaging Data Exchange (ABIDE) dataset collected from 17 different research centers, and include more than 1,035 subjects. Our extensive experimentation demonstrate that ASD-SAENet exhibits comparable accuracy (70.8\%), and superior specificity (79.1\%) for the whole dataset as compared to other methods. Further, our experiments demonstrate superior results as compared to other state-of-the-art methods on 12 out of the 17 imaging centers exhibiting superior generalizability across different data acquisition sites and protocols. The implemented code is available on GitHub portal of our lab at: https://github.com/pcdslab/ASD-SAENet.},
+  file = {files/1403/Almuqhim and Saeed - 2021 - ASD-SAENet A Sparse Autoencoder, and Deep-Neural .pdf}
+}
+
+@article{azulayWhyDeepConvolutional2019,
+  title = {Why Do Deep Convolutional Networks Generalize so Poorly to Small Image Transformations?},
+  author = {Azulay, Aharon and Weiss, Yair},
+  year = {2019},
+  month = dec,
+  journal = {arXiv:1805.12177 [cs]},
+  eprint = {1805.12177},
+  eprinttype = {arxiv},
+  primaryclass = {cs},
+  abstract = {Convolutional Neural Networks (CNNs) are commonly assumed to be invariant to small image transformations: either because of the convolutional architecture or because they were trained using data augmentation. Recently, several authors have shown that this is not the case: small translations or rescalings of the input image can drastically change the network's prediction. In this paper, we quantify this phenomena and ask why neither the convolutional architecture nor data augmentation are sufficient to achieve the desired invariance. Specifically, we show that the convolutional architecture does not give invariance since architectures ignore the classical sampling theorem, and data augmentation does not give invariance because the CNNs learn to be invariant to transformations only for images that are very similar to typical images from the training set. We discuss two possible solutions to this problem: (1) antialiasing the intermediate representations and (2) increasing data augmentation and show that they provide only a partial solution at best. Taken together, our results indicate that the problem of insuring invariance to small image transformations in neural networks while preserving high accuracy remains unsolved.},
+  archiveprefix = {arXiv},
+  keywords = {Computer Science - Computer Vision and Pattern Recognition},
+  file = {files/1433/Azulay and Weiss - 2019 - Why do deep convolutional networks generalize so p.pdf;files/1434/1805.html}
+}
+
+@inproceedings{byeonArtificialNeuralNetwork2020,
+  title = {Artificial {{Neural Network Inspired}} by {{Neuroimaging Connectivity}}: Application in {{Autism Spectrum Disorder}}},
+  shorttitle = {Artificial {{Neural Network Inspired}} by {{Neuroimaging Connectivity}}},
+  booktitle = {2020 {{IEEE International Conference}} on {{Big Data}} and {{Smart Computing}} ({{BigComp}})},
+  author = {Byeon, Kyoungseob and Kwon, Junmo and Hong, Jisu and Park, Hyunjin},
+  year = {2020},
+  month = feb,
+  pages = {575--578},
+  issn = {2375-9356},
+  doi = {10.1109/BigComp48618.2020.00013},
+  abstract = {Distinguishing the autism spectrum disorder (ASD) from typical control (TC) using resting-state functional magnetic resonance imaging (rs-fMRI) is very difficult because ASD has heterogenetic properties and induce small changes in the brain structure. Moreover, distinguishing ASD from TC using the data obtained from many sites is even more difficult because many factors might negatively affect the classification model leading to unstable results. This difficulty is especially true for existing rs-fMRI analysis methods such as functional connectivity analysis. Recent studies have shown better ASD classification performance using models constructed using recurrent neural network (RNN). However, a blinded application of RNN not considering the multi-site factors is sub-optimal. In this paper, we present an artificial neural network model inspired by the existing functional connectivity analysis modeling. Our model includes layers that play the role of spatial reduction, temporal feature extraction, and combining phenotypic data (inclusive of multisite data) for classifying ASD. We applied the cross validation framework to the multi-site rs-fMRI dataset to test the proposed model. Our best model showed an accuracy of 74.54\%, which is superior to the existing functional connectivity analysis with an accuracy of 54.05\%.},
+  keywords = {Analytical models,Autism,Autism-Spectrum-Disorders;-Classification;-Neural-Networks;-Resting-state-fMRI,Brain modeling,Convolution,Data models,Functional magnetic resonance imaging},
+  file = {files/1454/9070494.html}
+}
+
+@article{cameronAutomatedAnalysisConnectomes2013,
+  title = {Towards {{Automated Analysis}} of {{Connectomes}}: The {{Configurable Pipeline}} for the {{Analysis}} of {{Connectomes}} ({{C}}-{{PAC}})},
+  shorttitle = {Towards {{Automated Analysis}} of {{Connectomes}}},
+  author = {Cameron, Craddock and Sharad, Sikka and Brian, Cheung and Ranjeet, Khanuja and Satrajit, Ghosh and Chaogan, Yan and Qingyang, Li and Daniel, Lurie and Joshua, Vogelstein and Randal, Burns and Stanley, Colcombe and Maarten, Mennes and Clare, Kelly and Adriana, Di Martino and Francisco, Castellanos and Michael, Milham},
+  year = {2013},
+  journal = {Frontiers in Neuroinformatics},
+  volume = {7},
+  issn = {1662-5196},
+  doi = {10.3389/conf.fninf.2013.09.00042}
+}
+
+@article{dekhilUsingRestingState2018,
+  title = {Using Resting State Functional {{MRI}} to Build a Personalized Autism Diagnosis System},
+  author = {Dekhil, Omar and Hajjdiab, Hassan and Shalaby, Ahmed and Ali, Mohamed T. and Ayinde, Babajide and Switala, Andy and Elshamekh, Aliaa and Ghazal, Mohamed and Keynton, Robert and Barnes, Gregory and {El-Baz}, Ayman},
+  year = {2018},
+  month = oct,
+  journal = {PLOS ONE},
+  volume = {13},
+  number = {10},
+  pages = {e0206351},
+  publisher = {{Public Library of Science}},
+  issn = {1932-6203},
+  doi = {10.1371/journal.pone.0206351},
+  abstract = {Autism spectrum disorder (ASD) is a neuro-developmental disorder associated with social impairments, communication difficulties, and restricted and repetitive behaviors. Yet, there is no confirmed cause identified for ASD. Studying the functional connectivity of the brain is an emerging technique used in diagnosing and understanding ASD. In this study, we obtained the resting state functional MRI data of 283 subjects from the National Database of Autism Research (NDAR). An automated autism diagnosis system was built using the data from NDAR. The proposed system is machine learning based. Power spectral densities (PSDs) of time courses corresponding to the spatial activation areas are used as input features, feeds them to a stacked autoencoder then builds a classifier using probabilistic support vector machines. Over the used dataset, around 90\% of sensitivity, specificity and accuracy was achieved by our machine learning system. Moreover, the system generalization ability was checked over two different prevalence values, one for the general population and the other for the of high risk population, and the system proved to be very generalizable, especially among the population of high risk. The proposed system generates a full personalized report for each subject, along with identifying the global differences between ASD and typically developed (TD) subjects and its ability to diagnose autism. It shows the impacted areas and the severity of implications. From the clinical aspect, this report is considered very valuable as it helps in both predicting and understanding behavior of autistic subjects. Moreover, it helps in designing a plan for personalized treatment per each individual subject. The proposed work is taking a step towards achieving personalized medicine in autism which is the ultimate goal of our group's research efforts in this area.},
+  langid = {english},
+  keywords = {Autism,Autism spectrum disorder,Behavior,Functional magnetic resonance imaging,Magnetic resonance imaging,Neural networks,Preprocessing,Resting state functional magnetic resonance imaging},
+  file = {files/1363/Dekhil et al. - 2018 - Using resting state functional MRI to build a pers.pdf;files/1364/article.html}
+}
+
+@article{dimartinoAutismBrainImaging2014,
+  title = {The Autism Brain Imaging Data Exchange: Towards a Large-Scale Evaluation of the Intrinsic Brain Architecture in Autism},
+  shorttitle = {The Autism Brain Imaging Data Exchange},
+  author = {Di Martino, A. and Yan, C.-G. and Li, Q. and Denio, E. and Castellanos, F. X. and Alaerts, K. and Anderson, J. S. and Assaf, M. and Bookheimer, S. Y. and Dapretto, M. and Deen, B. and Delmonte, S. and Dinstein, I. and {Ertl-Wagner}, B. and Fair, D. A. and Gallagher, L. and Kennedy, D. P. and Keown, C. L. and Keysers, C. and Lainhart, J. E. and Lord, C. and Luna, B. and Menon, V. and Minshew, N. J. and Monk, C. S. and Mueller, S. and M{\"u}ller, R.-A. and Nebel, M. B. and Nigg, J. T. and O'Hearn, K. and Pelphrey, K. A. and Peltier, S. J. and Rudie, J. D. and Sunaert, S. and Thioux, M. and Tyszka, J. M. and Uddin, L. Q. and Verhoeven, J. S. and Wenderoth, N. and Wiggins, J. L. and Mostofsky, S. H. and Milham, M. P.},
+  year = {2014},
+  month = jun,
+  journal = {Molecular Psychiatry},
+  volume = {19},
+  number = {6},
+  pages = {659--667},
+  publisher = {{Nature Publishing Group}},
+  issn = {1476-5578},
+  doi = {10.1038/mp.2013.78},
+  abstract = {Autism spectrum disorders (ASDs) represent a formidable challenge for psychiatry and neuroscience because of their high prevalence, lifelong nature, complexity and substantial heterogeneity. Facing these obstacles requires large-scale multidisciplinary efforts. Although the field of genetics has pioneered data sharing for these reasons, neuroimaging had not kept pace. In response, we introduce the Autism Brain Imaging Data Exchange (ABIDE)\textemdash a grassroots consortium aggregating and openly sharing 1112 existing resting-state functional magnetic resonance imaging (R-fMRI) data sets with corresponding structural MRI and phenotypic information from 539 individuals with ASDs and 573 age-matched typical controls (TCs; 7\textendash 64 years) (http://fcon\_1000.projects.nitrc.org/indi/abide/). Here, we present this resource and demonstrate its suitability for advancing knowledge of ASD neurobiology based on analyses of 360 male subjects with ASDs and 403 male age-matched TCs. We focused on whole-brain intrinsic functional connectivity and also survey a range of voxel-wise measures of intrinsic functional brain architecture. Whole-brain analyses reconciled seemingly disparate themes of both hypo- and hyperconnectivity in the ASD literature; both were detected, although hypoconnectivity dominated, particularly for corticocortical and interhemispheric functional connectivity. Exploratory analyses using an array of regional metrics of intrinsic brain function converged on common loci of dysfunction in ASDs (mid- and posterior insula and posterior cingulate cortex), and highlighted less commonly explored regions such as the thalamus. The survey of the ABIDE R-fMRI data sets provides unprecedented demonstrations of both replication and novel discovery. By pooling multiple international data sets, ABIDE is expected to accelerate the pace of discovery setting the stage for the next generation of ASD studies.},
+  copyright = {2014 Macmillan Publishers Limited},
+  langid = {english},
+  annotation = {Bandiera\_abtest: a Cg\_type: Nature Research Journals Primary\_atype: Research Subject\_term: Brain imaging Subject\_term\_id: brain-imaging},
+  file = {files/1414/Di Martino et al. - 2014 - The autism brain imaging data exchange towards a .pdf;files/1415/mp201378.html}
+}
+
+@inproceedings{dodgeStudyComparisonHuman2017,
+  title = {A {{Study}} and {{Comparison}} of {{Human}} and {{Deep Learning Recognition Performance}} under {{Visual Distortions}}},
+  booktitle = {2017 26th {{International Conference}} on {{Computer Communication}} and {{Networks}} ({{ICCCN}})},
+  author = {Dodge, Samuel and Karam, Lina},
+  year = {2017},
+  month = jul,
+  pages = {1--7},
+  doi = {10.1109/ICCCN.2017.8038465},
+  abstract = {Deep neural networks (DNNs) achieve excellent performance on standard classification tasks. However, under image quality distortions such as blur and noise, classification accuracy becomes poor. In this work, we compare the performance of DNNs with human subjects on distorted images. We show that, although DNNs perform better than or on par with humans on good quality images, DNN performance is still much lower than human performance on distorted images. We additionally find that there is little correlation in errors between DNNs and human subjects. This could be an indication that the internal representation of images are different between DNNs and the human visual system. These comparisons with human performance could be used to guide future development of more robust DNNs.},
+  keywords = {Distortion,Neural networks,Robustness,Standards,Testing,Training,Visual systems},
+  file = {files/1427/Dodge and Karam - 2017 - A Study and Comparison of Human and Deep Learning .pdf}
+}
+
+@inproceedings{el-gazzarHybrid3DCNN3DCLSTM2019,
+  title = {A {{Hybrid 3DCNN}} and {{3DC}}-{{LSTM Based Model}} for {{4D Spatio}}-{{Temporal fMRI Data}}: An {{ABIDE Autism Classification Study}}},
+  shorttitle = {A {{Hybrid 3DCNN}} and {{3DC}}-{{LSTM Based Model}} for {{4D Spatio}}-{{Temporal fMRI Data}}},
+  booktitle = {{{OR}} 2.0 {{Context}}-{{Aware Operating Theaters}} and {{Machine Learning}} in {{Clinical Neuroimaging}}},
+  author = {{El-Gazzar}, Ahmed and Quaak, Mirjam and Cerliani, Leonardo and Bloem, Peter and {van Wingen}, Guido and Mani Thomas, Rajat},
+  editor = {Zhou, Luping and Sarikaya, Duygu and Kia, Seyed Mostafa and Speidel, Stefanie and Malpani, Anand and Hashimoto, Daniel and Habes, Mohamad and L{\"o}fstedt, Tommy and Ritter, Kerstin and Wang, Hongzhi},
+  year = {2019},
+  series = {Lecture {{Notes}} in {{Computer Science}}},
+  pages = {95--102},
+  publisher = {{Springer International Publishing}},
+  address = {{Cham}},
+  doi = {10.1007/978-3-030-32695-1_11},
+  abstract = {Functional Magnetic Resonance Imaging (fMRI) captures the temporal dynamics of neural activity as a function of spatial location in the brain. Thus, fMRI scans are represented as 4-Dimensional (3-space + 1-time) tensors. And it is widely believed that the spatio-temporal patterns in fMRI manifests as behaviour and clinical symptoms. Because of the high dimensionality ({$\sim\sim\backslash$}sim 1 Million) of fMRI, and the added constraints of limited cardinality of data sets, extracting such patterns are challenging. A standard approach to overcome these hurdles is to reduce the dimensionality of the data by either summarizing activation over time or space at the expense of possible loss of useful information. Here, we introduce an end-to-end algorithm capable of extracting spatiotemporal features from the full 4-D data using 3-D CNNs and 3-D Convolutional LSTMs. We evaluate our proposed model on the publicly available ABIDE dataset to demonstrate the capability of our model to classify Autism Spectrum Disorder (ASD) from resting-state fMRI data. Our results show that the proposed model achieves state of the art results on single sites with F1-scores of 0.78 and 0.7 on NYU and UM sites, respectively.},
+  isbn = {978-3-030-32695-1},
+  langid = {english},
+  keywords = {3D convolutional-LSTM,3D convolutions,ASD,Deep learning,rs-fMRI}
+}
+
+@article{eslamiASDDiagNetHybridLearning2019,
+  title = {{{ASD}}-{{DiagNet}}: A {{Hybrid Learning Approach}} for {{Detection}} of {{Autism Spectrum Disorder Using fMRI Data}}},
+  shorttitle = {{{ASD}}-{{DiagNet}}},
+  author = {Eslami, Taban and Mirjalili, Vahid and Fong, Alvis and Laird, Angela R. and Saeed, Fahad},
+  year = {2019},
+  journal = {Frontiers in Neuroinformatics},
+  volume = {13},
+  pages = {70},
+  issn = {1662-5196},
+  doi = {10.3389/fninf.2019.00070},
+  abstract = {Heterogeneous mental disorders such as Autism Spectrum Disorder (ASD) are notoriously difficult to diagnose, especially in children. The current psychiatric diagnostic process is based purely on the behavioral observation of symptomology (DSM-5/ICD-10) and may be prone to misdiagnosis. In order to move the field toward more quantitative diagnosis, we need advanced and scalable machine learning infrastructure that will allow us to identify reliable biomarkers of mental health disorders. In this paper, we propose a framework called ASD-DiagNet for classifying subjects with ASD from healthy subjects by using only fMRI data. We designed and implemented a joint learning procedure using an autoencoder and a single layer perceptron (SLP) which results in improved quality of extracted features and optimized parameters for the model. Further, we designed and implemented a data augmentation strategy, based on linear interpolation on available feature vectors, that allows us to produce synthetic datasets needed for training of machine learning models. The proposed approach is evaluated on a public dataset provided by Autism Brain Imaging Data Exchange including 1, 035 subjects coming from 17 different brain imaging centers. Our machine learning model outperforms other state of the art methods from 10 imaging centers with increase in classification accuracy up to 28\% with maximum accuracy of 82\%. The machine learning technique presented in this paper, in addition to yielding better quality, gives enormous advantages in terms of execution time (40 min vs. 7 h on other methods). The implemented code is available as GPL license on GitHub portal of our lab (https://github.com/pcdslab/ASD-DiagNet).},
+  file = {files/1378/Eslami et al. - 2019 - ASD-DiagNet A Hybrid Learning Approach for Detect.pdf}
+}
+
+@article{heinsfeldIdentificationAutismSpectrum2018,
+  title = {Identification of Autism Spectrum Disorder Using Deep Learning and the {{ABIDE}} Dataset},
+  author = {Heinsfeld, Anibal S{\'o}lon and Franco, Alexandre Rosa and Craddock, R. Cameron and Buchweitz, Augusto and Meneguzzi, Felipe},
+  year = {2018},
+  month = jan,
+  journal = {NeuroImage: Clinical},
+  volume = {17},
+  pages = {16--23},
+  issn = {2213-1582},
+  doi = {10.1016/j.nicl.2017.08.017},
+  abstract = {The goal of the present study was to apply deep learning algorithms to identify autism spectrum disorder (ASD) patients from large brain imaging dataset, based solely on the patients brain activation patterns. We investigated ASD patients brain imaging data from a world-wide multi-site database known as ABIDE (Autism Brain Imaging Data Exchange). ASD is a brain-based disorder characterized by social deficits and repetitive behaviors. According to recent Centers for Disease Control data, ASD affects one in 68 children in the United States. We investigated patterns of functional connectivity that objectively identify ASD participants from functional brain imaging data, and attempted to unveil the neural patterns that emerged from the classification. The results improved the state-of-the-art by achieving 70\% accuracy in identification of ASD versus control patients in the dataset. The patterns that emerged from the classification show an anticorrelation of brain function between anterior and posterior areas of the brain; the anticorrelation corroborates current empirical evidence of anterior-posterior disruption in brain connectivity in ASD. We present the results and identify the areas of the brain that contributed most to differentiating ASD from typically developing controls as per our deep learning model.},
+  langid = {english},
+  keywords = {ABIDE,Autism,Deep learning,fMRI,Resting state},
+  file = {files/1352/Heinsfeld et al. - 2018 - Identification of autism spectrum disorder using d.pdf;files/1353/S2213158217302073.html}
+}
+
+@article{hendrycksBenchmarkingNeuralNetwork2019,
+  title = {Benchmarking {{Neural Network Robustness}} to {{Common Corruptions}} and {{Surface Variations}}},
+  author = {Hendrycks, Dan and Dietterich, Thomas G.},
+  year = {2019},
+  month = apr,
+  journal = {arXiv:1807.01697 [cs, stat]},
+  eprint = {1807.01697},
+  eprinttype = {arxiv},
+  primaryclass = {cs, stat},
+  abstract = {In this paper we establish rigorous benchmarks for image classifier robustness. Our first benchmark, ImageNet-C, standardizes and expands the corruption robustness topic, while showing which classifiers are preferable in safety-critical applications. Unlike recent robustness research, this benchmark evaluates performance on commonplace corruptions not worst-case adversarial corruptions. We find that there are negligible changes in relative corruption robustness from AlexNet to ResNet classifiers, and we discover ways to enhance corruption robustness. Then we propose a new dataset called Icons-50 which opens research on a new kind of robustness, surface variation robustness. With this dataset we evaluate the frailty of classifiers on new styles of known objects and unexpected instances of known classes. We also demonstrate two methods that improve surface variation robustness. Together our benchmarks may aid future work toward networks that learn fundamental class structure and also robustly generalize.},
+  archiveprefix = {arXiv},
+  keywords = {Computer Science - Artificial Intelligence,Computer Science - Computer Vision and Pattern Recognition,Computer Science - Machine Learning,Computer Science - Neural and Evolutionary Computing,Statistics - Machine Learning},
+  file = {files/1430/Hendrycks and Dietterich - 2019 - Benchmarking Neural Network Robustness to Common C.pdf;files/1431/1807.html}
+}
+
+@article{huotariSamplingRateEffects2019,
+  title = {Sampling {{Rate Effects}} on {{Resting State fMRI Metrics}}},
+  author = {Huotari, Niko and Raitamaa, Lauri and Helakari, Heta and Kananen, Janne and Raatikainen, Ville and Rasila, Aleksi and Tuovinen, Timo and Kantola, Jussi and Borchardt, Viola and Kiviniemi, Vesa J. and Korhonen, Vesa O.},
+  year = {2019},
+  journal = {Frontiers in Neuroscience},
+  volume = {13},
+  pages = {279},
+  issn = {1662-453X},
+  doi = {10.3389/fnins.2019.00279},
+  abstract = {Low image sampling rates used in resting state functional magnetic resonance imaging (rs-fMRI) may cause aliasing of the cardiorespiratory pulsations over the very low frequency (VLF) BOLD signal fluctuations which reflects to functional connectivity (FC). In this study, we examine the effect of sampling rate on currently used rs-fMRI FC metrics. Ultra-fast fMRI magnetic resonance encephalography (MREG) data, sampled with TR 0.1 s, was downsampled to different subsampled repetition times (sTR, range 0.3\textendash 3 s) for comparisons. Echo planar k-space sampling (TR 2.15 s) and interleaved slice collection schemes were also compared against the 3D single shot trajectory at 2.2 s sTR. The quantified connectivity metrics included stationary spatial, time, and frequency domains, as well as dynamic analyses. Time domain methods included analyses of seed-based functional connectivity, regional homogeneity (ReHo), coefficient of variation, and spatial domain group level probabilistic independent component analysis (ICA). In frequency domain analyses, we examined fractional and amplitude of low frequency fluctuations. Aliasing effects were spatially and spectrally analyzed by comparing VLF (0.01\textendash 0.1 Hz), respiratory (0.12\textendash 0.35 Hz) and cardiac power (0.9\textendash 1.3 Hz) FFT maps at different sTRs. Quasi-periodic pattern (QPP) of VLF events were analyzed for effects on dynamic FC methods. The results in conventional time and spatial domain analyses remained virtually unchanged by the different sampling rates. In frequency domain, the aliasing occurred mainly in higher sTR (1\textendash 2 s) where cardiac power aliases over respiratory power. The VLF power maps suffered minimally from increasing sTRs. Interleaved data reconstruction induced lower ReHo compared to 3D sampling (p {$<$} 0.001). Gradient recalled echo-planar imaging (EPI BOLD) data produced both better and worse metrics. In QPP analyses, the repeatability of the VLF pulse detection becomes linearly reduced with increasing sTR. In conclusion, the conventional resting state metrics (e.g., FC, ICA) were not markedly affected by different TRs (0.1\textendash 3 s). However, cardiorespiratory signals showed strongest aliasing in central brain regions in sTR 1\textendash 2 s. Pulsatile QPP and other dynamic analyses benefit linearly from short TR scanning.},
+  file = {files/1449/Huotari et al. - 2019 - Sampling Rate Effects on Resting State fMRI Metric.pdf}
+}
+
+@article{hydeApplicationsSupervisedMachine2019,
+  title = {Applications of {{Supervised Machine Learning}} in {{Autism Spectrum Disorder Research}}: A {{Review}}},
+  shorttitle = {Applications of {{Supervised Machine Learning}} in {{Autism Spectrum Disorder Research}}},
+  author = {Hyde, Kayleigh K. and Novack, Marlena N. and LaHaye, Nicholas and {Parlett-Pelleriti}, Chelsea and Anden, Raymond and Dixon, Dennis R. and Linstead, Erik},
+  year = {2019},
+  month = jun,
+  journal = {Review Journal of Autism and Developmental Disorders},
+  volume = {6},
+  number = {2},
+  pages = {128--146},
+  issn = {2195-7185},
+  doi = {10.1007/s40489-019-00158-x},
+  abstract = {Autism spectrum disorder (ASD) research has yet to leverage ``big data'' on the same scale as other fields; however, advancements in easy, affordable data collection and analysis may soon make this a reality. Indeed, there has been a notable increase in research literature evaluating the effectiveness of machine learning for diagnosing ASD, exploring its genetic underpinnings, and designing effective interventions. This paper provides a comprehensive review of 45 papers utilizing supervised machine learning in ASD, including algorithms for classification and text analysis. The goal of the paper is to identify and describe supervised machine learning trends in ASD literature as well as inform and guide researchers interested in expanding the body of clinically, computationally, and statistically sound approaches for mining ASD data.},
+  langid = {english},
+  file = {files/1374/Hyde et al. - 2019 - Applications of Supervised Machine Learning in Aut.pdf}
+}
+
+@article{iidakaRestingStateFunctional2015,
+  title = {Resting State Functional Magnetic Resonance Imaging and Neural Network Classified Autism and Control},
+  author = {Iidaka, Tetsuya},
+  year = {2015},
+  month = feb,
+  journal = {Cortex},
+  volume = {63},
+  pages = {55--67},
+  issn = {0010-9452},
+  doi = {10.1016/j.cortex.2014.08.011},
+  abstract = {Although the neurodevelopmental and genetic underpinnings of autism spectrum disorder (ASD) have been investigated, the etiology of the disorder has remained elusive, and clinical diagnosis continues to rely on symptom-based criteria. In this study, to classify both control subjects and a large sample of patients with ASD, we used resting state functional magnetic resonance imaging (rs-fMRI) and a neural network. Imaging data from 312 subjects with ASD and 328 subjects with typical development was downloaded from the multi-center research project. Only subjects under 20 years of age were included in this analysis. Correlation matrices computed from rs-fMRI time-series data were entered into a probabilistic neural network (PNN) for classification. The PNN classified the two groups with approximately 90\% accuracy (sensitivity~=~92\%, specificity~=~87\%). The accuracy of classification did not differ among the institutes, or with respect to experimental and imaging conditions, sex, handedness, or intellectual level. Medication status and degree of head movement did not affect accuracy values. The present study indicates that an intrinsic connectivity matrix produced from rs-fMRI data could yield a possible biomarker of ASD. These results support the view that altered network connectivity within the brain contributes to the neurobiology of ASD.},
+  langid = {english},
+  keywords = {Brain imaging,Classifier,Developmental disorder,Diagnosis,Machine learning},
+  file = {files/1370/S0010945214002640.html}
+}
+
+@article{ingalhalikarFunctionalConnectivitybasedPrediction2021,
+  title = {Functional Connectivity-Based Prediction of {{Autism}} on Site Harmonized {{ABIDE}} Dataset},
+  author = {Ingalhalikar, Madhura and Shinde, Sumeet and Karmarkar, Arnav and Rajan, Archit and Rangaprakash, D and Deshpande, Gopikrishna},
+  year = {2021},
+  journal = {IEEE Transactions on Biomedical Engineering},
+  pages = {1--1},
+  issn = {1558-2531},
+  doi = {10.1109/TBME.2021.3080259},
+  abstract = {Objective: The larger sample sizes available from multi-site publicly available neuroimaging data repositories makes machine-learning based diagnostic classification of mental disorders more feasible by alleviating the curse of dimensionality. However, since multi-site data are aggregated post-hoc, i.e. they were acquired from different scanners with different acquisition parameters, non-neural inter-site variability may mask inter-group differences that are at least in part neural in origin. Hence, the advantages gained by the larger sample size in the context of machine-learning based diagnostic classification may not be realized. Methods: We address this issue using harmonization of multi-site neuroimaging data using the ComBat technique, which is based on an empirical Bayes formulation to remove inter-site differences in data distributions, to improve diagnostic classification accuracy. Specifically, we demonstrate this using ABIDE (Autism Brain Imaging Data Exchange) multi-site data for classifying individuals with Autism from healthy controls using resting state fMRI-based functional connectivity data. Results: Our results show that higher classification accuracies across multiple classification models can be obtained (especially for models based on artificial neural networks) from multi-site data post harmonization with the ComBat technique as compared to without harmonization, outperforming earlier results from existing studies using ABIDE. Furthermore, our network ablation analysis facilitated important insights into ASD pathology and the connectivity in networks shown to be important for classification covaried with verbal communication impairments in Autism. Conclusion: Multi-site data harmonization using ComBat improves neuroimaging-based diagnostic classification of mental disorders. Significance: ComBat has the potential to make AI-based clinical decision-support systems more feasible in psychiatry},
+  keywords = {Autism,Classification algorithms,Functional magnetic resonance imaging,Neuroimaging,Pathology,Prediction algorithms,Standards},
+  file = {files/1399/9431695.html}
+}
+
+@article{iqbalGenerativeAdversarialNetwork2018,
+  title = {Generative {{Adversarial Network}} for {{Medical Images}} ({{MI}}-{{GAN}})},
+  author = {Iqbal, Talha and Ali, Hazrat},
+  year = {2018},
+  month = nov,
+  journal = {Journal of Medical Systems},
+  volume = {42},
+  number = {11},
+  eprint = {1810.00551},
+  eprinttype = {arxiv},
+  pages = {231},
+  issn = {0148-5598, 1573-689X},
+  doi = {10.1007/s10916-018-1072-9},
+  abstract = {Deep learning algorithms produces state-of-the-art results for different machine learning and computer vision tasks. To perform well on a given task, these algorithms require large dataset for training. However, deep learning algorithms lack generalization and suffer from over-fitting whenever trained on small dataset, especially when one is dealing with medical images. For supervised image analysis in medical imaging, having image data along with their corresponding annotated ground-truths is costly as well as time consuming since annotations of the data is done by medical experts manually. In this paper, we propose a new Generative Adversarial Network for Medical Imaging (MI-GAN). The MI-GAN generates synthetic medical images and their segmented masks, which can then be used for the application of supervised analysis of medical images. Particularly, we present MI-GAN for synthesis of retinal images. The proposed method generates precise segmented images better than the existing techniques. The proposed model achieves a dice coefficient of 0.837 on STARE dataset and 0.832 on DRIVE dataset which is state-of-the-art performance on both the datasets.},
+  archiveprefix = {arXiv},
+  langid = {english},
+  keywords = {Computer Science - Computer Vision and Pattern Recognition,Computer Science - Machine Learning,Electrical Engineering and Systems Science - Image and Video Processing,Statistics - Machine Learning},
+  file = {files/1455/Iqbal and Ali - 2018 - Generative Adversarial Network for Medical Images .pdf}
+}
+
+@article{kazeminejadTopologicalPropertiesRestingState2019,
+  title = {Topological {{Properties}} of {{Resting}}-{{State fMRI Functional Networks Improve Machine Learning}}-{{Based Autism Classification}}},
+  author = {Kazeminejad, Amirali and Sotero, Roberto C.},
+  year = {2019},
+  journal = {Frontiers in Neuroscience},
+  volume = {12},
+  pages = {1018},
+  issn = {1662-453X},
+  doi = {10.3389/fnins.2018.01018},
+  abstract = {Automatic algorithms for disease diagnosis are being thoroughly researched for use in clinical settings. They usually rely on pre-identified biomarkers to highlight the existence of certain problems. However, finding such biomarkers for neurodevelopmental disorders such as Autism Spectrum Disorder (ASD) has challenged researchers for many years. With enough data and computational power, machine learning (ML) algorithms can be used to interpret the data and extract the best biomarkers from thousands of candidates. In this study, we used the fMRI data of 816 individuals enrolled in the Autism Brain Imaging Data Exchange (ABIDE) to introduce a new biomarker extraction pipeline for ASD that relies on the use of graph theoretical metrics of fMRI-based functional connectivity to inform a support vector machine (SVM). Furthermore, we split the dataset into 5 age groups to account for the effect of aging on functional connectivity. Our methodology achieved better results than most state-of-the-art investigations on this dataset with the best model for the {$>$}30 years age group achieving an accuracy, sensitivity, and specificity of 95, 97, and 95\%, respectively. Our results suggest that measures of centrality provide the highest contribution to the classification power of the models.},
+  file = {files/1376/Kazeminejad and Sotero - 2019 - Topological Properties of Resting-State fMRI Funct.pdf}
+}
+
+@article{khoslaEnsembleLearning3D2019,
+  title = {Ensemble Learning with {{3D}} Convolutional Neural Networks for Functional Connectome-Based Prediction},
+  author = {Khosla, Meenakshi and Jamison, Keith and Kuceyeski, Amy and Sabuncu, Mert R.},
+  year = {2019},
+  month = oct,
+  journal = {NeuroImage},
+  volume = {199},
+  pages = {651--662},
+  issn = {1053-8119},
+  doi = {10.1016/j.neuroimage.2019.06.012},
+  abstract = {The specificity and sensitivity of resting state functional MRI (rs-fMRI) measurements depend on preprocessing choices, such as the parcellation scheme used to define regions of interest (ROIs). In this study, we critically evaluate the effect of brain parcellations on machine learning models applied to rs-fMRI data. Our experiments reveal an intriguing trend: On average, models with stochastic parcellations consistently perform as well as models with widely used atlases at the same spatial scale. We thus propose an ensemble learning strategy to combine the predictions from models trained on connectivity data extracted using different (e.g., stochastic) parcellations. We further present an implementation of our ensemble learning strategy with a novel 3D Convolutional Neural Network (CNN) approach. The proposed CNN approach takes advantage of the full-resolution 3D spatial structure of rs-fMRI data and fits non-linear predictive models. Our ensemble CNN framework overcomes the limitations of traditional machine learning models for connectomes that often rely on region-based summary statistics and/or linear models. We showcase our approach on a classification (autism patients versus healthy controls) and a regression problem (prediction of subject's age), and report promising results.},
+  langid = {english},
+  keywords = {ABIDE,Autism spectrum disorder,Convolutional neural networks,fMRI,Functional connectivity},
+  file = {files/1384/Khosla et al. - 2019 - Ensemble learning with 3D convolutional neural net.pdf;files/1383/S1053811919304963.html}
+}
+
+@article{liMultisiteFMRIAnalysis2020,
+  title = {Multi-Site {{fMRI}} Analysis Using Privacy-Preserving Federated Learning and Domain Adaptation: {{ABIDE}} Results},
+  shorttitle = {Multi-Site {{fMRI}} Analysis Using Privacy-Preserving Federated Learning and Domain Adaptation},
+  author = {Li, Xiaoxiao and Gu, Yufeng and Dvornek, Nicha and Staib, Lawrence H. and Ventola, Pamela and Duncan, James S.},
+  year = {2020},
+  month = oct,
+  journal = {Medical Image Analysis},
+  volume = {65},
+  pages = {101765},
+  issn = {1361-8415},
+  doi = {10.1016/j.media.2020.101765},
+  abstract = {Deep learning models have shown their advantage in many different tasks, including neuroimage analysis. However, to effectively train a high-quality deep learning model, the aggregation of a significant amount of patient information is required. The time and cost for acquisition and annotation in assembling, for example, large fMRI datasets make it difficult to acquire large numbers at a single site. However, due to the need to protect the privacy of patient data, it is hard to assemble a central database from multiple institutions. Federated learning allows for population-level models to be trained without centralizing entities' data by transmitting the global model to local entities, training the model locally, and then averaging the gradients or weights in the global model. However, some studies suggest that private information can be recovered from the model gradients or weights. In this work, we address the problem of multi-site fMRI classification with a privacy-preserving strategy. To solve the problem, we propose a federated learning approach, where a decentralized iterative optimization algorithm is implemented and shared local model weights are altered by a randomization mechanism. Considering the systemic differences of fMRI distributions from different sites, we further propose two domain adaptation methods in this federated learning formulation. We investigate various practical aspects of federated model optimization and compare federated learning with alternative training strategies. Overall, our results demonstrate that it is promising to utilize multi-site data without data sharing to boost neuroimage analysis performance and find reliable disease-related biomarkers. Our proposed pipeline can be generalized to other privacy-sensitive medical data analysis problems. Our code is publicly available at: https://github.com/xxlya/Fed\_ABIDE/.},
+  langid = {english},
+  keywords = {ABIDE,Data sharing,Domain adaptation,Federated learning,Privacy,Rs-fmri},
+  file = {files/1358/Li et al. - 2020 - Multi-site fMRI analysis using privacy-preserving .pdf;files/1359/S1361841520301298.html}
+}
+
+@article{liNovelTransferLearning2018,
+  title = {A {{Novel Transfer Learning Approach}} to {{Enhance Deep Neural Network Classification}} of {{Brain Functional Connectomes}}},
+  author = {Li, Hailong and Parikh, Nehal A. and He, Lili},
+  year = {2018},
+  journal = {Frontiers in Neuroscience},
+  volume = {12},
+  pages = {491},
+  issn = {1662-453X},
+  doi = {10.3389/fnins.2018.00491},
+  abstract = {Early diagnosis remains a significant challenge for many neurological disorders, especially for rare disorders where studying large cohorts is not possible. A novel solution that investigators have undertaken is combining advanced machine learning algorithms with resting-state functional Magnetic Resonance Imaging to unveil hidden pathological brain connectome patterns to uncover diagnostic and prognostic biomarkers. Recently, state-of-the-art deep learning techniques are outperforming traditional machine learning methods and are hailed as a milestone for artificial intelligence. However, whole brain classification that combines brain connectome with deep learning has been hindered by insufficient training samples. Inspired by the transfer learning strategy employed in computer vision, we exploited previously collected resting-state functional MRI data for healthy subjects from existing databases and transferred this knowledge for new disease classification tasks. We developed a deep transfer learning neural network (DTL-NN) framework for enhancing the classification of whole brain functional connectivity patterns. Briefly, we trained a stacked sparse autoencoder (SSAE) prototype to learn healthy functional connectivity patterns in an offline learning environment. Then, the SSAE prototype was transferred to a DTL-NN model for a new classification task. To test the validity of our framework, we collected resting-state functional MRI data from the Autism Brain Imaging Data Exchange (ABIDE) repository. Using autism spectrum disorder (ASD) classification as a target task, we compared the performance of our DTL-NN approach with a traditional deep neural network and support vector machine models across four ABIDE data sites that enrolled at least 60 subjects. As compared to traditional models, our DTL-NN approach achieved an improved performance in accuracy, sensitivity, specificity and area under receiver operating characteristic curve. These findings suggest that DTL-NN approaches could enhance disease classification for neurological conditions, where accumulating large neuroimaging datasets has been challenging.},
+  file = {files/1372/Li et al. - 2018 - A Novel Transfer Learning Approach to Enhance Deep.pdf}
+}
+
+@techreport{markiewiczOpenNeuroOpenResource2021,
+  type = {Preprint},
+  title = {{{OpenNeuro}}: An Open Resource for Sharing of Neuroimaging Data},
+  shorttitle = {{{OpenNeuro}}},
+  author = {Markiewicz, Christopher J. and Gorgolewski, Krzysztof J. and Feingold, Franklin and Blair, Ross and Halchenko, Yaroslav O. and Miller, Eric and Hardcastle, Nell and Wexler, Joe and Esteban, Oscar and Goncalves, Mathias and Jwa, Anita and Poldrack, Russell A.},
+  year = {2021},
+  month = jun,
+  institution = {{Neuroscience}},
+  doi = {10.1101/2021.06.28.450168},
+  abstract = {Abstract           The sharing of research data is essential to ensure reproducibility and maximize the impact of public investments in scientific research. Here we describe OpenNeuro, a BRAIN Initiative data archive that provides the ability to openly share data from a broad range of brain imaging data types following the FAIR principles for data sharing. We highlight the importance of the Brain Imaging Data Structure (BIDS) standard for enabling effective curation, sharing, and reuse of data. The archive presently shares more than 500 datasets including data from more than 18,000 participants, comprising multiple species and measurement modalities and a broad range of phenotypes. The impact of the shared data is evident in a growing number of published reuses, currently totalling more than 150 publications. We conclude by describing plans for future development and integration with other ongoing open science efforts.},
+  langid = {english},
+  file = {files/1466/Markiewicz et al. - 2021 - OpenNeuro An open resource for sharing of neuroim.pdf}
+}
+
+@article{metzUsingLearnedOptimizers2019,
+  title = {Using Learned Optimizers to Make Models Robust to Input Noise},
+  author = {Metz, Luke and Maheswaranathan, Niru and Shlens, Jonathon and {Sohl-Dickstein}, Jascha and Cubuk, Ekin D.},
+  year = {2019},
+  month = jun,
+  journal = {arXiv:1906.03367 [cs, stat]},
+  eprint = {1906.03367},
+  eprinttype = {arxiv},
+  primaryclass = {cs, stat},
+  abstract = {State-of-the art vision models can achieve superhuman performance on image classification tasks when testing and training data come from the same distribution. However, when models are tested on corrupted images (e.g. due to scale changes, translations, or shifts in brightness or contrast), performance degrades significantly. Here, we explore the possibility of meta-training a learned optimizer that can train image classification models such that they are robust to common image corruptions. Specifically, we are interested training models that are more robust to noise distributions not present in the training data. We find that a learned optimizer meta-trained to produce models which are robust to Gaussian noise trains models that are more robust to Gaussian noise at other scales compared to traditional optimizers like Adam. The effect of meta-training is more complicated when targeting a more general set of noise distributions, but led to improved performance on half of held-out corruption tasks. Our results suggest that meta-learning provides a novel approach for studying and improving the robustness of deep learning models.},
+  archiveprefix = {arXiv},
+  keywords = {Computer Science - Machine Learning,Statistics - Machine Learning},
+  file = {files/1424/Metz et al. - 2019 - Using learned optimizers to make models robust to .pdf;files/1425/1906.html}
+}
+
+@article{mostafaDiagnosisAutismSpectrum2019,
+  title = {Diagnosis of {{Autism Spectrum Disorder Based}} on {{Eigenvalues}} of {{Brain Networks}}},
+  author = {Mostafa, Sakib and Tang, Lingkai and Wu, Fang-Xiang},
+  year = {2019},
+  journal = {IEEE Access},
+  volume = {7},
+  pages = {128474--128486},
+  issn = {2169-3536},
+  doi = {10.1109/ACCESS.2019.2940198},
+  abstract = {Autism spectrum disorder (ASD) is a neuro dysfunction which causes the repetitive behavior and social instability of patients. Diagnosing ASD has been of great interest. However, due to the lack of discriminate differences between neuroimages of healthy persons and ASD patients, there has been no powerful diagnosis approach. In this study, we have designed brain network-based features for the diagnosis of ASD. Specifically, we have used the 264 regions based parcellation scheme to construct a brain network from a brain functional magnetic resonance imaging (fMRI). Then we have defined 264 raw brain features by the 264 eigenvalues of the Laplacian matrix of the brain network and another three features by network centralities. By applying a feature selection algorithm, we have obtained 64 discriminate features. Furthermore, we have trained several machine learning models for diagnosing ASD with our obtained features on ABIDE (Autism Brain Imaging Data Exchange) dataset. With our derived features, the linear discriminant analysis has achieved the classification accuracy of 77.7\%, which is better than the state-of-the-art results.},
+  keywords = {Autism,Brain network,eigenvalue,Eigenvalues and eigenfunctions,feature,Feature extraction,functional magnetic resonance imaging,machine learning,Machine learning,Machine learning algorithms,Magnetic resonance imaging,network centrality,Variable speed drives},
+  file = {files/1407/Mostafa et al. - 2019 - Diagnosis of Autism Spectrum Disorder Based on Eig.pdf;files/1408/8827515.html}
+}
+
+@article{parisotDiseasePredictionUsing2018,
+  title = {Disease Prediction Using Graph Convolutional Networks: Application to {{Autism Spectrum Disorder}} and {{Alzheimer}}'s Disease},
+  shorttitle = {Disease Prediction Using Graph Convolutional Networks},
+  author = {Parisot, Sarah and Ktena, Sofia Ira and Ferrante, Enzo and Lee, Matthew and Guerrero, Ricardo and Glocker, Ben and Rueckert, Daniel},
+  year = {2018},
+  month = aug,
+  journal = {Medical Image Analysis},
+  volume = {48},
+  pages = {117--130},
+  issn = {1361-8415},
+  doi = {10.1016/j.media.2018.06.001},
+  abstract = {Graphs are widely used as a natural framework that captures interactions between individual elements represented as nodes in a graph. In medical applications, specifically, nodes can represent individuals within a potentially large population (patients or healthy controls) accompanied by a set of features, while the graph edges incorporate associations between subjects in an intuitive manner. This representation allows to incorporate the wealth of imaging and non-imaging information as well as individual subject features simultaneously in disease classification tasks. Previous graph-based approaches for supervised or unsupervised learning in the context of disease prediction solely focus on pairwise similarities between subjects, disregarding individual characteristics and features, or rather rely on subject-specific imaging feature vectors and fail to model interactions between them. In this paper, we present a thorough evaluation of a generic framework that leverages both imaging and non-imaging information and can be used for brain analysis in large populations. This framework exploits Graph Convolutional Networks (GCNs) and involves representing populations as a sparse graph, where its nodes are associated with imaging-based feature vectors, while phenotypic information is integrated as edge weights. The extensive evaluation explores the effect of each individual component of this framework on disease prediction performance and further compares it to different baselines. The framework performance is tested on two large datasets with diverse underlying data, ABIDE and ADNI, for the prediction of Autism Spectrum Disorder and conversion to Alzheimer's disease, respectively. Our analysis shows that our novel framework can improve over state-of-the-art results on both databases, with 70.4\% classification accuracy for ABIDE and 80.0\% for ADNI.},
+  langid = {english},
+  keywords = {Alzheimer’s disease,Autism Spectrum Disorder,Graph convolutional networks,Graphs,Semi-supervised classification,Spectral theory},
+  file = {files/1366/Parisot et al. - 2018 - Disease prediction using graph convolutional netwo.pdf;files/1367/S1361841518303554.html}
+}
+
+@article{rosenfeldElephantRoom2018,
+  title = {The {{Elephant}} in the {{Room}}},
+  author = {Rosenfeld, Amir and Zemel, Richard and Tsotsos, John K.},
+  year = {2018},
+  month = aug,
+  journal = {arXiv:1808.03305 [cs]},
+  eprint = {1808.03305},
+  eprinttype = {arxiv},
+  primaryclass = {cs},
+  abstract = {We showcase a family of common failures of state-of-the art object detectors. These are obtained by replacing image sub-regions by another sub-image that contains a trained object. We call this "object transplanting". Modifying an image in this manner is shown to have a non-local impact on object detection. Slight changes in object position can affect its identity according to an object detector as well as that of other objects in the image. We provide some analysis and suggest possible reasons for the reported phenomena.},
+  archiveprefix = {arXiv},
+  keywords = {Computer Science - Computer Vision and Pattern Recognition,Computer Science - Machine Learning},
+  file = {files/1436/Rosenfeld et al. - 2018 - The Elephant in the Room.pdf;files/1437/1808.html}
+}
+
+@article{sakaiMachineLearningStudies2019,
+  title = {Machine Learning Studies on Major Brain Diseases: 5-Year Trends of 2014\textendash 2018},
+  shorttitle = {Machine Learning Studies on Major Brain Diseases},
+  author = {Sakai, Koji and Yamada, Kei},
+  year = {2019},
+  month = jan,
+  journal = {Japanese Journal of Radiology},
+  volume = {37},
+  number = {1},
+  pages = {34--72},
+  issn = {1867-108X},
+  doi = {10.1007/s11604-018-0794-4},
+  abstract = {In the recent 5~years (2014\textendash 2018), there has been growing interest in the use of machine learning (ML) techniques to explore image diagnosis and prognosis of therapeutic lesion changes within the area of neuroradiology. However, to date, the majority of research trend and current status have not been clearly illuminated in the neuroradiology field. More than 1000 papers have been published during the past 5~years on subject classification and prediction focused on multiple brain disorders. We provide a survey of 209 papers in this field with a focus on top ten active areas of research; i.e., Alzheimer's disease/mild cognitive impairment, brain tumor; schizophrenia, depressive disorders, Parkinson's disease, attention-deficit hyperactivity disorder, autism spectrum disease, epilepsy, multiple sclerosis, stroke, and traumatic brain injury. Detailed information of these studies, such as ML methods, sample size, type of inputted features and reported accuracy, are summarized. This paper reviews the evidences, current limitations and status of studies using ML to assess brain disorders in neuroimaging data. The main bottleneck of this research field is still the limited sample size, which could be potentially addressed by modern data sharing models, such as ADNI.},
+  langid = {english}
+}
+
+@article{shakilEvaluationSlidingWindow2016,
+  title = {Evaluation of Sliding Window Correlation Performance for Characterizing Dynamic Functional Connectivity and Brain States},
+  author = {Shakil, Sadia and Lee, Chin-Hui and Keilholz, Shella Dawn},
+  year = {2016},
+  month = jun,
+  journal = {NeuroImage},
+  volume = {133},
+  pages = {111--128},
+  issn = {1053-8119},
+  doi = {10.1016/j.neuroimage.2016.02.074},
+  abstract = {A promising recent development in the study of brain function is the dynamic analysis of resting-state functional MRI scans, which can enhance understanding of normal cognition and alterations that result from brain disorders. One widely used method of capturing the dynamics of functional connectivity is sliding window correlation (SWC). However, in the absence of a ``gold standard'' for comparison, evaluating the performance of the SWC in typical resting-state data is challenging. This study uses simulated networks (SNs) with known transitions to examine the effects of parameters such as window length, window offset, window type, noise, filtering, and sampling rate on the SWC performance. The SWC time course was calculated for all node pairs of each SN and then clustered using the k-means algorithm to determine how resulting brain states match known configurations and transitions in the SNs. The outcomes show that the detection of state transitions and durations in the SWC is most strongly influenced by the window length and offset, followed by noise and filtering parameters. The effect of the image sampling rate was relatively insignificant. Tapered windows provide less sensitivity to state transitions than rectangular windows, which could be the result of the sharp transitions in the SNs. Overall, the SWC gave poor estimates of correlation for each brain state. Clustering based on the SWC time course did not reliably reflect the underlying state transitions unless the window length was comparable to the state duration, highlighting the need for new adaptive window analysis techniques.},
+  langid = {english},
+  keywords = {Functional connectivity,k-Means,Network dynamics,Resting-state functional MRI,Sliding window correlation,States},
+  file = {files/1451/Shakil et al. - 2016 - Evaluation of sliding window correlation performan.pdf;files/1452/S1053811916001920.html}
+}
+
+@article{shaoClassificationASDBased2021,
+  title = {Classification of {{ASD}} Based on {{fMRI}} Data with Deep Learning},
+  author = {Shao, Lizhen and Fu, Cong and You, Yang and Fu, Dongmei},
+  year = {2021},
+  month = may,
+  journal = {Cognitive Neurodynamics},
+  issn = {1871-4099},
+  doi = {10.1007/s11571-021-09683-0},
+  abstract = {Autism spectrum disorder (ASD) is a neuro-developmental disorder that affects the social abilities of patients. Studies have shown that a small number of abnormal functional connections (FCs) exist in the cerebral hemisphere of ASD patients. The identification of these abnormal FCs provides a biological ground for the diagnosis of ASD. In this paper, we propose a combined deep feature selection (DFS) and graph convolutional network method to classify ASD. Firstly, in the DFS process, a sparse one-to-one layer is added between the input and the first hidden layer of a multilayer perceptron, thus each functional connection (FC) feature can be weighted and a subset of FC features can be selected accordingly. Then based on the selected FCs and the phenotypic information of subjects, a graph convolutional network is constructed to classify ASD and typically developed controls. Finally, we test our proposed method on the ABIDE database and compare it with some other methods in the literature. Experimental results indicate that the DFS can effectively select critical FC features for classification according to the weights of input FC features. With DFS, the performance of GCN classifier can be improved dramatically. The proposed method achieves state-of-the-art performance with an accuracy of 79.5\% and an area under the receiver operating characteristic curve (AUC) of 0.85 on the preprocessed ABIDE dataset; it is superior to the other methods. Further studies on the top-ranked thirty FCs obtained by DFS show that these FCs are widespread over the cerebral hemisphere, and the ASD group appears a significantly higher number of weak connections compared to the typically developed group.},
+  langid = {english}
+}
+
+@article{sherkatghanadAutomatedDetectionAutism2020,
+  title = {Automated {{Detection}} of {{Autism Spectrum Disorder Using}} a {{Convolutional Neural Network}}},
+  author = {Sherkatghanad, Zeinab and Akhondzadeh, Mohammadsadegh and Salari, Soorena and {Zomorodi-Moghadam}, Mariam and Abdar, Moloud and Acharya, U. Rajendra and Khosrowabadi, Reza and Salari, Vahid},
+  year = {2020},
+  journal = {Frontiers in Neuroscience},
+  volume = {13},
+  pages = {1325},
+  issn = {1662-453X},
+  doi = {10.3389/fnins.2019.01325},
+  abstract = {Background: Convolutional neural networks (CNN) have enabled significant progress in speech recognition, image classification, automotive software engineering, and neuroscience. This impressive progress is largely due to a combination of algorithmic breakthroughs, computation resource improvements, and access to a large amount of data.Method: In this paper, we focus on the automated detection of autism spectrum disorder (ASD) using CNN with a brain imaging dataset. We detected ASD patients using most common resting-state functional magnetic resonance imaging (fMRI) data from a multi-site dataset named the Autism Brain Imaging Exchange (ABIDE). The proposed approach was able to classify ASD and control subjects based on the patterns of functional connectivity.Results: Our experimental outcomes indicate that the proposed model is able to detect ASD correctly with an accuracy of 70.22\% using the ABIDE I dataset and the CC400 functional parcellation atlas of the brain. Also, the CNN model developed used fewer parameters than the state-of-art techniques and is hence computationally less intensive. Our developed model is ready to be tested with more data and can be used to prescreen ASD patients.},
+  file = {files/1389/Sherkatghanad et al. - 2020 - Automated Detection of Autism Spectrum Disorder Us.pdf}
+}
+
+@article{singh3DDeepLearning2020,
+  title = {{{3D Deep Learning}} on {{Medical Images}}: A {{Review}}},
+  shorttitle = {{{3D Deep Learning}} on {{Medical Images}}},
+  author = {Singh, Satya P. and Wang, Lipo and Gupta, Sukrit and Goli, Haveesh and Padmanabhan, Parasuraman and Guly{\'a}s, Bal{\'a}zs},
+  year = {2020},
+  month = jan,
+  journal = {Sensors},
+  volume = {20},
+  number = {18},
+  pages = {5097},
+  publisher = {{Multidisciplinary Digital Publishing Institute}},
+  doi = {10.3390/s20185097},
+  abstract = {The rapid advancements in machine learning, graphics processing technologies and the availability of medical imaging data have led to a rapid increase in the use of deep learning models in the medical domain. This was exacerbated by the rapid advancements in convolutional neural network (CNN) based architectures, which were adopted by the medical imaging community to assist clinicians in disease diagnosis. Since the grand success of AlexNet in 2012, CNNs have been increasingly used in medical image analysis to improve the efficiency of human clinicians. In recent years, three-dimensional (3D) CNNs have been employed for the analysis of medical images. In this paper, we trace the history of how the 3D CNN was developed from its machine learning roots, we provide a brief mathematical description of 3D CNN and provide the preprocessing steps required for medical images before feeding them to 3D CNNs. We review the significant research in the field of 3D medical imaging analysis using 3D CNNs (and its variants) in different medical areas such as classification, segmentation, detection and localization. We conclude by discussing the challenges associated with the use of 3D CNNs in the medical imaging domain (and the use of deep learning models in general) and possible future trends in the field.},
+  copyright = {http://creativecommons.org/licenses/by/3.0/},
+  langid = {english},
+  keywords = {3D convolutional neural networks,3D medical images,classification,detection,localization,segmentation},
+  file = {files/1463/Singh et al. - 2020 - 3D Deep Learning on Medical Images A Review.pdf;files/1464/5097.html}
+}
+
+@article{tranCloserLookSpatiotemporal2018,
+  title = {A {{Closer Look}} at {{Spatiotemporal Convolutions}} for {{Action Recognition}}},
+  author = {Tran, Du and Wang, Heng and Torresani, Lorenzo and Ray, Jamie and LeCun, Yann and Paluri, Manohar},
+  year = {2018},
+  month = apr,
+  journal = {arXiv:1711.11248 [cs]},
+  eprint = {1711.11248},
+  eprinttype = {arxiv},
+  primaryclass = {cs},
+  abstract = {In this paper we discuss several forms of spatiotemporal convolutions for video analysis and study their effects on action recognition. Our motivation stems from the observation that 2D CNNs applied to individual frames of the video have remained solid performers in action recognition. In this work we empirically demonstrate the accuracy advantages of 3D CNNs over 2D CNNs within the framework of residual learning. Furthermore, we show that factorizing the 3D convolutional filters into separate spatial and temporal components yields significantly advantages in accuracy. Our empirical study leads to the design of a new spatiotemporal convolutional block "R(2+1)D" which gives rise to CNNs that achieve results comparable or superior to the state-of-the-art on Sports-1M, Kinetics, UCF101 and HMDB51.},
+  archiveprefix = {arXiv},
+  keywords = {Computer Science - Computer Vision and Pattern Recognition},
+  file = {files/1439/Tran et al. - 2018 - A Closer Look at Spatiotemporal Convolutions for A.pdf;files/1440/1711.html}
+}
+
+@article{wangFunctionalConnectivitybasedClassification2019,
+  title = {Functional Connectivity-Based Classification of Autism and Control Using {{SVM}}-{{RFECV}} on Rs-{{fMRI}} Data},
+  author = {Wang, Canhua and Xiao, Zhiyong and Wu, Jianhua},
+  year = {2019},
+  month = sep,
+  journal = {Physica Medica},
+  volume = {65},
+  pages = {99--105},
+  issn = {1120-1797},
+  doi = {10.1016/j.ejmp.2019.08.010},
+  abstract = {Considering the unsatisfactory classification accuracy of autism due to unsuitable features selected in current studies, a functional connectivity (FC)-based algorithm for classifying autism and control using support vector machine-recursive feature elimination (SVM-RFE) is proposed in this paper. The goal is to find the optimal features based on FC and improve the classification accuracy on a large sample of data. We chose 35 regions of interest based on the social motivation hypothesis to construct the FC matrix and searched for informative features in the complex high-dimensional FC dataset by the SVM-RFE with a stratified-4-fold cross-validation strategy. The selected features were then entered into an SVM with a Gaussian kernel for classification. A total of 255 subjects with autism and 276 subjects with typical development from 10 sites were involved in the study. For the data of global sites, the proposed classification algorithm could identify the two groups with an accuracy of 90.60\% (sensitivity 90.62\%, specificity 90.58\%). For the leave-one-site-out test, the proposed algorithm achieved a classification accuracy of 75.00\%\textendash 95.23\% for data from different sites. These promising results demonstrate that the proposed classification algorithm performs better than those in recent similar studies in that the importance of features can be measured accurately and only the most discriminative feature subset is selected.},
+  langid = {english},
+  keywords = {Autism,Classification,Feature selection,fMRI,Machine learning},
+  file = {files/1391/S1120179719301905.html}
+}
+
+@article{wangIdentifyingAutismSpectrum2020,
+  title = {Identifying {{Autism Spectrum Disorder With Multi}}-{{Site fMRI}} via {{Low}}-{{Rank Domain Adaptation}}},
+  author = {Wang, Mingliang and Zhang, Daoqiang and Huang, Jiashuang and Yap, Pew-Thian and Shen, Dinggang and Liu, Mingxia},
+  year = {2020},
+  month = mar,
+  journal = {IEEE Transactions on Medical Imaging},
+  volume = {39},
+  number = {3},
+  pages = {644--655},
+  issn = {1558-254X},
+  doi = {10.1109/TMI.2019.2933160},
+  abstract = {Autism spectrum disorder (ASD) is a neurodevelopmental disorder that is characterized by a wide range of symptoms. Identifying biomarkers for accurate diagnosis is crucial for early intervention of ASD. While multi-site data increase sample size and statistical power, they suffer from inter-site heterogeneity. To address this issue, we propose a multi-site adaption framework via low-rank representation decomposition (maLRR) for ASD identification based on functional MRI (fMRI). The main idea is to determine a common low-rank representation for data from the multiple sites, aiming to reduce differences in data distributions. Treating one site as a target domain and the remaining sites as source domains, data from these domains are transformed (i.e., adapted) to a common space using low-rank representation. To reduce data heterogeneity between the target and source domains, data from the source domains are linearly represented in the common space by those from the target domain. We evaluated the proposed method on both synthetic and real multi-site fMRI data for ASD identification. The results suggest that our method yields superior performance over several state-of-the-art domain adaptation methods.},
+  keywords = {autism spectrum disorder,Data models,Diseases,Domain adaptation,fMRI,Functional magnetic resonance imaging,low-rank representation,Matrix decomposition,Medical diagnosis,multi-site data,Sparse matrices},
+  file = {files/1386/Wang et al. - 2020 - Identifying Autism Spectrum Disorder With Multi-Si.pdf;files/1387/8787575.html}
+}
+
+@article{wangMAGEAutomaticDiagnosis2021,
+  title = {{{MAGE}}: Automatic Diagnosis of Autism Spectrum Disorders Using Multi-Atlas Graph Convolutional Networks and Ensemble Learning},
+  shorttitle = {{{MAGE}}},
+  author = {Wang, Yufei and Liu, Jin and Xiang, Yizhen and Wang, Jianxin and Chen, Qingyong and Chong, Jing},
+  year = {2021},
+  month = jul,
+  journal = {Neurocomputing},
+  issn = {0925-2312},
+  doi = {10.1016/j.neucom.2020.06.152},
+  abstract = {Currently, it is still a great challenge in clinical practice to accurately diagnose autism spectrum disorder (ASD). To address this challenge, in this study we propose a method for automatic diagnosis of ASD based on multi-atlas graph convolutional networks and ensemble learning. Firstly, we extract multiple feature representations based on functional connectivity (FC) of different brain atlases from fMRI data of each subject. Then, to obtain the features that are more helpful for ASD automatic diagnosis, we propose a multi-atlas graph convolutional network method (MAGCN). Finally, to combine different feature representations, we propose a stacking ensemble learning method to perform the final ASD automatic diagnostic task. Our proposed method is evaluated on 949 subjects (including 419 subjects with ASD and 530 subjects with typical control (TC)) from the Autism Brain Imaging Data Exchange (ABIDE). Experimental results show that our proposed method achieves an accuracy of 75.86\% and an area under the receiver operating characteristic curve (AUC) of 0.8314 for automatic diagnosis of ASD. In addition, compared with some methods published in recent years, our proposed method obtains the best performance of ASD diagnosis. Overall, our proposed method is effective and promising for automatic diagnosis of ASD in clinical practice.},
+  langid = {english},
+  keywords = {Autism spectrum disorders,Automatic diagnosis,Ensemble learning,Functional connectivity,Graph convolutional networks,Multi-atlas},
+  file = {files/1395/S0925231221011048.html}
+}
+
+@article{wangVideoModelingCorrelation2020,
+  title = {Video {{Modeling}} with {{Correlation Networks}}},
+  author = {Wang, Heng and Tran, Du and Torresani, Lorenzo and Feiszli, Matt},
+  year = {2020},
+  month = may,
+  journal = {arXiv:1906.03349 [cs]},
+  eprint = {1906.03349},
+  eprinttype = {arxiv},
+  primaryclass = {cs},
+  abstract = {Motion is a salient cue to recognize actions in video. Modern action recognition models leverage motion information either explicitly by using optical flow as input or implicitly by means of 3D convolutional filters that simultaneously capture appearance and motion information. This paper proposes an alternative approach based on a learnable correlation operator that can be used to establish frame-toframe matches over convolutional feature maps in the different layers of the network. The proposed architecture enables the fusion of this explicit temporal matching information with traditional appearance cues captured by 2D convolution. Our correlation network compares favorably with widely-used 3D CNNs for video modeling, and achieves competitive results over the prominent two-stream network while being much faster to train. We empirically demonstrate that correlation networks produce strong results on a variety of video datasets, and outperform the state of the art on four popular benchmarks for action recognition: Kinetics, Something-Something, Diving48 and Sports1M.},
+  archiveprefix = {arXiv},
+  keywords = {Computer Science - Computer Vision and Pattern Recognition},
+  file = {files/1446/Wang et al. - 2020 - Video Modeling with Correlation Networks.pdf;files/1447/1906.html}
+}
+
+@article{wolfersPatternClassificationStratification2019,
+  title = {From Pattern Classification to Stratification: Towards Conceptualizing the Heterogeneity of {{Autism Spectrum Disorder}}},
+  shorttitle = {From Pattern Classification to Stratification},
+  author = {Wolfers, Thomas and Floris, Dorothea L. and Dinga, Richard and {van Rooij}, Daan and Isakoglou, Christina and Kia, Seyed Mostafa and Zabihi, Mariam and Llera, Alberto and Chowdanayaka, Rajanikanth and Kumar, Vinod J. and Peng, Han and Laidi, Charles and Batalle, Dafnis and Dimitrova, Ralica and Charman, Tony and Loth, Eva and Lai, Meng-Chuan and Jones, Emily and Baumeister, Sarah and Moessnang, Carolin and Banaschewski, Tobias and Ecker, Christine and Dumas, Guillaume and O'Muircheartaigh, Jonathan and Murphy, Declan and Buitelaar, Jan K. and Marquand, Andre F. and Beckmann, Christian F.},
+  year = {2019},
+  month = sep,
+  journal = {Neuroscience \& Biobehavioral Reviews},
+  volume = {104},
+  pages = {240--254},
+  issn = {0149-7634},
+  doi = {10.1016/j.neubiorev.2019.07.010},
+  abstract = {Pattern classification and stratification approaches have increasingly been used in research on Autism Spectrum Disorder (ASD) over the last ten years with the goal of translation towards clinical applicability. Here, we present an extensive scoping literature review on those two approaches. We screened a total of 635 studies, of which 57 pattern classification and 19 stratification studies were included. We observed large variance across pattern classification studies in terms of predictive performance from about 60\% to 98\% accuracy, which is among other factors likely linked to sampling bias, different validation procedures across studies, the heterogeneity of ASD and differences in data quality. Stratification studies were less prevalent with only two studies reporting replications and just a few showing external validation. While some identified strata based on cognition and intelligence reappear across studies, biology as a stratification marker is clearly underexplored. In summary, mapping biological differences at the level of the individual with ASD is a major challenge for the field now. Conceptualizing those mappings and individual trajectories that lead to the diagnosis of ASD, will become a major challenge in the near future.},
+  langid = {english},
+  keywords = {Autism spectrum disorder,Biotypes,Classification,Clustering,Machine learning,Pattern recognition,Precision medicine,Stratification},
+  file = {files/1380/Wolfers et al. - 2019 - From pattern classification to stratification tow.pdf;files/1381/S0149763419303197.html}
+}
+
+@inproceedings{wongRiemannianRegressionClassification2018,
+  title = {Riemannian {{Regression}} and {{Classification Models}} of {{Brain Networks Applied}} to {{Autism}}},
+  booktitle = {Connectomics in {{NeuroImaging}}},
+  author = {Wong, Eleanor and Anderson, Jeffrey S. and Zielinski, Brandon A. and Fletcher, P. Thomas},
+  editor = {Wu, Guorong and Rekik, Islem and Schirmer, Markus D. and Chung, Ai Wern and Munsell, Brent},
+  year = {2018},
+  series = {Lecture {{Notes}} in {{Computer Science}}},
+  pages = {78--87},
+  publisher = {{Springer International Publishing}},
+  address = {{Cham}},
+  doi = {10.1007/978-3-030-00755-3_9},
+  abstract = {Functional connectivity from resting-state functional MRI (rsfMRI) is typically represented as a symmetric positive definite (SPD) matrix. Analysis methods that exploit the Riemannian geometry of SPD matrices appropriately adhere to the positive definite constraint, unlike Euclidean methods. Recently proposed approaches for rsfMRI analysis have achieved high accuracy on public datasets, but are computationally intensive and difficult to interpret. In this paper, we show that we can get comparable results using connectivity matrices under the log-Euclidean and affine-invariant Riemannian metrics with relatively simple and interpretable models. On ABIDE Preprocessed dataset, our methods classify autism versus control subjects with 71.1\% accuracy. We also show that Riemannian methods beat baseline in regressing connectome features to subject autism severity scores.},
+  isbn = {978-3-030-00755-3},
+  langid = {english},
+  file = {files/1419/Wong et al. - 2018 - Riemannian Regression and Classification Models of.pdf}
+}
+
+@article{xieRethinkingSpatiotemporalFeature2018,
+  title = {Rethinking {{Spatiotemporal Feature Learning}}: Speed-{{Accuracy Trade}}-Offs in {{Video Classification}}},
+  shorttitle = {Rethinking {{Spatiotemporal Feature Learning}}},
+  author = {Xie, Saining and Sun, Chen and Huang, Jonathan and Tu, Zhuowen and Murphy, Kevin},
+  year = {2018},
+  month = jul,
+  journal = {arXiv:1712.04851 [cs]},
+  eprint = {1712.04851},
+  eprinttype = {arxiv},
+  primaryclass = {cs},
+  abstract = {Despite the steady progress in video analysis led by the adoption of convolutional neural networks (CNNs), the relative improvement has been less drastic as that in 2D static image classification. Three main challenges exist including spatial (image) feature representation, temporal information representation, and model/computation complexity. It was recently shown by Carreira and Zisserman that 3D CNNs, inflated from 2D networks and pretrained on ImageNet, could be a promising way for spatial and temporal representation learning. However, as for model/computation complexity, 3D CNNs are much more expensive than 2D CNNs and prone to overfit. We seek a balance between speed and accuracy by building an effective and efficient video classification system through systematic exploration of critical network design choices. In particular, we show that it is possible to replace many of the 3D convolutions by low-cost 2D convolutions. Rather surprisingly, best result (in both speed and accuracy) is achieved when replacing the 3D convolutions at the bottom of the network, suggesting that temporal representation learning on high-level semantic features is more useful. Our conclusion generalizes to datasets with very different properties. When combined with several other cost-effective designs including separable spatial/temporal convolution and feature gating, our system results in an effective video classification system that that produces very competitive results on several action classification benchmarks (Kinetics, Something-something, UCF101 and HMDB), as well as two action detection (localization) benchmarks (JHMDB and UCF101-24).},
+  archiveprefix = {arXiv},
+  keywords = {Computer Science - Computer Vision and Pattern Recognition},
+  file = {files/1443/Xie et al. - 2018 - Rethinking Spatiotemporal Feature Learning Speed-.pdf;files/1444/1712.html}
+}
+
+@article{yangDeepNeuralNetwork2020,
+  title = {A {{Deep Neural Network Study}} of the {{ABIDE Repository}} on {{Autism Spectrum Classification}}},
+  author = {Yang, Xin and T., Paul and Zhang, Ning},
+  year = {2020},
+  journal = {International Journal of Advanced Computer Science and Applications},
+  volume = {11},
+  number = {4},
+  issn = {21565570, 2158107X},
+  doi = {10.14569/IJACSA.2020.0110401},
+  langid = {english},
+  file = {files/1393/Yang et al. - 2020 - A Deep Neural Network Study of the ABIDE Repositor.pdf}
+}
+
+@article{yangLargeScaleBrainFunctional2021,
+  title = {Large-{{Scale Brain Functional Network Integration}} for {{Discrimination}} of {{Autism Using}} a 3-{{D Deep Learning Model}}},
+  author = {Yang, Ming and Cao, Menglin and Chen, Yuhao and Chen, Yanni and Fan, Geng and Li, Chenxi and Wang, Jue and Liu, Tian},
+  year = {2021},
+  journal = {Frontiers in Human Neuroscience},
+  volume = {15},
+  pages = {277},
+  issn = {1662-5161},
+  doi = {10.3389/fnhum.2021.687288},
+  abstract = {GoalBrain functional networks (BFNs) constructed using resting-state functional magnetic resonance imaging (fMRI) have proven to be an effective way to understand aberrant functional connectivity in autism spectrum disorder (ASD) patients. It is still challenging to utilize these features as potential biomarkers for discrimination of ASD. The purpose of this work is to classify ASD and normal controls (NCs) using BFNs derived from rs-fMRI.MethodsA deep learning framework was proposed that integrated convolutional neural network (CNN) and channel-wise attention mechanism to model both intra- and inter-BFN associations simultaneously for ASD diagnosis. We investigate the effects of each BFN on performance and performed inter-network connectivity analysis between each pair of BFNs. We compared the performance of our CNN model with some state-of-the-art algorithms using functional connectivity features.ResultsWe collected 79 ASD patients and 105 NCs from the ABIDE-I dataset. The mean accuracy of our classification algorithm was 77.74\% for classification of ASD versus NCs.ConclusionThe proposed model is able to integrate information from multiple BFNs to improve detection accuracy of ASD.SignificanceThese findings suggest that large-scale BFNs is promising to serve as reliable biomarkers for diagnosis of ASD.},
+  file = {files/1401/Yang et al. - 2021 - Large-Scale Brain Functional Network Integration f.pdf}
+}
+
+@article{yinDiagnosisAutismSpectrum2021,
+  title = {Diagnosis of {{Autism Spectrum Disorder Based}} on {{Functional Brain Networks}} with {{Deep Learning}}},
+  author = {Yin, Wutao and Mostafa, Sakib and Wu, Fang-xiang},
+  year = {2021},
+  month = feb,
+  journal = {Journal of Computational Biology},
+  volume = {28},
+  number = {2},
+  pages = {146--165},
+  publisher = {{Mary Ann Liebert, Inc., publishers}},
+  doi = {10.1089/cmb.2020.0252},
+  abstract = {Autism spectrum disorder (ASD) is a neurological and developmental disorder. Traditional diagnosis of ASD is typically performed through the observation of behaviors and interview of a patient. However, these diagnosis methods are time-consuming and can be misleading sometimes. Integrating machine learning algorithms with neuroimages, a diagnosis method, can possibly be established to detect ASD subjects from typical control subjects. In this study, we develop deep learning methods for diagnosis of ASD from functional brain networks constructed with brain functional magnetic resonance imaging (fMRI) data. The entire Autism Brain Imaging Data Exchange 1 (ABIDE 1) data set is utilized to investigate the performance of our proposed methods. First, we construct the brain networks from brain fMRI images and define the raw features based on such brain networks. Second, we employ an autoencoder (AE) to learn the advanced features from the raw features. Third, we train a deep neural network (DNN) with the advanced features, which achieves the classification accuracy of 76.2\% and the receiving operating characteristic curve (AUC) of 79.7\%. As a comparison, we also apply the same advanced features to train several traditional machine learning algorithms to benchmark the classification performance. Finally, we combine the DNN with the pretrained AE and train it with the raw features, which achieves the classification accuracy of 79.2\% and the AUC of 82.4\%. These results show that our proposed deep learning methods outperform the state-of-the-art methods.},
+  keywords = {autism spectrum disorder,autoencoder,deep learning,functional brain network,functional magnetic resonance imaging},
+  file = {files/1405/Yin et al. - 2021 - Diagnosis of Autism Spectrum Disorder Based on Fun.pdf}
+}
+
+

@@ -7,6 +7,7 @@
 \usepackage{hyperref}       % hyperlinks
 \usepackage{url}            % simple URL typesetting
 \usepackage{booktabs}       % professional-quality tables
+\usepackage{amsmath}        % https://tex.stackexchange.com/questions/41035/what-is-causing-undefined-control-sequence
 \usepackage{amsfonts}       % blackboard math symbols
 \usepackage{bm}             % proper bolding
 \usepackage{nicefrac}       % compact symbols for 1/2, etc.
@@ -46,17 +47,86 @@ less well-established. The handling of 3D medical images is particularly challen
 necessary pre-processing, unique normalization challenges, larger compute costs, and limited
 sample sizes \citep[see][for a general review]{singh3DDeepLearning2020}.
 
-Functional magnetic resonance images (fMRI) is especially difficult. The 4D nature of the data means
-that a single preprocessed fMRI image can be hundreds of megabytes: a single fMRI is a (3D) video
-file\footnote{Except that while in a video file pixel values are in \([0, 255]\), in fMRI the voxel
-values can be any floating point value.}. And while there are well-known and well-tested networks
-that are freely-available pre-trained for processing 2D images (e.g. ResNet, ResNext, MobileNet),
-models for processing even standard 2D video data are less well known, with the principles
-underlying good design of 3D CNNs still just being investigated
+Functional magnetic resonance images (fMRI) is especially challenging. The 4D nature of the data
+means that a single preprocessed fMRI image can be hundreds of megabytes. A single fMRI is
+essentially a (3D) video file\footnote{Except that while in a video file pixel values are in \([0,
+255]\), in fMRI the voxel values can be any floating point value.}, and while there are well-known
+and well-tested networks that are freely-available pre-trained for processing 2D \emph{images} (e.g.
+ResNet, ResNext, MobileNet), efficient and effective models for processing even 2D video data are
+still just beginning to be developed
 \citep{xieRethinkingSpatiotemporalFeature2018,tranCloserLookSpatiotemporal2018,wangVideoModelingCorrelation2020}.
-There are only a small number of models that process fMRI data in full [cites].
+Attempts to process fMRI data in full are even less developed [cite examples].
 
-Thus there is a need
+In addition, there is only very limited publicly availabile fMRI data. While databases such as
+OpenNeuro \citep{markiewiczOpenNeuroOpenResource2021} exist and cover a wide variety of domains, the
+number of subjects and is typically far too small for machine learning applications, and the studies
+are of very  low quality, and far too heterogenous to be usefully combined.
+
+Perhaps the most popular publicly available fMRI dataset is the ABIDE I dataset, which includes 1112
+resting-state fMRI (rs-fMRI) scans from 539 subjects with autism spectrum disorders (ASD) and 573
+age-matched controls with typical development (TD) \citep{dimartinoAutismBrainImaging2014}. However,
+while the ABIDE I dataset is an appropriate size for ML and DL approaches, it is particularly
+challenging to work with due to the inclusion of subjects from 20 different sites. This results in
+highly varied demographic and psychological characteristics and scanning parameters.
+
+This heterogeneity makes ML and DL approaches difficult (see section \ref{existing-attempts} below
+for a review). However, being able to handle such heterogenous and varied data is essential for
+automated prediction procedures that are to be useful in clinical settings, or for any research that
+seeks to acquire truly generalizable insights from fMRI data.
+
+\subsection{Existing Approaches and Benchmarks} \label{existing-attempts}
+
+TODO: Summarize results from notes in sections \ref{key-articles} and \ref{other-articles} here,
+both verbally listing various approaches.
+
+\begin{table}
+	\caption{Overall accuracies of existing approaches. \(N\) = total number of subjects, \(N_{\text{ASD}}\) =
+    total number of ASD subjects, \(N_{\text{TD}}\) = total number of TD subjects. LOOSO =
+    Leave-one-site-out cross-validation. LOOCV = leave-one-out cross-validation.}
+	\centering
+	\begin{tabular}{lllllll}
+		\toprule
+		Study                                                         & Pipeline     & \(N\) & \(N_\text{ASD}\) & \(N_{\text{TD}}\) & Validation & Overall Accuracy \\
+		\midrule
+    \citet{heinsfeldIdentificationAutismSpectrum2018}             &              &       &                  &                   &            &                  \\
+    \citet{eslamiASDDiagNetHybridLearning2019}                    &              &       &                  &                   &            &                  \\
+    \citet{yinDiagnosisAutismSpectrum2021}                        &              &       &                  &                   &            &                  \\
+		\citet{liMultisiteFMRIAnalysis2020}                           &              &       &                  &                   &            &                  \\
+		\citet{el-gazzarHybrid3DCNN3DCLSTM2019}                       &              &       &                  &                   &            &                  \\
+    \citet{shaoClassificationASDBased2021}                        &              &       &                  &                   &            &                  \\
+    \citet{dekhilUsingRestingState2018}                           &              &       &                  &                   &            &                  \\
+    \citet{parisotDiseasePredictionUsing2018}                     &              &       &                  &                   &            &                  \\
+    \citet{sakaiMachineLearningStudies2019}                       &              &       &                  &                   &            &                  \\
+    \citet{iidakaRestingStateFunctional2015}                      &              &       &                  &                   &            &                  \\
+    \citet{liNovelTransferLearning2018}                           &              &       &                  &                   &            &                  \\
+    \citet{kazeminejadTopologicalPropertiesRestingState2019}      &              &       &                  &                   &            &                  \\
+    \citet{khoslaEnsembleLearning3D2019}                          &              &       &                  &                   &            &                  \\
+    \citet{wangIdentifyingAutismSpectrum2020}                     &              &       &                  &                   &            &                  \\
+    \citet{sherkatghanadAutomatedDetectionAutism2020}             &              &       &                  &                   &            &                  \\
+    \citet{wangFunctionalConnectivitybasedClassification2019}     &              &       &                  &                   &            &                  \\
+    \citet{yangDeepNeuralNetwork2020}                             &              &       &                  &                   &            &                  \\
+    \citet{wangMAGEAutomaticDiagnosis2021}                        &              &       &                  &                   &            &                  \\
+    \citet{ingalhalikarFunctionalConnectivitybasedPrediction2021} &              &       &                  &                   &            &                  \\
+    \citet{yangLargeScaleBrainFunctional2021}                     &              &       &                  &                   &            &                  \\
+    \citet{almuqhimASDSAENetSparseAutoencoder2021}                &              &       &                  &                   &            &                  \\
+    \citet{byeonArtificialNeuralNetwork2020}                      &              &       &                  &                   &            &                  \\
+		\bottomrule
+	\end{tabular}
+	\label{tab:existing-attempts}
+\end{table}
+
+\subsubsection{ABIDE Validation Issues}
+
+For heterogeneous data such as ABIDE, with 20 different data sources, validation itself poses a
+unique challenge. As is
+cl
+
+\begin{itemize}
+  \item
+\end{itemize}
+
+
+\subsection{Prediction from 4D Spatial or Spatiotemporal Data}
 
 In deep learning, it is common to divide the dimensions of the data into spatial and channel
 dimensions. For example, colour images are usually described as multi-channel 2D, as there are
@@ -73,9 +143,6 @@ computational costs of 3D convolution are considerably larger (a factor of [cite
 "channel-separated" or (2 + 1)D convolutions (\citet{tranCloserLookSpatiotemporal2018}), or other
 methods like ..., or even methods which rethink how temporal information can be encoded via
 correlations \cite{wangVideoModelingCorrelation2020}.
-
-
-\subsection{fMRI and Prediction}
 
 fMRI is truly 4D (one-channel) spatio-temporal data. To properly process this would require 4D
 convolution, which is not implemented in most popular frameworks, and is extremely compute
@@ -168,7 +235,7 @@ However, to keep analyses consistent with similar papers
 \citet{abrahamDerivingReproducibleBiomarkers2017, mostafaDiagnosisAutismSpectrum2019,
 yinDiagnosisAutismSpectrum2021, heinsfeldIdentificationAutismSpectrum2018} we use the subjects from
 the Configurable Pipeline for the Analysis of Connectomes
-\citep{cameronAutomatedAnalysisConnectomes2013}, and exclude subjects that fail to pass quality
+\citep[CPAC;][]{cameronAutomatedAnalysisConnectomes2013}, and exclude subjects that fail to pass quality
 control checks from three independent experts \citep[see][for
 details]{abrahamDerivingReproducibleBiomarkers2017}, giving a final total of 871 subjects (XXX ASD,
 XXX TD).
