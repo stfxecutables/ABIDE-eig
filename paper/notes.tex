@@ -38,7 +38,7 @@
 \section{Introduction}
 
 Despite tremendous successive in multi-channel 2D and natural language processing, algorithms
-capable of handling higher-dimensional tensors are less established. For example, while there are
+capable of handling higher-dimensional data are less established. For example, while there are
 well-known and well-tested networks that are freely-available pre-trained for processing 2D images
 (e.g. ResNet, ResNext, MobileNet), models for processing video data are less well known. For
 example, PyTorch makes available only the models from \citet{tranCloserLookSpatiotemporal2018}. The
@@ -63,11 +63,11 @@ correlations \cite{wangVideoModelingCorrelation2020}.
 
 \subsection{fMRI and Prediction}
 
-However, fMRI is truly one-channel 4D spatial data. To properly process
-this would require 4D convolution, which is not implemented in most popular frameworks, and is
-extremely compute intensive. As simple three-channel 2D video (i.e. three-channel 3D) already runs
-into compute problems, the 3D video data that comprise an fMRI image is especially difficult to
-handle effectively.
+fMRI is truly 4D (one-channel) spatio-temporal data. To properly process this would require 4D
+convolution, which is not implemented in most popular frameworks, and is extremely compute
+intensive. Simple three-channel, 2D video (i.e. three-channel 3D) already runs into compute
+problems, the 3D video data that comprise an fMRI image is especially difficult to handle
+effectively.
 
 In particular, the increased GPU memory and compute demands means that hyperparameter tuning, an
 absolutely necessary step when investigating new network architectures, can be extremely expensive
@@ -106,12 +106,18 @@ correlations between features (voxels) unless the interpolation is downsampling 
 any averaging or smoothing (e.g. as in nearest-neighbour interpolation).
 
 Thus there is a challenge of converting all images to some common representation which is relatively
-insensitive to these temporal differences, or which eliminates these differences while retaining . One of the most natural approaches
+insensitive to these temporal differences, or which eliminates these differences while retaining
+rich information about the original signals.
+
+One recent finding has been that the functional connectivity of rs-fMRI is surprisingly robust to the
+the underlying sampling rate \citep{huotariSamplingRateEffects2019,shakilEvaluationSlidingWindow2016}
 
 \subsection{Previous Approaches}
 
-[TODO]
-\citet{eslamiASDDiagNetHybridLearning2019} use an autoencoder to
+TODO: Summarize various studies listed in notes below (\ref{key-articles} and \ref{other-articles})
+in table or other condensed form.
+
+% \citet{eslamiASDDiagNetHybridLearning2019} use an autoencoder to
 
 
 \section{Methods}
@@ -154,7 +160,7 @@ use these directly.
 
 \newpage
 
-\section{Key Articles}
+\section{Key Articles} \label{key-articles}
 
 Note for below I also seem to use the CPAC minimal pipeline, I think.
 
@@ -164,7 +170,7 @@ selection using all subjects, completely negating the final 10-fold or whatever 
 \citet{mostafaDiagnosisAutismSpectrum2019,yinDiagnosisAutismSpectrum2021}, who use eigenvalues of
 the graph of the Laplacian of the thresholded correlation matrix.
 
-\subsection{Use of Eigenvalues for Prediction! \citet{mostafaDiagnosisAutismSpectrum2019}}
+\subsection{Use of Eigenvalues for Prediction! \citet{mostafaDiagnosisAutismSpectrum2019}} \label{eig-pred}
 
 
 
@@ -216,7 +222,7 @@ Decent. Very similar to ours in spirit.
   \end{itemize}
 \end{itemize}
 
-\section{Other Articles}
+\section{Other Articles} \label{other-articles}
 
 
 \subsection{\citet{liMultisiteFMRIAnalysis2020}}
@@ -419,7 +425,15 @@ Probably \textbf{worth trying to replicate this} given the stupid simplicity
   \item sparse autoencoder to force embedding
   \item get 10-fold overall acc of 70.8\%
 \end{itemize}
-k
+
+\subsection{\citet{byeonArtificialNeuralNetwork2020}}
+
+\begin{itemize}
+  \item CPAC, only subjects with TR=2.0 (270 ASD, 305 TD) and good QC
+  \item BrainNetome atlas mean signals (246 ROI)
+  \item use first 146 timepoints only to make subjects all same size
+  \item 74.5\% accuracy, 5-fold
+\end{itemize}
 
 \section{Headings: first level}
 \label{sec:headings}
