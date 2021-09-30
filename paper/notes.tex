@@ -79,6 +79,18 @@ seeks to acquire truly generalizable insights from fMRI data.
 TODO: Summarize results from notes in sections \ref{key-articles} and \ref{other-articles} here,
 both verbally listing various approaches.
 
+\subsubsection{ABIDE Validation Issues}
+
+For heterogeneous data such as ABIDE, with 20 different data sources, validation itself poses a
+unique challenge. As is clear from Table \ref{tab:existing-attempts}, smaller validation set sizes
+(e.g. LOOCV, 10-fold) result in dramatically higher reported accuracies, as do small sample sizes.
+We believe this is an obvious and direct consequence of the site-level heterogeneity present in the
+ABIDE data.
+
+\begin{itemize}
+  \item
+\end{itemize}
+
 \begin{table}
 	\caption{Overall accuracies of existing approaches. \(N\) = total number of subjects, \(N_{\text{ASD}}\) =
     total number of ASD subjects, \(N_{\text{TD}}\) = total number of TD subjects. LOOSO =
@@ -115,15 +127,6 @@ both verbally listing various approaches.
 	\label{tab:existing-attempts}
 \end{table}
 
-\subsubsection{ABIDE Validation Issues}
-
-For heterogeneous data such as ABIDE, with 20 different data sources, validation itself poses a
-unique challenge. As is
-cl
-
-\begin{itemize}
-  \item
-\end{itemize}
 
 
 \subsection{Prediction from 4D Spatial or Spatiotemporal Data}
