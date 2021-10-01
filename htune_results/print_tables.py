@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parent
 JSONS = sorted(ROOT.rglob("*.json"))
 
 
-def print_htune_table(df: DataFrame) -> Tuple[DataFrame, str]:
+def print_htune_table(df: DataFrame) -> Tuple[DataFrame, pd.Timedelta]:
     def renamer(s: str) -> str:
         if "params" not in s:
             s = f"{s}_"
@@ -79,8 +79,9 @@ def print_htune_table(df: DataFrame) -> Tuple[DataFrame, str]:
     renamed.complete = (
         pd.to_datetime(renamed.complete, unit="ms").round("min").astype(str).str[5:-3]
     )
+    renamed.trained = renamed.trained.apply(pd.Timedelta, unit="ms")
     total_time = renamed.trained.sum()
-    renamed.trained = renamed.trained.apply(pd.Timedelta, unit="ms").apply(format_time)
+    renamed.trained = renamed.trained.apply(format_time)
     for col in renamed.columns:
         if "system_attrs" in col:
             renamed.drop(columns=col, inplace=True)
