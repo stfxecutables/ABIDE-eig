@@ -83,9 +83,57 @@ both verbally listing various approaches.
 
 For heterogeneous data such as ABIDE, with 20 different data sources, validation itself poses a
 unique challenge. As is clear from Table \ref{tab:existing-attempts}, smaller validation set sizes
-(e.g. LOOCV, 10-fold) result in dramatically higher reported accuracies, as do small sample sizes.
-We believe this is an obvious and direct consequence of the site-level heterogeneity present in the
-ABIDE data.
+(e.g. LOOCV, 10-fold) result in dramatically higher reported accuracies.
+
+We believe this is
+an obvious and direct consequence of the site-level heterogeneity present in the ABIDE data.
+
+\paragraph{Lack of Cross-Validation}
+
+This is also clear from other reviews \citep[][Table 9]{sakaiMachineLearningStudies2019}. Just as an
+example, \citet{sakaiMachineLearningStudies2019} review 12 studies using the ABIDE data. Only four
+of these studies use more than 20\% of the ABIDE data, and of these, only
+\citet{heinsfeldIdentificationAutismSpectrum2018} use rigorous k-fold validation. The others use
+out-of-bag or LOOCV validation, which have limited utility and are also well known to severely
+overestimate performance [cite].
+
+\paragraph{Small Validation Sets}
+
+For any study, if the total number of samples (e.g. subjects) is \(N\), then leave-one-out
+cross-validation (LOOCV) is \(N\)-fold cross validation, and validation using \(k\) folds is
+\(k\)-fold validation. We can see from \ref{tab:existing-attempts} and from Table 9 of
+\citet{sakaiMachineLearningStudies2019} that the apparent validation accuracy is highest when \(k\)
+approaches \(N\). While this would not generally be expected from data sampled from a single
+distribution, when taking small samples from a heterogeneous mixture of distributions, this outcome
+is unsurprising.
+
+As \(k\) approaches \(1\), the likelihood that a validation sample comes from a distribution that
+was never seen even once during training increases, and as \(k\) approaches \(N\), the reverse
+occurs. Given that ABIDE has about 20 different sites (XX from NYU and XX from ... being the
+majority), and that there are at most just over 1000 subjects in the full ABIDE dataset, the
+reported overall accuracy is largely a byproduct of the folding strategy and randomization or seed
+(i.e. the extent to which the validation sets contain sites / TRs / number of timepoints not seen in
+training). Thus, assessment of randomization failure, or approaches like leave-one-site-out
+validation or stratified k-fold with stratification on site or scan parameters are \emph{essential}
+to a proper assessment of model performance on the ABIDE dataset.
+
+Without such safeguards, one could unwittingly simply stumble upon a seed which performs well simply
+due to randomization failure. Since most serious ABIDE studies have about 1000 samples, an average
+of just 1 more correctly classified subject per fold will result in an overall accuracy increase of
+0.5\% for 5-fold, and 1\% for 10-fold. Since ABIDE contains data from 20 different sites, it is not
+hard to see that one could achieve apparently impressive gains in overall accuracy, even with
+k-fold, simply by "seed hacking" (perhaps quite unwittingly) until validation sets overall tend to
+contain subjects from already-seen distributions. The only ways to make different studies properly comparable are
+
+\begin{itemize}
+  \item stratified k-fold
+  \item leave-one-site-out validation \citep{ingalhalikarFunctionalConnectivitybasedPrediction2021}
+  \item k-fold with small k
+\end{itemize}
+
+Of the studies reviewed in this paper, \emph{none} except \citet{ingalhalikarFunctionalConnectivitybasedPrediction2021} mention stratification,
+seeds, or provide code for analyses. All the reported state-of-the-art overall accuracies are just within a few percentage points of each other. At about 900-1000 subjects typically for the ABIDE data, and with 5- or 10-fold cross-validation, this means that a difference in mean overall accuracy of just 1\% can be due to just 2 mis-predicted subjects per fold. That is, one could likely very easily acheive  difference, on average, of   (i.e. due to a handful or less of )
+exceptional results could just as easily be the result of a "lucky" split
 
 \begin{itemize}
   \item
@@ -94,48 +142,58 @@ ABIDE data.
 \begin{table}
   \small
   \centering
-  \begin{tabular}{lccccrrrcc}
+  \begin{tabular}{lcccccrrrcc}
     \toprule
-    Study                                                         & Pipeline & Model  & Features & Atlas  & \(N\) & \(N_\text{ASD}\) & \(N_{\text{TD}}\) & Validation & OA \\
+    Study                                                         & Pipeline & Model  & Features & Contam &   Atlas  & \(N\) & \(N_\text{ASD}\) & \(N_{\text{TD}}\) & Validation & OA \\
     \midrule
-    \citet{heinsfeldIdentificationAutismSpectrum2018}             &     CPAC &   ANN  &  ROI-FC  & CC-200 & 1035  &  505  &  530  &  10-fold   &       70.0        \\
-    \citet{heinsfeldIdentificationAutismSpectrum2018}             &     CPAC &   RF   &  ROI-FC  & CC-200 & 1035  &  505  &  530  &  10-fold   &       63.0        \\
-    \citet{heinsfeldIdentificationAutismSpectrum2018}             &     CPAC &   SVM  &  ROI-FC  & CC-200 & 1035  &  505  &  530  &  10-fold   &       65.0        \\
-    \citet{eslamiASDDiagNetHybridLearning2019}                    &          &        &          &        &       &       &       &            &                  \\
-    \citet{yinDiagnosisAutismSpectrum2021}                        &          &        &          &        &       &       &       &            &                  \\
-    \citet{liMultisiteFMRIAnalysis2020}                           &          &        &          &        &       &       &       &            &                  \\
-    \citet{el-gazzarHybrid3DCNN3DCLSTM2019}                       &          &        &          &        &       &       &       &            &                  \\
-    \citet{shaoClassificationASDBased2021}                        &          &        &          &        &       &       &       &            &                  \\
-    \citet{dekhilUsingRestingState2018}                           &          &        &          &        &       &       &       &            &                  \\
-    \citet{parisotDiseasePredictionUsing2018}                     &          &        &          &        &       &       &       &            &                  \\
-    \citet{sakaiMachineLearningStudies2019}                       &          &        &          &        &       &       &       &            &                  \\
-    \citet{iidakaRestingStateFunctional2015}                      &          &        &          &        &       &       &       &            &                  \\
-    \citet{liNovelTransferLearning2018}                           &          &        &          &        &       &       &       &            &                  \\
-    \citet{kazeminejadTopologicalPropertiesRestingState2019}      &          &        &          &        &       &       &       &            &                  \\
-    \citet{khoslaEnsembleLearning3D2019}                          &          &        &          &        &       &       &       &            &                  \\
-    \citet{wangIdentifyingAutismSpectrum2020}                     &          &        &          &        &       &       &       &            &                  \\
-    \citet{sherkatghanadAutomatedDetectionAutism2020}             &          &        &          &        &       &       &       &            &                  \\
-    \citet{wangFunctionalConnectivitybasedClassification2019}     &          &        &          &        &       &       &       &            &                  \\
-    \citet{yangDeepNeuralNetwork2020}                             &          &        &          &        &       &       &       &            &                  \\
-    \citet{wangMAGEAutomaticDiagnosis2021}                        &          &        &          &        &       &       &       &            &                  \\
-    \citet{ingalhalikarFunctionalConnectivitybasedPrediction2021} &          &        &          &        &       &       &       &            &                  \\
-    \citet{yangLargeScaleBrainFunctional2021}                     &          &        &          &        &       &       &       &            &                  \\
-    \citet{almuqhimASDSAENetSparseAutoencoder2021}                &          &        &          &        &       &       &       &            &                  \\
-    \citet{byeonArtificialNeuralNetwork2020}                      &          &        &          &        &       &       &       &            &                  \\
+    \citet{heinsfeldIdentificationAutismSpectrum2018}             &   CPAC   &   ANN  &  ROI-FC  &   N    & CC-200     & 1035  &  505  &  530  &  10-fold   &       70.0       \\
+    ~                                                             &          &   RF   &          &        &            &       &       &       &            &       63.0       \\
+    ~                                                             &          &   SVM  &          &        &            &       &       &       &            &       65.0       \\ \addlinespace
+    \citet{eslamiASDDiagNetHybridLearning2019}                    &   CPAC   & AE+ANN &  ROI-FC  &   N    & CC-200     & 1035  &  505  &  530  &  10-fold   &       70.3       \\
+    \citet{yinDiagnosisAutismSpectrum2021}                        &  custom  & AE+SVM &  graph   &   N    & \(264^a\)  & \(871^b\) & \(403^b\) & \(468^b\)  &  holdout\(^b\) &       \(78.3^b\) \\
+    \citet{liMultisiteFMRIAnalysis2020}                           &   CPAC   &  ANN   &  ROI-FC  &   N    &     HO     &  370  &  186  &  184  &   5-fold   & 67.6\% to 84.9\% \\
+    \citet{el-gazzarHybrid3DCNN3DCLSTM2019}                       &   CPAC   & Conv1D & ROI means&   N    &     HO     & 1100  &   ?   &   ?   &   5-fold   &       64.0       \\
+    \citet{shaoClassificationASDBased2021}                        &   CPAC   & FS+GCN &  ROI-FC  &   Y    &     HO     &  871  &  403  &  468  &  10-fold   &       79.5       \\
+   %\citet{dekhilUsingRestingState2018}                           &          &        &          &        &            &       &       &       &            &                  \\
+    \citet{parisotDiseasePredictionUsing2018}                     &   CPAC   & FS+GCN &  graph   &   ?    &     HO     &  871  &  403  &  468  &  10-fold   &       70.4       \\
+   %\citet{sakaiMachineLearningStudies2019}                       &          &        &          &        &            &       &       &       &            &                  \\
+    \citet{iidakaRestingStateFunctional2015}                      &          &        &          &        &            &       &       &       &            &                  \\
+    \citet{liNovelTransferLearning2018}                           &          &        &          &        &            &       &       &       &            &                  \\
+    \citet{kazeminejadTopologicalPropertiesRestingState2019}      &          &        &          &        &            &       &       &       &            &                  \\
+    \citet{khoslaEnsembleLearning3D2019}                          &          &        &          &        &            &       &       &       &            &                  \\
+    \citet{wangIdentifyingAutismSpectrum2020}                     &          &        &          &        &            &       &       &       &            &                  \\
+    \citet{sherkatghanadAutomatedDetectionAutism2020}             &          &        &          &        &            &       &       &       &            &                  \\
+    \citet{wangFunctionalConnectivitybasedClassification2019}     &          &        &          &        &            &       &       &       &            &                  \\
+    \citet{yangDeepNeuralNetwork2020}                             &          &        &          &        &            &       &       &       &            &                  \\
+    \citet{wangMAGEAutomaticDiagnosis2021}                        &          &        &          &        &            &       &       &       &            &                  \\
+    \citet{ingalhalikarFunctionalConnectivitybasedPrediction2021} &          &        &          &        &            &       &       &       &            &                  \\
+    \citet{yangLargeScaleBrainFunctional2021}                     &          &        &          &        &            &       &       &       &            &                  \\
+    \citet{almuqhimASDSAENetSparseAutoencoder2021}                &          &        &          &        &            &       &       &       &            &                  \\
+    \citet{byeonArtificialNeuralNetwork2020}                      &          &        &          &        &            &       &       &       &            &                  \\
     \bottomrule
   \end{tabular} \label{tab:existing-attempts}
   \caption{
-    Overall accuracies of existing approaches. \(N\) = total number of subjects, \(N_{\text{ASD}}\)
+    Overall accuracies of existing approaches using only over 200 subjects and rigorous validation strategies. \(N\) = total number of subjects, \(N_{\text{ASD}}\)
     = total number of ASD subjects, \(N_{\text{TD}}\) = total number of TD subjects. LOOSO =
     Leave-one-site-out cross-validation. LOOCV = leave-one-out cross-validation. ANN = Aritificial
-    Neural Network (linear layers). RF = Random forest. SVM = support vector machine. ROI-FC =
-    ROI-based FC matrix.  CC-200/400 = Cameron-Craddock 200/400. HO = Harvard-Oxford. OA = Overall
-    Accuracy.
+    Neural Network (linear layers). AE = Autoencoder. RF = Random forest. SVM = support vector
+    machine. GCN = graph convolutional network. ROI-FC = ROI-based FC matrix. graph = graph-theoretic
+    measures and metrics, usually extracted from ROI-FC. CC-200/400 = Cameron-Craddock 200/400. HO = Harvard-Oxford. OA = Overall
+    Accuracy. FS = feature selection. Contam = contaminated feature selection
+    \hspace{\textwidth} \(^a\) 264 ROI Atlas from (Power, J.D., Cohen, A.L., Nelson, S.M., et al.
+    2011. Functional network organization of the human brain. Neuron 72, 665–678.)
+    \hspace{\textwidth} \(^b\) Authors in fact use 80\% of data for training and feature selection,
+    and validate using 10-fold only on a final set held-out from feature selection of 174 subjects.
   }
   \normalsize
 \end{table}
 
+\paragraph{Contamination}
 
+A number of studies on the ABIDE data reporting overall accuracies above 71\% use feature selection procedures which are
+given access to the full number of subjects. That is, given \(N\) subjects total, feature selection procedures are run
+on all \(N\) subjects, and then final validation is done with e.g. k-fold on the same \(N\) subjects, sometimes even using
+the exact same model that was used during feature selection [citations]. This procedure is not valid.
 
 \subsection{Prediction from 4D Spatial or Spatiotemporal Data}
 
@@ -349,6 +407,7 @@ Decent. Very similar to ours in spirit.
 \begin{itemize}
   \item used Conv3D to Conv1D or ConvLSTM (they test both)
   \item CPAC pipeline for ABIDE
+  \item selected for and cropped to 100 timepoints for the ABIDE-I dataset
   \item only use single-site validation (losers) also NYU and UM (easiest)
   \item also do one multi-site with 19 sites 1100 subjects
   \item patch-based training where prediction is average prediction over crops
