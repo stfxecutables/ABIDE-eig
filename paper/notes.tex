@@ -131,9 +131,15 @@ contain subjects from already-seen distributions. The only ways to make differen
   \item k-fold with small k
 \end{itemize}
 
-Of the studies reviewed in this paper, \emph{none} except \citet{ingalhalikarFunctionalConnectivitybasedPrediction2021} mention stratification,
-seeds, or provide code for analyses. All the reported state-of-the-art overall accuracies are just within a few percentage points of each other. At about 900-1000 subjects typically for the ABIDE data, and with 5- or 10-fold cross-validation, this means that a difference in mean overall accuracy of just 1\% can be due to just 2 mis-predicted subjects per fold. That is, one could likely very easily acheive  difference, on average, of   (i.e. due to a handful or less of )
-exceptional results could just as easily be the result of a "lucky" split
+Of the studies reviewed in this paper, \emph{none} except
+\citet{ingalhalikarFunctionalConnectivitybasedPrediction2021} mention stratification, seeds, or
+provide code for analyses. All the reported state-of-the-art overall accuracies are just within a
+few percentage points of each other. At about 900-1000 subjects typically for the ABIDE data, and
+with 5- or 10-fold cross-validation, this means that a difference in mean overall accuracy of just
+1\% can be due to just 2 mis-predicted subjects per fold. That is, one could likely very easily
+achieve  difference, on average, of   (i.e. due to a handful or less of ) exceptional results could
+just as easily be the result of a "lucky" split (torch.manual seed(3407) is all you need: On the
+influence of random seeds in deep learning architectures for computer vision)
 
 \begin{itemize}
   \item
