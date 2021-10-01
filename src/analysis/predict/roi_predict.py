@@ -19,7 +19,7 @@ from numpy import ndarray
 from pandas import DataFrame
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import cross_val_score
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
 from sklearn.svm import SVC
 from tqdm import tqdm
 from typing_extensions import Literal
@@ -103,7 +103,7 @@ def predict_from_roi_reductions(
         scores = DataFrame(index=names, columns=["acc"])
         for roi, name in tqdm(enumerate((names)), total=len(names), desc="Fitting SVM for ROI"):
             X = np.stack(df.iloc[:, roi].to_numpy())
-            X = StandardScaler().fit_transform(X)
+            X = MinMaxScaler().fit_transform(X)
             y = df["target"].to_numpy()
             res = cross_val_score(classifier(**classifier_args), X, y, cv=5, scoring="accuracy")
             scores.loc[name, "acc"] = np.mean(res)

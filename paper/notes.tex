@@ -17,6 +17,9 @@
 \usepackage{natbib}
 \usepackage{doi}
 
+\newcommand{\tsub}[2]{\mathbf{#1}_{\text{#2}}}
+\DeclareMathOperator*{\argmin}{\arg\min}
+
 \include{meta}
 
 \begin{document}
@@ -79,7 +82,107 @@ seeks to acquire truly generalizable insights from fMRI data.
 TODO: Summarize results from notes in sections \ref{key-articles} and \ref{other-articles} here,
 both verbally listing various approaches.
 
-\subsubsection{ABIDE Validation Issues}
+\subsection{Problems with Existing Approaches}
+
+Unfortunately, much of the research on the ABIDE dataset is of low-quality, and studies reporting
+accuracies above 71\% all have clear, extremely serious issues either in validation or the general
+fitting procedure.
+
+\subsubsection{Biased Feature Selection}
+
+Suppose we have a sample of data \(\mathbf{X} \in \mathbb{R}^n\), targets \(\mathbf{y}\), a feature
+selection procedure \(S: \mathbb{R}^n \rightarrow \mathbb{R}^m\), and a model (e.g. classifier)
+\(f\) with hyperparameters \(\theta\), so that we can write \(f(\bm{x}) =
+f_{\theta}(\mathbf{x})\) for \(x \in S(\mathbf{X})\).  Suppose we also have some validation
+procedure \(V\) which operates on the outputs of \(f\) and produces some score or loss
+\(\mathcal{L}(f_{\theta}(S(\mathbf{X})), \mathbf{y}) \in \mathbb{R}\) to be minimized, and computed
+via some validation procedure (e.g. mean accuracy from k-fold cross-validation). If we also say that
+\(S\) is parameterized by \(\omega\), such that we can write \(S = S_{\omega}\),
+and we can also write that the loss is \(\mathcal{L}_{\theta, \omega}(\mathbf{X}, \mathbf{y})\) or even
+just \(\mathcal{L}(\theta, \omega)\).
+Finding an optimal set of features and hyperparameters thus requires finding optimal or good
+\(\theta^{\star}\) and \(\omega^{\star}\) values.
+
+Clearly, feature selection and hyperparameter optimization can be combined conceptually and the
+whole process is identical to the usual optimization problem where we attempt to minimize
+\(\mathcal{L}(\eta)\) for a function \( g_{\eta} = f_{\theta} \circ
+S_{\omega}\) where \( \eta = (\theta, \omega) \). Either \(\omega\) and \(\theta\) can be optimized sequentially:
+
+\begin{enumerate}
+  \item choose a sensible starting value \(\hat{\theta}\) for \(\theta\) [or instead start with \(\hat{\omega}\)]
+  \item compute \(\omega^{\star} = \argmin_{\omega} \left(\mathcal{L}(\hat{\theta}, \omega)\right)\) [or instead \(\theta^{\star} = \argmin_{\theta} \left(\mathcal{L}(\theta, \hat{\omega})\right)\)]
+  \item compute
+  \(\theta^{\star} = \argmin_{\theta} \left(\mathcal{L}(\theta, \omega^{\star})\right)\) [or instead
+  \(\omega^{\star} = \argmin_{\omega} \left(\mathcal{L}(\theta^{\star}, \omega)\right)\)]
+  \item optimal performance is then \(\mathcal{L}(\theta^{\star}, \omega^{\star})\)
+\end{enumerate}
+
+or combined, by simply finding \(\argmin_{\eta} \mathcal{L}(\eta)\).
+
+If our loss function \(\mathcal{L}\) is also our final performance metric (e.g. the
+misclassification error), then if we do not want the above procedure to overfit our data and/or
+produce biased performance (over)estimates, we must employ some kind of holdout or cross-validation
+procedure. That is, we must partition \((\mathbf{X}, \mathbf{y})\) into mutually disjoint sets
+\((\tsub{X}{train}, \tsub{y}{train})\), \((\tsub{X}{test}, \tsub{y}{test})\), and optionally
+\((\tsub{X}{val}, \tsub{y}{val})\), and ensure that  \((\tsub{X}{test}\) and \(\tsub{y}{test})\) are
+\emph{never} used in any optimization procedure.
+
+As per above, there is nothing special about feature selection. Feature selection + tuning is just another more complicated single fitting procedure, and so feature selection isn't \emph{exempt} from the requirements of cross-validation or holdout. That is, in the notation of above, and putting back in the data used for the loss calculations, then
+
+\[
+  \mathcal{L}_{\eta^{\star}}(\mathbf{X}, \mathbf{y}),
+  \quad \text{where} \quad
+  \eta^{\star} = \argmin_{\eta} \mathcal{L}_{\eta}(\mathbf{X}, \mathbf{y})
+\]
+
+is a biased and possibly severely overfit estimate of performance (regardless if \(\mathcal{L}\) uses k-fold internally) because such a procedure uses all the data multiple times, and simply chooses the largest value. Instead, one must report
+
+\[
+  \mathcal{L}_{\eta^{\star}}(\tsub{X}{test}, \tsub{y}{test}),
+\]
+
+where either
+
+\[
+  \eta^{\star} = \argmin_{\eta}  \mathcal{L}_{\eta}(\tsub{X}{train}, \tsub{y}{train})
+  \quad \text{or} \quad
+  \eta^{\star} = \argmin_{\eta} \mathcal{L}_{\eta}(\tsub{X}{val}, \tsub{y}{val})
+\]
+
+
+% \[
+%   \omega^{\star} = \argmin_{\omega} \left(\mathcal{L}_{\theta, \omega}(\tsub{X}{train}, \tsub{y}{train})\right)
+%   \text{where}
+%   \omega^{\star} = \argmin_{\omega} \left(\mathcal{L}_{\theta, \omega}(\tsub{X}{train}, \tsub{y}{train})\right)
+
+%   \quad \text{or} \quad
+%   \omega^{\star} = \argmin_{\omega} \left(\mathcal{L}_{\theta, \omega}(\tsub{X}{val}, \tsub{y}{val})\right)
+% \]
+
+\paragraph{Fine-Tune Later}
+\begin{enumerate}
+\item fix \(\theta\) at some reasonable value
+\item choose the final set of features using
+\[
+  \omega^{\star} = \argmin_{\omega} \left(\mathcal{L}_{\theta, \omega}(\tsub{X}{train}, \tsub{y}{train})\right)
+  \quad \text{or} \quad
+  \omega^{\star} = \argmin_{\omega} \left(\mathcal{L}_{\theta, \omega}(\tsub{X}{val}, \tsub{y}{val})\right)
+\]
+\item fine-tune \(\theta\) by finding
+\[
+  \theta^{\star} = \argmin_{\theta} \left(\mathcal{L}_{\theta, \omega^{\star}}(\tsub{X}{train}, \tsub{y}{train})\right)
+  \quad \text{or} \quad
+  \theta^{\star} = \argmin_{\theta} \left(\mathcal{L}_{\theta, \omega^{\star}}(\tsub{X}{val}, \tsub{y}{val})\right)
+\]
+\item report the final loss \(\mathcal{L}_{\theta^{\star}, \omega^{\star}}(\tsub{X}{test}, \tsub{y}{test})\)
+\end{enumerate}
+
+Note that we can write \(g_{\theta^{\prime}} = f_{\theta} \circ S\), where \(\theta^{\prime}\) are the hyperparameters of \(f\) and '
+
+For example, the indices of features to use The model may also have internal weights (trainable parameters), but the
+values of these weights are computed by the fitting procedure, and not selected by the researcher, and so not important here.
+
+\subsubsection{Heterogeneity and Validation}
 
 For heterogeneous data such as ABIDE, with 20 different data sources, validation itself poses a
 unique challenge. As is clear from Table \ref{tab:existing-attempts}, smaller validation set sizes
@@ -103,7 +206,11 @@ Suppose, for any study, the total number of samples (e.g. subjects) is \(N\). Th
 cross-validation (LOOCV) is \(N\)-fold cross validation, and validation using \(k\) folds is
 \(k\)-fold validation. We can see from \ref{tab:existing-attempts} and from Table 9 of
 \citet{sakaiMachineLearningStudies2019} that with the heterogeneous ABIDE data, the apparent
-validation accuracy is highest when \(k\) approaches \(N\). Likewise, \citet{iidakaRestingStateFunctional2015} finds
+validation accuracy is highest when \(k\) approaches \(N\). Likewise,
+\citet{iidakaRestingStateFunctional2015} report accuracies of 77.2\%, 86.9\%, and 90.3\% for 2-, 10-,
+and 50-fold respectively\footnote{These accuracies are quite high likely due to the use of an
+age-restricted subset of ABIDE and contamination / overfitting in the feature selection procedure,
+which used all subjects}.
 
 While this would not generally be expected from data sampled from a single
 distribution, when taking small samples from a heterogeneous mixture of distributions, this outcome
@@ -163,7 +270,7 @@ influence of random seeds in deep learning architectures for computer vision)
     \citet{el-gazzarHybrid3DCNN3DCLSTM2019}                       &   CPAC   & Conv1D & ROI means&   N    &     HO     & 1100  &   ?   &   ?   &   5-fold   &       64.0       \\
     \citet{shaoClassificationASDBased2021}                        &   CPAC   & FS+GCN &  ROI-FC  &   Y    &     HO     &  871  &  403  &  468  &  10-fold   &       79.5       \\
     \citet{parisotDiseasePredictionUsing2018}                     &   CPAC   & FS+GCN &  graph   &   ?    &     HO     &  871  &  403  &  468  &  10-fold   &       70.4       \\
-    \citet{iidakaRestingStateFunctional2015}                      &  custom  & FS+PNN &  ROI-FC  &   Y    &     AAL   &\(640^c\)& 312  &  328  &            &                  \\
+    \citet{iidakaRestingStateFunctional2015}                      &  custom  & FS+PNN &  ROI-FC  &   Y    &     AAL   &\(640^c\)& 312  &  328  &  10-fold   &       86.9       \\
     \citet{liNovelTransferLearning2018}                           &          &        &          &        &            &       &       &       &            &                  \\
     \citet{kazeminejadTopologicalPropertiesRestingState2019}      &          &        &          &        &            &       &       &       &            &                  \\
     \citet{khoslaEnsembleLearning3D2019}                          &          &        &          &        &            &       &       &       &            &                  \\
