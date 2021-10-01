@@ -99,11 +99,13 @@ overestimate performance [cite].
 
 \paragraph{Small Validation Sets}
 
-For any study, if the total number of samples (e.g. subjects) is \(N\), then leave-one-out
+Suppose, for any study, the total number of samples (e.g. subjects) is \(N\). Then leave-one-out
 cross-validation (LOOCV) is \(N\)-fold cross validation, and validation using \(k\) folds is
 \(k\)-fold validation. We can see from \ref{tab:existing-attempts} and from Table 9 of
-\citet{sakaiMachineLearningStudies2019} that the apparent validation accuracy is highest when \(k\)
-approaches \(N\). While this would not generally be expected from data sampled from a single
+\citet{sakaiMachineLearningStudies2019} that with the heterogeneous ABIDE data, the apparent
+validation accuracy is highest when \(k\) approaches \(N\). Likewise, \citet{iidakaRestingStateFunctional2015} finds
+
+While this would not generally be expected from data sampled from a single
 distribution, when taking small samples from a heterogeneous mixture of distributions, this outcome
 is unsurprising.
 
@@ -152,18 +154,16 @@ influence of random seeds in deep learning architectures for computer vision)
     \toprule
     Study                                                         & Pipeline & Model  & Features & Contam &   Atlas  & \(N\) & \(N_\text{ASD}\) & \(N_{\text{TD}}\) & Validation & OA \\
     \midrule
-    \citet{heinsfeldIdentificationAutismSpectrum2018}             &   CPAC   &   ANN  &  ROI-FC  &   N    & CC-200     & 1035  &  505  &  530  &  10-fold   &       70.0       \\
+    \citet{heinsfeldIdentificationAutismSpectrum2018}             &   CPAC   &   ANN  &  ROI-FC  &   N    &   CC-200   & 1035  &  505  &  530  &  10-fold   &       70.0       \\
     ~                                                             &          &   RF   &          &        &            &       &       &       &            &       63.0       \\
     ~                                                             &          &   SVM  &          &        &            &       &       &       &            &       65.0       \\ \addlinespace
-    \citet{eslamiASDDiagNetHybridLearning2019}                    &   CPAC   & AE+ANN &  ROI-FC  &   N    & CC-200     & 1035  &  505  &  530  &  10-fold   &       70.3       \\
+    \citet{eslamiASDDiagNetHybridLearning2019}                    &   CPAC   & AE+ANN &  ROI-FC  &   N    &   CC-200   & 1035  &  505  &  530  &  10-fold   &       70.3       \\
     \citet{yinDiagnosisAutismSpectrum2021}                        &  custom  & AE+SVM &  graph   &   N    & \(264^a\)  & \(871^b\) & \(403^b\) & \(468^b\)  &  holdout\(^b\) &       \(78.3^b\) \\
     \citet{liMultisiteFMRIAnalysis2020}                           &   CPAC   &  ANN   &  ROI-FC  &   N    &     HO     &  370  &  186  &  184  &   5-fold   & 67.6\% to 84.9\% \\
     \citet{el-gazzarHybrid3DCNN3DCLSTM2019}                       &   CPAC   & Conv1D & ROI means&   N    &     HO     & 1100  &   ?   &   ?   &   5-fold   &       64.0       \\
     \citet{shaoClassificationASDBased2021}                        &   CPAC   & FS+GCN &  ROI-FC  &   Y    &     HO     &  871  &  403  &  468  &  10-fold   &       79.5       \\
-   %\citet{dekhilUsingRestingState2018}                           &          &        &          &        &            &       &       &       &            &                  \\
     \citet{parisotDiseasePredictionUsing2018}                     &   CPAC   & FS+GCN &  graph   &   ?    &     HO     &  871  &  403  &  468  &  10-fold   &       70.4       \\
-   %\citet{sakaiMachineLearningStudies2019}                       &          &        &          &        &            &       &       &       &            &                  \\
-    \citet{iidakaRestingStateFunctional2015}                      &          &        &          &        &            &       &       &       &            &                  \\
+    \citet{iidakaRestingStateFunctional2015}                      &  custom  & FS+PNN &  ROI-FC  &   Y    &     AAL   &\(640^c\)& 312  &  328  &            &                  \\
     \citet{liNovelTransferLearning2018}                           &          &        &          &        &            &       &       &       &            &                  \\
     \citet{kazeminejadTopologicalPropertiesRestingState2019}      &          &        &          &        &            &       &       &       &            &                  \\
     \citet{khoslaEnsembleLearning3D2019}                          &          &        &          &        &            &       &       &       &            &                  \\
@@ -176,20 +176,25 @@ influence of random seeds in deep learning architectures for computer vision)
     \citet{yangLargeScaleBrainFunctional2021}                     &          &        &          &        &            &       &       &       &            &                  \\
     \citet{almuqhimASDSAENetSparseAutoencoder2021}                &          &        &          &        &            &       &       &       &            &                  \\
     \citet{byeonArtificialNeuralNetwork2020}                      &          &        &          &        &            &       &       &       &            &                  \\
+   %\citet{dekhilUsingRestingState2018}                           &          &        &          &        &            &       &       &       &            &                  \\
+   %\citet{sakaiMachineLearningStudies2019}                       &          &        &          &        &            &       &       &       &            &                  \\
     \bottomrule
   \end{tabular} \label{tab:existing-attempts}
   \caption{
     Overall accuracies of existing approaches using only over 200 subjects and rigorous validation strategies. \(N\) = total number of subjects, \(N_{\text{ASD}}\)
     = total number of ASD subjects, \(N_{\text{TD}}\) = total number of TD subjects. LOOSO =
     Leave-one-site-out cross-validation. LOOCV = leave-one-out cross-validation. ANN = Aritificial
-    Neural Network (linear layers). AE = Autoencoder. RF = Random forest. SVM = support vector
+    Neural Network (linear layers). PNN = Probabilistic neural network (https://ieeexplore.ieee.org/abstract/document/80210). AE = Autoencoder. RF = Random forest. SVM = support vector
     machine. GCN = graph convolutional network. ROI-FC = ROI-based FC matrix. graph = graph-theoretic
-    measures and metrics, usually extracted from ROI-FC. CC-200/400 = Cameron-Craddock 200/400. HO = Harvard-Oxford. OA = Overall
-    Accuracy. FS = feature selection. Contam = contaminated feature selection
+  measures and metrics, usually extracted from ROI-FC. CC-200/400 = Cameron-Craddock 200/400. HO =
+  Harvard-Oxford. AAL = Automated anatomical labeling
+  (https://www.sciencedirect.com/science/article/abs/pii/S1053811901909784). OA = Overall Accuracy.
+  FS = feature selection. Contam = contaminated feature selection
     \hspace{\textwidth} \(^a\) 264 ROI Atlas from (Power, J.D., Cohen, A.L., Nelson, S.M., et al.
     2011. Functional network organization of the human brain. Neuron 72, 665–678.)
     \hspace{\textwidth} \(^b\) Authors in fact use 80\% of data for training and feature selection,
     and validate using 10-fold only on a final set held-out from feature selection of 174 subjects.
+    \hspace{\textwidth} \(^c\) Only subjects less than 20 years old were used for this study.
   }
   \normalsize
 \end{table}
