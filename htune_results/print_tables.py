@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parent
 JSONS = sorted(ROOT.rglob("*.json"))
 
 
-def print_htune_table(df: DataFrame) -> None:
+def print_htune_table(df: DataFrame) -> Tuple[DataFrame, str]:
     def renamer(s: str) -> str:
         if "params" not in s:
             s = f"{s}_"
@@ -79,15 +79,21 @@ def print_htune_table(df: DataFrame) -> None:
     renamed.complete = (
         pd.to_datetime(renamed.complete, unit="ms").round("min").astype(str).str[5:-3]
     )
+    total_time = renamed.trained.sum()
     renamed.trained = renamed.trained.apply(pd.Timedelta, unit="ms").apply(format_time)
     for col in renamed.columns:
         if "system_attrs" in col:
             renamed.drop(columns=col, inplace=True)
     print(renamed.to_markdown(tablefmt="simple", floatfmt=float_fmts, index=False))
+    print(f"Total time hypertuning: {format_time(total_time)}")
+    return renamed, total_time
 
 
 if __name__ == "__main__":
+    times = []
     for json in JSONS:
         df = pd.read_json(json)
         print(json.name.upper())
-        print_htune_table(df)
+        table, time = print_htune_table(df)
+        times.append(time.total_seconds() / 3600)
+    print(f"Total time tuning all models: {np.sum(times)} hours")
