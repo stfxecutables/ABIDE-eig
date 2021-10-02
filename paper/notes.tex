@@ -13,6 +13,7 @@
 \usepackage{nicefrac}       % compact symbols for 1/2, etc.
 \usepackage{microtype}      % microtypography
 % \usepackage{lipsum}		% Can be removed after putting your text content
+\usepackage{pdflscape}
 \usepackage{graphicx}
 \usepackage{natbib}
 \usepackage{doi}
@@ -91,7 +92,7 @@ fitting procedure.
 \subsubsection{Biased Feature Selection}
 
 Suppose we have a sample of data \(\mathbf{X} \in \mathbb{R}^n\), targets \(\mathbf{y}\), a feature
-selection procedure \(S: \mathbb{R}^n \rightarrow \mathbb{R}^m\), and a model (e.g. classifier)
+selection (or engineering) procedure \(S: \mathbb{R}^n \rightarrow \mathbb{R}^m\), and a model (e.g. classifier)
 \(f\) with hyperparameters \(\theta\), so that we can write \(f(\bm{x}) =
 f_{\theta}(\mathbf{x})\) for \(x \in S(\mathbf{X})\).  Suppose we also have some validation
 procedure \(V\) which operates on the outputs of \(f\) and produces some score or loss
@@ -110,10 +111,10 @@ S_{\omega}\) where \( \eta = (\theta, \omega) \). Either \(\omega\) and \(\theta
 
 \begin{enumerate}
   \item choose a sensible starting value \(\hat{\theta}\) for \(\theta\) [or instead start with \(\hat{\omega}\)]
-  \item compute \(\omega^{\star} = \argmin_{\omega} \left(\mathcal{L}(\hat{\theta}, \omega)\right)\) [or instead \(\theta^{\star} = \argmin_{\theta} \left(\mathcal{L}(\theta, \hat{\omega})\right)\)]
+  \item compute \(\omega^{\star} = \argmin_{\omega} \mathcal{L}(\hat{\theta}, \omega)\) [or instead \(\theta^{\star} = \argmin_{\theta} \mathcal{L}(\theta, \hat{\omega})\)]
   \item compute
-  \(\theta^{\star} = \argmin_{\theta} \left(\mathcal{L}(\theta, \omega^{\star})\right)\) [or instead
-  \(\omega^{\star} = \argmin_{\omega} \left(\mathcal{L}(\theta^{\star}, \omega)\right)\)]
+  \(\theta^{\star} = \argmin_{\theta} \mathcal{L}(\theta, \omega^{\star})\) [or instead
+  \(\omega^{\star} = \argmin_{\omega} \mathcal{L}(\theta^{\star}, \omega)\)]
   \item optimal performance is then \(\mathcal{L}(\theta^{\star}, \omega^{\star})\)
 \end{enumerate}
 
@@ -127,7 +128,10 @@ procedure. That is, we must partition \((\mathbf{X}, \mathbf{y})\) into mutually
 \((\tsub{X}{val}, \tsub{y}{val})\), and ensure that  \((\tsub{X}{test}\) and \(\tsub{y}{test})\) are
 \emph{never} used in any optimization procedure.
 
-As per above, there is nothing special about feature selection. Feature selection + tuning is just another more complicated single fitting procedure, and so feature selection isn't \emph{exempt} from the requirements of cross-validation or holdout. That is, in the notation of above, and putting back in the data used for the loss calculations, then
+As per above, there is nothing special about feature selection. Feature selection + tuning is just
+another more complicated single fitting procedure, and so feature selection isn't \emph{exempt} from
+the requirements of cross-validation or holdout. That is, in the notation of above, and putting back
+in the data used for the loss calculations, then
 
 \[
   \mathcal{L}_{\eta^{\star}}(\mathbf{X}, \mathbf{y}),
@@ -135,7 +139,17 @@ As per above, there is nothing special about feature selection. Feature selectio
   \eta^{\star} = \argmin_{\eta} \mathcal{L}_{\eta}(\mathbf{X}, \mathbf{y})
 \]
 
-is a biased and possibly severely overfit estimate of performance (regardless if \(\mathcal{L}\) uses k-fold internally) because such a procedure uses all the data multiple times, and simply chooses the largest value. Instead, one must report
+is a biased and overfit estimate of performance (regardless if \(\mathcal{L}\) uses k-fold
+internally) because such a procedure uses all the data multiple times, and simply chooses the
+largest value. In particular, with the above procedure, there is no way to know if feature selection
+or engineering has actually resulted in meaningful improvements (compared to no feature
+selection/engineering). In fact, as most DL is viewed as performing implicit feature engineering,
+choosing the "best" feature set and reporting results only for that feature set would be the
+equivalent in deep learning of performing multiple model runs \emph{and multiple evaluations on the
+test set}, and then just reporting the "best" test result. Thus, any study which performs biased
+feature selection cannot be meaningfully compared to a study that makes proper use of a test set
+
+Instead, one must report
 
 \[
   \mathcal{L}_{\eta^{\star}}(\tsub{X}{test}, \tsub{y}{test}),
@@ -149,38 +163,11 @@ where either
   \eta^{\star} = \argmin_{\eta} \mathcal{L}_{\eta}(\tsub{X}{val}, \tsub{y}{val})
 \]
 
+Unfortunately, almost all studies using a large number of subjects and reporting overall accuracies
+exceeding 71\% either involve such a questionable feature-selection procedure, or provide
+insufficient details to rule out whether feature selection used all subjects (see
+\ref{tab:existing-attempts}, "Biased" column).
 
-% \[
-%   \omega^{\star} = \argmin_{\omega} \left(\mathcal{L}_{\theta, \omega}(\tsub{X}{train}, \tsub{y}{train})\right)
-%   \text{where}
-%   \omega^{\star} = \argmin_{\omega} \left(\mathcal{L}_{\theta, \omega}(\tsub{X}{train}, \tsub{y}{train})\right)
-
-%   \quad \text{or} \quad
-%   \omega^{\star} = \argmin_{\omega} \left(\mathcal{L}_{\theta, \omega}(\tsub{X}{val}, \tsub{y}{val})\right)
-% \]
-
-\paragraph{Fine-Tune Later}
-\begin{enumerate}
-\item fix \(\theta\) at some reasonable value
-\item choose the final set of features using
-\[
-  \omega^{\star} = \argmin_{\omega} \left(\mathcal{L}_{\theta, \omega}(\tsub{X}{train}, \tsub{y}{train})\right)
-  \quad \text{or} \quad
-  \omega^{\star} = \argmin_{\omega} \left(\mathcal{L}_{\theta, \omega}(\tsub{X}{val}, \tsub{y}{val})\right)
-\]
-\item fine-tune \(\theta\) by finding
-\[
-  \theta^{\star} = \argmin_{\theta} \left(\mathcal{L}_{\theta, \omega^{\star}}(\tsub{X}{train}, \tsub{y}{train})\right)
-  \quad \text{or} \quad
-  \theta^{\star} = \argmin_{\theta} \left(\mathcal{L}_{\theta, \omega^{\star}}(\tsub{X}{val}, \tsub{y}{val})\right)
-\]
-\item report the final loss \(\mathcal{L}_{\theta^{\star}, \omega^{\star}}(\tsub{X}{test}, \tsub{y}{test})\)
-\end{enumerate}
-
-Note that we can write \(g_{\theta^{\prime}} = f_{\theta} \circ S\), where \(\theta^{\prime}\) are the hyperparameters of \(f\) and '
-
-For example, the indices of features to use The model may also have internal weights (trainable parameters), but the
-values of these weights are computed by the fitting procedure, and not selected by the researcher, and so not important here.
 
 \subsubsection{Heterogeneity and Validation}
 
@@ -250,61 +237,79 @@ achieve  difference, on average, of   (i.e. due to a handful or less of ) except
 just as easily be the result of a "lucky" split (torch.manual seed(3407) is all you need: On the
 influence of random seeds in deep learning architectures for computer vision)
 
-\begin{itemize}
-  \item
-\end{itemize}
+\newpage
+\begin{landscape}
 
 \begin{table}
   \small
   \centering
-  \begin{tabular}{lcccccrrrcc}
+  \begin{tabular}{lcccccccccc}
     \toprule
-    Study                                                         & Pipeline & Model  & Features & Contam &   Atlas  & \(N\) & \(N_\text{ASD}\) & \(N_{\text{TD}}\) & Validation & OA \\
+    Study                                                         & Pipeline & Model  & Features & Biased &Atlas or \(N_{ROI}\)  & \(N\) & \(N_\text{ASD}\) & \(N_{\text{TD}}\) & Validation & OA \\
     \midrule
-    \citet{heinsfeldIdentificationAutismSpectrum2018}             &   CPAC   &   ANN  &  ROI-FC  &   N    &   CC-200   & 1035  &  505  &  530  &  10-fold   &       70.0       \\
-    ~                                                             &          &   RF   &          &        &            &       &       &       &            &       63.0       \\
-    ~                                                             &          &   SVM  &          &        &            &       &       &       &            &       65.0       \\ \addlinespace
-    \citet{eslamiASDDiagNetHybridLearning2019}                    &   CPAC   & AE+ANN &  ROI-FC  &   N    &   CC-200   & 1035  &  505  &  530  &  10-fold   &       70.3       \\
-    \citet{yinDiagnosisAutismSpectrum2021}                        &  custom  & AE+SVM &  graph   &   N    & \(264^a\)  & \(871^b\) & \(403^b\) & \(468^b\)  &  holdout\(^b\) &       \(78.3^b\) \\
-    \citet{liMultisiteFMRIAnalysis2020}                           &   CPAC   &  ANN   &  ROI-FC  &   N    &     HO     &  370  &  186  &  184  &   5-fold   & 67.6\% to 84.9\% \\
-    \citet{el-gazzarHybrid3DCNN3DCLSTM2019}                       &   CPAC   & Conv1D & ROI means&   N    &     HO     & 1100  &   ?   &   ?   &   5-fold   &       64.0       \\
-    \citet{shaoClassificationASDBased2021}                        &   CPAC   & FS+GCN &  ROI-FC  &   Y    &     HO     &  871  &  403  &  468  &  10-fold   &       79.5       \\
-    \citet{parisotDiseasePredictionUsing2018}                     &   CPAC   & FS+GCN &  graph   &   ?    &     HO     &  871  &  403  &  468  &  10-fold   &       70.4       \\
-    \citet{iidakaRestingStateFunctional2015}                      &  custom  & FS+PNN &  ROI-FC  &   Y    &     AAL   &\(640^c\)& 312  &  328  &  10-fold   &       86.9       \\
-    \citet{liNovelTransferLearning2018}                           &          &        &          &        &            &       &       &       &            &                  \\
-    \citet{kazeminejadTopologicalPropertiesRestingState2019}      &          &        &          &        &            &       &       &       &            &                  \\
-    \citet{khoslaEnsembleLearning3D2019}                          &          &        &          &        &            &       &       &       &            &                  \\
-    \citet{wangIdentifyingAutismSpectrum2020}                     &          &        &          &        &            &       &       &       &            &                  \\
-    \citet{sherkatghanadAutomatedDetectionAutism2020}             &          &        &          &        &            &       &       &       &            &                  \\
-    \citet{wangFunctionalConnectivitybasedClassification2019}     &          &        &          &        &            &       &       &       &            &                  \\
-    \citet{yangDeepNeuralNetwork2020}                             &          &        &          &        &            &       &       &       &            &                  \\
-    \citet{wangMAGEAutomaticDiagnosis2021}                        &          &        &          &        &            &       &       &       &            &                  \\
-    \citet{ingalhalikarFunctionalConnectivitybasedPrediction2021} &          &        &          &        &            &       &       &       &            &                  \\
-    \citet{yangLargeScaleBrainFunctional2021}                     &          &        &          &        &            &       &       &       &            &                  \\
-    \citet{almuqhimASDSAENetSparseAutoencoder2021}                &          &        &          &        &            &       &       &       &            &                  \\
-    \citet{byeonArtificialNeuralNetwork2020}                      &          &        &          &        &            &       &       &       &            &                  \\
-   %\citet{dekhilUsingRestingState2018}                           &          &        &          &        &            &       &       &       &            &                  \\
-   %\citet{sakaiMachineLearningStudies2019}                       &          &        &          &        &            &       &       &       &            &                  \\
+    \citeauthor{el-gazzarHybrid3DCNN3DCLSTM2019}                       &   CPAC   & Conv1D & ROI means&   N    &     HO     & 1100  &   ?   &   ?   &   5-fold   &       64.0       \\
+    \citeauthor{yangDeepNeuralNetwork2020}                             &   CPAC   &  ANN   &  ROI-FC  &   N    &   CC-400   & 1035  &  505  &  530  &   5-fold   &     \(75.27^a\)  \\
+    \citeauthor{almuqhimASDSAENetSparseAutoencoder2021}                &   CPAC   & AE+ANN &  ROI-FC  &   N    &   CC-200   & 1035  &  505  &  530  &  10-fold   &       70.8       \\
+    \citeauthor{eslamiASDDiagNetHybridLearning2019}                    &   CPAC   & AE+ANN &  ROI-FC  &   N    &   CC-200   & 1035  &  505  &  530  &  10-fold   &       70.3       \\
+    \citeauthor{sherkatghanadAutomatedDetectionAutism2020}             &   CPAC   &  CNN   &  ROI-FC  &   N    &   CC-400   & 1035  &  505  &  530  &  10-fold   &       70.2       \\
+    \citeauthor{heinsfeldIdentificationAutismSpectrum2018}             &   CPAC   &   ANN  &  ROI-FC  &   N    &   CC-200   & 1035  &  505  &  530  &  10-fold   &       70.0       \\
+    \citeauthor{ingalhalikarFunctionalConnectivitybasedPrediction2021} &  DPARSF  &  ANN   &  ROI-FC+ &   ?    &   CC-200   &  988  &  432  &  556  &10-fold LOSO&       71.4       \\
+    \citeauthor{wangMAGEAutomaticDiagnosis2021}                        &   CPAC   &GCN+ensemble&ROI-FC&   ?    &  multiple  &  949  &  419  &  530  &  10-fold   & 75.9 (70.7-72.5)\(^b\)  \\
+    \citeauthor{yinDiagnosisAutismSpectrum2021}                        &  custom  & AE+SVM &  graph   &   N    & \(264^c\)  & \(871^d\) & \(403^d\) & \(468^d\)  &  holdout\(^d\) & \(78.3^d\) \\
+    \citeauthor{shaoClassificationASDBased2021}                        &   CPAC   & FS+GCN &  ROI-FC  &   Y    &     HO     &  871  &  403  &  468  &  10-fold   &       79.5       \\
+    \citeauthor{mostafaDiagnosisAutismSpectrum2019}                    &  custom  & FS+LDA &  graph   &   ?    & \(264^c\)  &  871  &  403  &  468  &  10-fold   &       77.7       \\
+    \citeauthor{parisotDiseasePredictionUsing2018}                     &   CPAC   & FS+GCN &  graph   &   ?    &     HO     &  871  &  403  &  468  &  10-fold   &       70.4       \\
+    \citeauthor{khoslaEnsembleLearning3D2019}                          &   CPAC   &  CNN   &  ROI-FC+ &   N    &   CC-200  &\(774/393^e\)&\(379/163^e\)&\(395/230^e\)&holdout& 72.8 \\
+    \citeauthor{iidakaRestingStateFunctional2015}                      &  custom  & FS+PNN &  ROI-FC  &   Y    &     AAL   &\(640^f\)& 312  &  328  &  10-fold   &       86.9       \\
+    \citeauthor{byeonArtificialNeuralNetwork2020}                      &   CPAC  & CNN+RNN+ & graph   &   N    &     BNA    &\(575^g\)& 270 &  305  & 5-fold\(^h\)&       74.5      \\
+    \citeauthor{wangFunctionalConnectivitybasedClassification2019}     &  DPARSF  & FS+SVM &  ROI-FC  &   Y    &     35     &  531  &  255  &  276  &   LOSO    &      75.0-95.2    \\
+    \citeauthor{liMultisiteFMRIAnalysis2020}                           &   CPAC   &  ANN   &  ROI-FC  &   N    &     HO     &  370  &  186  &  184  &   5-fold   & 67.6\% to 84.9\% \\
+    \citeauthor{kazeminejadTopologicalPropertiesRestingState2019}      &   CPAC   & FS+SVM &  graph   &   N    &     AAL   &\(342^i\)&  ?   &   ?   &  10-fold   &       69.0       \\
+   %\citeauthor{dekhilUsingRestingState2018}                           &          &        &          &        &            &       &       &       &            &                  \\
     \bottomrule
   \end{tabular} \label{tab:existing-attempts}
   \caption{
-    Overall accuracies of existing approaches using only over 200 subjects and rigorous validation strategies. \(N\) = total number of subjects, \(N_{\text{ASD}}\)
-    = total number of ASD subjects, \(N_{\text{TD}}\) = total number of TD subjects. LOOSO =
-    Leave-one-site-out cross-validation. LOOCV = leave-one-out cross-validation. ANN = Aritificial
-    Neural Network (linear layers). PNN = Probabilistic neural network (https://ieeexplore.ieee.org/abstract/document/80210). AE = Autoencoder. RF = Random forest. SVM = support vector
-    machine. GCN = graph convolutional network. ROI-FC = ROI-based FC matrix. graph = graph-theoretic
-  measures and metrics, usually extracted from ROI-FC. CC-200/400 = Cameron-Craddock 200/400. HO =
-  Harvard-Oxford. AAL = Automated anatomical labeling
-  (https://www.sciencedirect.com/science/article/abs/pii/S1053811901909784). OA = Overall Accuracy.
-  FS = feature selection. Contam = contaminated feature selection
-    \hspace{\textwidth} \(^a\) 264 ROI Atlas from (Power, J.D., Cohen, A.L., Nelson, S.M., et al.
-    2011. Functional network organization of the human brain. Neuron 72, 665–678.)
-    \hspace{\textwidth} \(^b\) Authors in fact use 80\% of data for training and feature selection,
+    Best overall accuracies of existing approaches using only over 200 subjects and rigorous validation strategies. Sorted by sample size and then accuracy.
+    \(N\) = total number of subjects,
+    \(N_{\text{ASD}}\) = total number of ASD subjects,
+    \(N_{\text{TD}}\) = total number of TD subjects.
+    DPARSF = \citep[see][]{yanDPARSFMATLABToolbox2010}.
+    LOSO = Leave-one-site-out cross-validation.
+    LOOCV = leave-one-out cross-validation.
+    ANN = Aritificial Neural Network (linear layers).
+    PNN = Probabilistic neural network \citep{spechtProbabilisticNeuralNetworks1990}.
+    CNN = Convolutional neural network
+    RNN = Recurrent neural network
+    GCN = graph convolutional network.
+    AE = Autoencoder. RF = Random forest. SVM = support vector machine.
+    LDA = Linear Discriminant Analysis.
+    ROI-FC = ROI-based FC matrix ("+" indicates extra processing on ROI-FC).
+    graph = graph-theoretic measures and metrics, usually extracted from ROI-FC.
+    DA = domain adaptation
+    CCS = Connectome Computation System \citep{xuConnectomeComputationSystem2015}.
+    CC-200/400 = Cameron-Craddock 200/400.
+    HO = Harvard-Oxford Atlas.
+    AAL = Automated anatomical labeling \citep{tzourio-mazoyerAutomatedAnatomicalLabeling2002}.
+    BNA = BrainNetome Atlas \citep{fanHumanBrainnetomeAtlas2016}
+    OA = Overall Accuracy.
+    FS = feature selection.
+    Biased = feature selection using full data.
+    \\\hspace{\textheight} \(^a\) Note this paper also reports 5-fold accuracies of 71-72\% with simple
+    logistic regression, ridge regression, and linear SVM, which seems very difficult to square with
+    other studies reviewed here, especially since 5-fold should be much more difficult than 10-fold.
+    \\\hspace{\textheight} \(^b\) Bracketed values are values without ensembling.
+    \\\hspace{\textheight} \(^c\) 264 ROI Atlas from \citep{powerFunctionalNetworkOrganization2011}
+    \\\hspace{\textheight} \(^d\) Authors in fact use 80\% of data for training and feature selection,
     and validate using 10-fold only on a final set held-out from feature selection of 174 subjects.
-    \hspace{\textwidth} \(^c\) Only subjects less than 20 years old were used for this study.
+    \\\hspace{\textheight} \(^e\) Train/test. Training subjects from ABIDE I, testing from ABIDE II.
+    \\\hspace{\textheight} \(^f\) Only subjects less than 20 years old were used for this study.
+    \\\hspace{\textheight} \(^g\) Included only subjects with a TR of 2.0s
+    \\\hspace{\textheight} \(^h\) Stratified for both ASD/TD and site ratios
+    \\\hspace{\textheight} \(^i\) Only subjects between 10-15 years of age.
   }
   \normalsize
 \end{table}
+\end{landscape}
 
 \paragraph{Contamination}
 
@@ -505,6 +510,20 @@ Decent. Very similar to ours in spirit.
   \end{itemize}
 \end{itemize}
 
+\subsection{\citet{khoslaEnsembleLearning3D2019}}
+\textbf{Note that choice of atlas doesn't matter}, we could use this as a citation for motivating
+our non-atlas-based approach! Also this is a clever / good study that combines a lot of tricks and does seem to manage to get to 72.8\%.
+\begin{itemize}
+  \item CPAC pipeline, but did some extra expert / manual scrubbing and quality control (manual and
+  automatic), exclude very young and very old, which brought them down to  \textbf{163 ASD / 230
+  CTRL}
+  \item looked at all ROIs from all atlases
+  \item get to about 72.8\% acc with CC200 parcellation and 3D-CNN (Table 2)
+  \item various other models all get to around 71.2\%, 71.7\%, 72.3\%, etc
+  \item also generate a novel / clever new multi-channel 3D image where each channel is some different
+  feature extracted from the connectivity info (e.g. channel 1 is voxel time series correlation with mean global time series, channel 2 is some other..., etc)
+\end{itemize}
+
 \section{Other Articles} \label{other-articles}
 
 
@@ -627,7 +646,7 @@ out-of-bag accuracies of 0.90 or on tiny sample. Otherwise, of note is
 \subsection{\citet{khoslaEnsembleLearning3D2019}}
 
 \textbf{Note that choice of atlas doesn't matter}, we could use this as a citation for motivating
-our non-atlas-based approach!
+our non-atlas-based approach! Also this is a clever / good study that combines a lot of tricks and does seem to manage to get to 72.8\%.
 
 \begin{itemize}
   \item CPAC pipeline, but did some extra expert / manual scrubbing and quality control (manual and
@@ -636,6 +655,8 @@ our non-atlas-based approach!
   \item looked at all ROIs from all atlases
   \item get to about 72.8\% acc with CC200 parcellation and 3D-CNN (Table 2)
   \item various other models all get to around 71.2\%, 71.7\%, 72.3\%, etc
+  \item also generate a novel / clever new multi-channel 3D image where each channel is some different
+  feature extracted from the connectivity info (e.g. channel 1 is voxel time series correlation with mean global time series, channel 2 is some other..., etc)
 \end{itemize}
 
 \subsection{\citet{wangIdentifyingAutismSpectrum2020}}
