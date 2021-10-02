@@ -96,6 +96,14 @@ def get_htune_table(df: DataFrame, show: bool = False) -> Tuple[DataFrame, pd.Ti
     return renamed, total_time
 
 
+def get_best_n(df: DataFrame, n: int = 5) -> DataFrame:
+    table = df.dropna().sort_values(by="val_acc_max", ascending=False)
+    hrs = table.trained.str.replace(" hrs", "").apply(lambda s: float(s))
+    table = table.loc[hrs > 0.8]
+    best = table.iloc[:n]
+    return best
+
+
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--long", action="store_true")
@@ -113,18 +121,18 @@ if __name__ == "__main__":
         exps.append(experiment)
     print("\n\nBest models:\n")
     for table, exp, time in zip(tables, exps, times):
-        best5 = table.dropna().sort_values(by="val_acc_max", ascending=False)[:5]
+        best = get_best_n(table, 10)
         counts, edges = np.histogram(table.dropna().val_acc_max)
         percents = np.round(100 * counts / np.sum(counts), 2)
         print("=" * 80)
-        print(f"{exp}")
+        print(f"{exp} ({np.round(time, 1)} hours / {len(table)} models evaluated)")
         print("=" * 80)
-        print(f"  {exp} val_acc distribution after {time} hours:")
+        print(f"val_acc distribution:\n")
         for i, percent in enumerate(percents):
             print(
                 f"  [{np.round(edges[i], 3):0.3f}, {np.round(edges[i+1], 3):0.3f}]: {percent:4.1f}%"
             )
         print(f"\n{exp} Best 5:")
-        print(min_format(best5))
+        print(min_format(best))
     print("=" * 80)
     print(f"Total time tuning all models: {np.sum(times)} hours")
