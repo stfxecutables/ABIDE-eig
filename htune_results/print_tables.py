@@ -105,6 +105,7 @@ def get_best_n(df: DataFrame, n: int = 5) -> DataFrame:
 
 
 if __name__ == "__main__":
+    N = 10
     parser = ArgumentParser()
     parser.add_argument("--long", action="store_true")
     long = parser.parse_args().long
@@ -121,18 +122,18 @@ if __name__ == "__main__":
         exps.append(experiment)
     print("\n\nBest models:\n")
     for table, exp, time in zip(tables, exps, times):
-        best = get_best_n(table, 10)
+        best = get_best_n(table, N)
         counts, edges = np.histogram(table.dropna().val_acc_max)
         percents = np.round(100 * counts / np.sum(counts), 2)
         print("=" * 80)
         print(f"{exp} ({np.round(time, 1)} hours / {len(table)} models evaluated)")
         print("=" * 80)
-        print(f"val_acc distribution:\n")
+        print("val_acc distribution:\n")
         for i, percent in enumerate(percents):
             print(
                 f"  [{np.round(edges[i], 3):0.3f}, {np.round(edges[i+1], 3):0.3f}]: {percent:4.1f}%"
             )
-        print(f"\n{exp} Best 5:")
+        print(f"\n{exp} Best {N}:")
         print(min_format(best))
     print("=" * 80)
     print(f"Total time tuning all models: {np.sum(times)} hours")
