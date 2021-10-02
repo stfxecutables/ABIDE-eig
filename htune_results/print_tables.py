@@ -1,3 +1,4 @@
+from argparse import ArgumentParser
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union, cast, no_type_check
 
@@ -41,7 +42,7 @@ def min_format(df: DataFrame) -> str:
     return df.to_markdown(tablefmt="simple", floatfmt=float_fmts, index=False)
 
 
-def print_htune_table(df: DataFrame) -> Tuple[DataFrame, pd.Timedelta]:
+def get_htune_table(df: DataFrame, show: bool = False) -> Tuple[DataFrame, pd.Timedelta]:
     def renamer(s: str) -> str:
         if "params" not in s:
             s = f"{s}_"
@@ -89,12 +90,16 @@ def print_htune_table(df: DataFrame) -> Tuple[DataFrame, pd.Timedelta]:
     for col in renamed.columns:
         if "system_attrs" in col:
             renamed.drop(columns=col, inplace=True)
-    print(min_format(renamed))
-    print(f"Total time hypertuning: {format_time(total_time)}")
+    if show:
+        print(min_format(renamed))
+        print(f"Total time hypertuning: {format_time(total_time)}")
     return renamed, total_time
 
 
 if __name__ == "__main__":
+    parser = ArgumentParser()
+    parser.add_argument("--long", action="store_true")
+    long = parser.parse_args().long
     times = []
     tables: List[DataFrame] = []
     exps = []
@@ -102,20 +107,23 @@ if __name__ == "__main__":
         df = pd.read_json(json)
         experiment = json.name.upper()
         print(experiment)
-        table, time = print_htune_table(df)
+        table, time = get_htune_table(df, show=long)
         tables.append(table)
         times.append(time.total_seconds() / 3600)
         exps.append(experiment)
+    print("=" * 80)
     print("Best models:")
+    print("=" * 80)
     for table, exp, time in zip(tables, exps, times):
         best5 = table.sort_values(by="val_acc_max", ascending=False)[:5]
-        percents, edges = np.histogram(table.dropna().val_acc_max, density=True)
+        counts, edges = np.histogram(table.dropna().val_acc_max)
+        percents = np.round(100 * counts / np.sum(counts), 2)
         print(f"  {exp} val_acc distribution after {time} hours:")
         for i, percent in enumerate(percents):
             print(
-                f"  [{np.round(edges[i], 3):0.3f}, {np.round(edges[i+1], 3):0.3f}]: {np.round(100 * percent, 2)}%"
+                f"  [{np.round(edges[i], 3):0.3f}, {np.round(edges[i+1], 3):0.3f}]: {percent:4.1f}%"
             )
         print(f"  {exp} Best 5:")
         print(min_format(best5))
-        print("="*80)
+        print("=" * 80)
     print(f"Total time tuning all models: {np.sum(times)} hours")
