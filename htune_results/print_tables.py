@@ -111,19 +111,20 @@ if __name__ == "__main__":
         tables.append(table)
         times.append(time.total_seconds() / 3600)
         exps.append(experiment)
-    print("=" * 80)
-    print("Best models:")
-    print("=" * 80)
+    print("\n\nBest models:\n")
     for table, exp, time in zip(tables, exps, times):
-        best5 = table.sort_values(by="val_acc_max", ascending=False)[:5]
+        best5 = table.dropna().sort_values(by="val_acc_max", ascending=False)[:5]
         counts, edges = np.histogram(table.dropna().val_acc_max)
         percents = np.round(100 * counts / np.sum(counts), 2)
+        print("=" * 80)
+        print(f"{exp}")
+        print("=" * 80)
         print(f"  {exp} val_acc distribution after {time} hours:")
         for i, percent in enumerate(percents):
             print(
                 f"  [{np.round(edges[i], 3):0.3f}, {np.round(edges[i+1], 3):0.3f}]: {percent:4.1f}%"
             )
-        print(f"  {exp} Best 5:")
+        print(f"\n{exp} Best 5:")
         print(min_format(best5))
-        print("=" * 80)
+    print("=" * 80)
     print(f"Total time tuning all models: {np.sum(times)} hours")
