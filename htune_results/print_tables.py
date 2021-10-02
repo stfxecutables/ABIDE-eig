@@ -114,7 +114,7 @@ if __name__ == "__main__":
     exps = []
     for json in JSONS:
         df = pd.read_json(json)
-        experiment = json.name.upper()
+        experiment = json.stem.upper()
         print(experiment)
         table, time = get_htune_table(df, show=long)
         tables.append(table)
@@ -122,6 +122,8 @@ if __name__ == "__main__":
         exps.append(experiment)
     print("\n\nBest models:\n")
     for table, exp, time in zip(tables, exps, times):
+        if exp == "CONV3DTOCONVLSTM3D_EIGIMG":
+            exp = "CONV3DTOCONVLSTM3D_EIGIMG_[125,175]"
         best = get_best_n(table, N)
         counts, edges = np.histogram(table.dropna().val_acc_max)
         percents = np.round(100 * counts / np.sum(counts), 2)
