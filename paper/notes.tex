@@ -36,7 +36,7 @@
   images by examining the eigenvalues of perturbations to the functional connectivity (FC). We use
   both classical ML algorithms and novel DL architectures developed to exploit this 4D information,
   and show that these "eigenperturbation" images have equal or greater predictive potential to the
-  raw fMRI or other common FC-based approaches. We demonstrate the potential of these
+  raw fMRI or other common FC-based approaches. We demonstrate the potential utility of these
   eigenperturbation images using the difficult ABIDE dataset, and obtain start of the art overall
   accuracies of [70\%-80\%].
 \end{abstract}
@@ -51,7 +51,11 @@ less well-established. The handling of 3D medical images is particularly challen
 necessary pre-processing, unique normalization challenges, larger compute costs, and limited
 sample sizes \citep[see][for a general review]{singh3DDeepLearning2020}.
 
-Functional magnetic resonance images (fMRI) is especially challenging. The 4D nature of the data
+\footnotesize
+\textbf{[insert tedious paragraph introducing fMRI here]}
+\normalsize
+
+Functional magnetic resonance images (fMRI) are especially challenging. The 4D nature of fMRI
 means that a single preprocessed fMRI image can be hundreds of megabytes. A single fMRI is
 essentially a (3D) video file\footnote{Except that while in a video file pixel values are in \([0,
 255]\), in fMRI the voxel values can be any floating point value.}, and while there are well-known
@@ -70,172 +74,315 @@ Perhaps the most popular publicly available fMRI dataset is the ABIDE I dataset,
 resting-state fMRI (rs-fMRI) scans from 539 subjects with autism spectrum disorders (ASD) and 573
 age-matched controls with typical development (TD) \citep{dimartinoAutismBrainImaging2014}. However,
 while the ABIDE I dataset is an appropriate size for ML and DL approaches, it is particularly
-challenging to work with due to the inclusion of subjects from 20 different sites. This results in
-highly varied demographic and psychological characteristics and scanning parameters.
+challenging to work with due to the inclusion of subjects from 20 different sites. The resulting
+varied scanning parameters, demographics, and psychological characteristics means that state-of-the
+art classification accuracies are only on the order of 70-75\% (e.g.
+\hyperref[tab:existing-attempts]{Table \ref{tab:existing-attempts}}).
 
-This heterogeneity makes ML and DL approaches difficult (see section \ref{existing-attempts} below
-for a review). However, being able to handle such heterogenous and varied data is essential for
-automated prediction procedures that are to be useful in clinical settings, or for any research that
-seeks to acquire truly generalizable insights from fMRI data.
+Additionally, the ADHD-200 data \citep{bellecNeuroBureauADHD2002017} is a pre-processed rs-fMRI
+dataset of 585 TD and 362 children with Attention Deficit Hyperactive Disorder (ADHD), also
+containing data from 8 sites and 17 different studies. As with ABIDE, accurate classification is
+highly challenging, and competition accuracies originally ranged only from 37.4--60.5\%
+\citep{milhamAdhd200ConsortiumModel2012}, with more recent results in the range of 69-76\%
+\citep[see][for a brief review]{liuDeepSpatioTemporalRepresentation2021}.
+
+Thus, there is a need for \emph{general} methods to extract useful features from rs-fMRI. Being able
+to handle such heterogenous and varied data is also essential for automated prediction procedures that
+are to be useful in clinical settings, or for any research that seeks to acquire truly generalizable
+insights from fMRI data.
+
+\subsection{Prediction from 4D Spatial or Spatiotemporal Data}
+
+% \subsubsection{Prediction-Focused Analysis}
+% When explanation and prediction are in conflict, such as when complex models significantly and
+% consistently outperform simpler, more comprehensible models, prediction is necessarily the more
+% important practical goal and fact (i.e. explanation must strive to catch up with the predictive
+% performance). For sufficiently complex phenomena (quantum phenomena, chaotic systems, human
+% cognition) explanation generally may simply not be a realistic or practically useful goal. Thus, we
+% focus on predictive analysis.
+
+\subsubsection{Deep Learning Approaches}
+
+As should be clear from \hyperref[tab:existing-attempts]{Table \ref{tab:existing-attempts}}, all
+state-of-the-art classification accuracies are obtained either using a pure DL approach or a feature
+selection plus DL approach. While other hybrid approaches will likely be developed in the future and
+achieve even more impressive results, it is likely that any approach will incorporate \emph{some} DL
+methods.
+
+In deep learning, it is common to make a distinction between spatial and channel dimensions. For
+example, colour images, with three colour dimensions (red, green, and blue) and two spatial
+dimensions (height, width) are usually described as multi-channel 2D. Color video is thus
+multi-channel 3D: there are three color channels, and 3 spatial dimensions (height, width, and
+time). Likewise, MRI is one-channel 3D, diffusion MRI is multi-channel 3D, and rs-fMRI is
+one-channel 4D.
+
+Channel dimensions are special in that their \emph{ordering} is largely arbitrary: shuffling
+the order of the channels has no meaningful impact on the semantics or usable information in the
+inputs: channels are parallel (but not necessarily independent) features with identical spatial
+dimensions.
+
+Given the success of the 2D convolutional neural network (CNN) in computer vision, the most natural
+approach to processing video is thus to take successful multi-channel 2D networks (e.g. ResNet) and
+expand the convolutions to be 3D. However, the computational costs of 3D convolution are much
+larger. While 2D convolution has a computational complexity of \(\mathcal{O}(CHW)\) for channels
+\(C\), height \(H\) and width \(W\), 3D convolution has complexity \(\mathcal{O}(CHWD)\) for depth
+\(D\) \citep{tranVideoClassificationChannelSeparated2019}. 2D CNNs typically crop or downsample
+images to e.g. \(N_p = 256\times256 = 2^9\) pixels and have 3 channels in the input layers, and then
+internal layers have from \(2^8\) up to \(2^{10}\) or more channels, with anywhere from tens to
+hundreds of such layers, i.e. the complexity is in practice more like over \(\mathcal{O}(2^{17} * L)\)
+for a network with number of layers \(L\). By contrast, even a low-resolution MRI scan with
+dimensions of \(64 \times 64 \times 64\) is already \(2^{18}\) voxels, and for fMRI, which may have, say,
+120 or more timepoints, this is already approximately \(2^{25}\) voxels with just a single channel.
+I.e. fMRI we expect to be two to three orders of magnitudes more costly to process than 2D images.
+
+Similar rough calculations show that the leap from colour 2D to colour video would be only a one to
+two order of magnitude increase, and yet still much of the focus of existing implemeentations for 2D
+video processing focus on performance challenges
+\citep[e.g.][]{tranCloserLookSpatiotemporal2018,tranVideoClassificationChannelSeparated2019,wangVideoModelingCorrelation2020}.
+
+fMRI is truly 4D (one-channel) spatio-temporal data: temporal information is \emph{not} channel
+data, as the order of the volumes is (presumably) important in fMRI. To properly process this would
+require 4D convolution, which is not implemented in most popular frameworks, and would be too
+computationally expensive to use practically. We thus experiment with a number of techniques to reduce
+computational costs, as documented in the \hyperref[sec:methods]{Methods}.
+
 
 \subsection{Existing Approaches and Benchmarks} \label{existing-attempts}
 
-TODO: Summarize results from notes in sections \ref{key-articles} and \ref{other-articles} here,
-both verbally listing various approaches.
+TODO: Verbally summarize other overall details of existing studies not already covered in Table
+\ref{tab:existing-attempts}. E.g. summarize:
+
+\begin{itemize}
+  \item FC approaches based on ROI mean signal correlations
+  \item graph-based approaches which further process the FC to extract graph metrics
+  \item full approaches (no FC)
+  \item embedding / autoencoder / learned representation approaches
+  \item other exotic approaches (harmonization, formal modeling, ...)
+\end{itemize}
 
 \subsection{Problems with Existing Approaches}
 
 Unfortunately, much of the research on the ABIDE dataset is of low-quality, and studies reporting
-accuracies above 71\% all have clear, extremely serious issues either in validation or the general
+accuracies above 71\% all have non-trivial issues either in validation or the general
 fitting procedure.
 
-\subsubsection{Biased Feature Selection}
+\subsubsection{Biased Feature Selection} \label{bias}
 
 Suppose we have a sample of data \(\mathbf{X} \in \mathbb{R}^n\), targets \(\mathbf{y}\), a feature
-selection (or engineering) procedure \(S: \mathbb{R}^n \rightarrow \mathbb{R}^m\), and a model (e.g. classifier)
-\(f\) with hyperparameters \(\theta\), so that we can write \(f(\bm{x}) =
-f_{\theta}(\mathbf{x})\) for \(x \in S(\mathbf{X})\).  Suppose we also have some validation
-procedure \(V\) which operates on the outputs of \(f\) and produces some score or loss
+selection (or engineering) procedure \(S: \mathbb{R}^n \rightarrow \mathbb{R}^m\) parameterized by
+\(\omega\), and a model (e.g. classifier) \(f\) with hyperparameters \(\theta\), so that we can
+write \(f(\bm{x}) = f_{\theta}(\mathbf{x})\) for \(x \in S(\mathbf{X})\).  Suppose we also have some
+validation procedure which operates on the outputs of \(f\) and produces some score or loss
 \(\mathcal{L}(f_{\theta}(S(\mathbf{X})), \mathbf{y}) \in \mathbb{R}\) to be minimized, and computed
-via some validation procedure (e.g. mean accuracy from k-fold cross-validation). If we also say that
-\(S\) is parameterized by \(\omega\), such that we can write \(S = S_{\omega}\),
-and we can also write that the loss is \(\mathcal{L}_{\theta, \omega}(\mathbf{X}, \mathbf{y})\) or even
-just \(\mathcal{L}(\theta, \omega)\).
-Finding an optimal set of features and hyperparameters thus requires finding optimal or good
-\(\theta^{\star}\) and \(\omega^{\star}\) values.
+via some validation procedure (e.g. mean accuracy from k-fold cross-validation). Then the loss is
+\(\mathcal{L}_{\theta, \omega}(\mathbf{X}, \mathbf{y})\) or \(\mathcal{L}(\theta, \omega)\),
+omitting the data. Finding an optimal set of features and hyperparameters thus requires finding
+optimal or good \(\theta^{\star}\) and \(\omega^{\star}\) values.
 
 Clearly, feature selection and hyperparameter optimization can be combined conceptually and the
 whole process is identical to the usual optimization problem where we attempt to minimize
-\(\mathcal{L}(\eta)\) for a function \( g_{\eta} = f_{\theta} \circ
-S_{\omega}\) where \( \eta = (\theta, \omega) \). Either \(\omega\) and \(\theta\) can be optimized sequentially:
+\(\mathcal{L}(\eta)\) for a function \( g_{\eta} = f_{\theta} \circ S_{\omega}\) where \( \eta =
+(\theta, \omega) \). Either \(\omega\) and \(\theta\) can be optimized sequentially, by choosing
+some starting \(\hat{\theta}\), computing \(\omega^{\star} = \argmin_{\omega}
+\mathcal{L}(\hat{\theta}, \omega)\), and then computing \(\theta^{\star} = \argmin_{\theta}
+\mathcal{L}(\theta, \omega^{\star})\) to get the optimal performance \(\mathcal{L}(\theta^{\star},
+\omega^{\star})\), or in combination, by simply finding \(\argmin_{\eta} \mathcal{L}(\eta)\)\footnote{Of course the sequential optimization could be performed in the reverse order}.
 
-\begin{enumerate}
-  \item choose a sensible starting value \(\hat{\theta}\) for \(\theta\) [or instead start with \(\hat{\omega}\)]
-  \item compute \(\omega^{\star} = \argmin_{\omega} \mathcal{L}(\hat{\theta}, \omega)\) [or instead \(\theta^{\star} = \argmin_{\theta} \mathcal{L}(\theta, \hat{\omega})\)]
-  \item compute
-  \(\theta^{\star} = \argmin_{\theta} \mathcal{L}(\theta, \omega^{\star})\) [or instead
-  \(\omega^{\star} = \argmin_{\omega} \mathcal{L}(\theta^{\star}, \omega)\)]
-  \item optimal performance is then \(\mathcal{L}(\theta^{\star}, \omega^{\star})\)
-\end{enumerate}
-
-or combined, by simply finding \(\argmin_{\eta} \mathcal{L}(\eta)\).
-
-If our loss function \(\mathcal{L}\) is also our final performance metric (e.g. the
-misclassification error), then if we do not want the above procedure to overfit our data and/or
-produce biased performance (over)estimates, we must employ some kind of holdout or cross-validation
-procedure. That is, we must partition \((\mathbf{X}, \mathbf{y})\) into mutually disjoint sets
+If \(\mathcal{L}\) is also the final performance metric (e.g. the
+misclassification error), then to prevent  biased performance (over)estimates, some kind of holdout or cross-validation
+procedure is needed. That is, we must partition \((\mathbf{X}, \mathbf{y})\) into mutually disjoint sets
 \((\tsub{X}{train}, \tsub{y}{train})\), \((\tsub{X}{test}, \tsub{y}{test})\), and optionally
 \((\tsub{X}{val}, \tsub{y}{val})\), and ensure that  \((\tsub{X}{test}\) and \(\tsub{y}{test})\) are
 \emph{never} used in any optimization procedure.
 
-As per above, there is nothing special about feature selection. Feature selection + tuning is just
-another more complicated single fitting procedure, and so feature selection isn't \emph{exempt} from
-the requirements of cross-validation or holdout. That is, in the notation of above, and putting back
-in the data used for the loss calculations, then
+Feature selection is \emph{not} exempt from this requirement. Using all data in feature selection
+means the reported result is \(\mathcal{L}_{\eta^{\star}}(\mathbf{X}, \mathbf{y})\), where
+\(\eta^{\star} = \argmin_{\eta} \mathcal{L}_{\eta}(\mathbf{X}, \mathbf{y})\), which is a
+\emph{biased} and \emph{overfit} estimate of performance (regardless if \(\mathcal{L}\) uses k-fold
+internally) because such a procedure uses \emph{all} the data multiple times, and simply chooses the
+largest value. With this procedure, there is no way to know if feature selection or engineering has
+actually resulted in meaningful improvements compared to no feature selection/engineering.
 
-\[
-  \mathcal{L}_{\eta^{\star}}(\mathbf{X}, \mathbf{y}),
-  \quad \text{where} \quad
-  \eta^{\star} = \argmin_{\eta} \mathcal{L}_{\eta}(\mathbf{X}, \mathbf{y})
-\]
-
-is a biased and overfit estimate of performance (regardless if \(\mathcal{L}\) uses k-fold
-internally) because such a procedure uses all the data multiple times, and simply chooses the
-largest value. In particular, with the above procedure, there is no way to know if feature selection
-or engineering has actually resulted in meaningful improvements (compared to no feature
-selection/engineering). In fact, as most DL is viewed as performing implicit feature engineering,
-choosing the "best" feature set and reporting results only for that feature set would be the
+In fact, as most DL is viewed as performing implicit feature engineering, choosing the "best"
+feature set using all data, and then reporting results only for that feature set would be the
 equivalent in deep learning of performing multiple model runs \emph{and multiple evaluations on the
 test set}, and then just reporting the "best" test result. Thus, any study which performs biased
-feature selection cannot be meaningfully compared to a study that makes proper use of a test set
+feature selection cannot be meaningfully compared to a study that makes proper use of a fully held
+out test set, i.e. one which reports \(\mathcal{L}_{\eta^{\star}}(\tsub{X}{test}, \tsub{y}{test})\),
+where \(\eta^{\star} = \argmin_{\eta}  \mathcal{L}_{\eta}(\tsub{X}{train}, \tsub{y}{train})\) or
+\(\eta^{\star} = \argmin_{\eta} \mathcal{L}_{\eta}(\tsub{X}{val}, \tsub{y}{val}) \)
 
-Instead, one must report
-
-\[
-  \mathcal{L}_{\eta^{\star}}(\tsub{X}{test}, \tsub{y}{test}),
-\]
-
-where either
-
-\[
-  \eta^{\star} = \argmin_{\eta}  \mathcal{L}_{\eta}(\tsub{X}{train}, \tsub{y}{train})
-  \quad \text{or} \quad
-  \eta^{\star} = \argmin_{\eta} \mathcal{L}_{\eta}(\tsub{X}{val}, \tsub{y}{val})
-\]
-
-Unfortunately, almost all studies using a large number of subjects and reporting overall accuracies
-exceeding 71\% either involve such a questionable feature-selection procedure, or provide
-insufficient details to rule out whether feature selection used all subjects (see
-\ref{tab:existing-attempts}, "Biased" column).
+This "double-dipping" \citep{kriegeskorteCircularAnalysisSystems2009} problem is well-known and not
+at all benign, and for data like MRI, can inflate accuracy estimates by tens of percentage points
+\citep{wen:hal-02105134}. Unfortunately, many studies on ABIDE I reporting overall accuracies
+exceeding 71\% either clearly involve such a biased feature-selection procedure, or provide
+insufficient details to rule out whether feature selection was biased in this manner (see
+\hyperref[tab:existing-attempts]{Table \ref{tab:existing-attempts}},  "Biased" column). We discuss
+how we avoid this problem in the \hyperref[sec:methods]{Methods}.
 
 
-\subsubsection{Heterogeneity and Validation}
+\subsubsection{Heterogeneity and Small Validation Sets}
 
 For heterogeneous data such as ABIDE, with 20 different data sources, validation itself poses a
-unique challenge. As is clear from Table \ref{tab:existing-attempts}, smaller validation set sizes
-(e.g. LOOCV, 10-fold) result in dramatically higher reported accuracies.
-
-We believe this is
-an obvious and direct consequence of the site-level heterogeneity present in the ABIDE data.
-
-\paragraph{Lack of Cross-Validation}
-
-This is also clear from other reviews \citep[][Table 9]{sakaiMachineLearningStudies2019}. Just as an
-example, \citet{sakaiMachineLearningStudies2019} review 12 studies using the ABIDE data. Only four
-of these studies use more than 20\% of the ABIDE data, and of these, only
-\citet{heinsfeldIdentificationAutismSpectrum2018} use rigorous k-fold validation. The others use
-out-of-bag or LOOCV validation, which have limited utility and are also well known to severely
-overestimate performance [cite].
-
-\paragraph{Small Validation Sets}
-
-Suppose, for any study, the total number of samples (e.g. subjects) is \(N\). Then leave-one-out
-cross-validation (LOOCV) is \(N\)-fold cross validation, and validation using \(k\) folds is
-\(k\)-fold validation. We can see from \ref{tab:existing-attempts} and from Table 9 of
+unique challenge. We can see from Table \ref{tab:existing-attempts} and from Table 9 of
 \citet{sakaiMachineLearningStudies2019} that with the heterogeneous ABIDE data, the apparent
-validation accuracy is highest when \(k\) approaches \(N\). Likewise,
-\citet{iidakaRestingStateFunctional2015} report accuracies of 77.2\%, 86.9\%, and 90.3\% for 2-, 10-,
-and 50-fold respectively\footnote{These accuracies are quite high likely due to the use of an
-age-restricted subset of ABIDE and contamination / overfitting in the feature selection procedure,
-which used all subjects}.
+validation accuracy is highest when the number of validation folds increases (or equivalently, as
+the average size of the validation set decreases). This was also demonstrated on ABIDE in
+\citet{iidakaRestingStateFunctional2015}, where accuracies of 77.2\%, 86.9\%, and 90.3\% for 2-, 10-,
+and 50-fold respectively were obtained\footnote{These accuracies are quite high likely due to the use of an
+age-restricted subset of ABIDE and biased feature selection (see section \ref{bias})}.
 
 While this would not generally be expected from data sampled from a single
 distribution, when taking small samples from a heterogeneous mixture of distributions, this outcome
-is unsurprising.
+is unsurprising. As the number of folds or validation sets, \(k\), approaches \(2\), the likelihood that a validation sample comes from a distribution that
+was never seen even once during training increases, and as \(k\) approaches the number of samples, the reverse
+occurs.
 
-As \(k\) approaches \(1\), the likelihood that a validation sample comes from a distribution that
-was never seen even once during training increases, and as \(k\) approaches \(N\), the reverse
-occurs. Given that ABIDE has about 20 different sites (XX from NYU and XX from ... being the
-majority), and that there are at most just over 1000 subjects in the full ABIDE dataset, the
-reported overall accuracy is largely a byproduct of the folding strategy and randomization or seed
-(i.e. the extent to which the validation sets contain sites / TRs / number of timepoints not seen in
-training). Thus, assessment of randomization failure, or approaches like leave-one-site-out
-validation or stratified k-fold with stratification on site or scan parameters are \emph{essential}
-to a proper assessment of model performance on the ABIDE dataset.
+Given that ABIDE has about 20 different sites (XX from NYU and XX from ... being the majority), and
+that there are at most just over 1000 subjects in the full ABIDE dataset, the reported overall
+accuracy is largely a byproduct of the folding strategy and randomization or seed. Thus, assessment
+of randomization failure, or approaches like leave-one-site-out (LOSO) validation or stratified
+k-fold with stratification on site or scan parameters are \emph{essential} to a proper assessment of
+model performance on the ABIDE dataset\footnote{although mean accuracy on e.g. LOSO will also be
+inflated relative to 5- or 10-fold, as most sites have only a small number of samples, and there are
+almost 20 sites)}.
 
 Without such safeguards, one could unwittingly simply stumble upon a seed which performs well simply
-due to randomization failure. Since most serious ABIDE studies have about 1000 samples, an average
-of just 1 more correctly classified subject per fold will result in an overall accuracy increase of
-0.5\% for 5-fold, and 1\% for 10-fold. Since ABIDE contains data from 20 different sites, it is not
-hard to see that one could achieve apparently impressive gains in overall accuracy, even with
-k-fold, simply by "seed hacking" (perhaps quite unwittingly) until validation sets overall tend to
-contain subjects from already-seen distributions. The only ways to make different studies properly comparable are
-
-\begin{itemize}
-  \item stratified k-fold
-  \item leave-one-site-out validation \citep{ingalhalikarFunctionalConnectivitybasedPrediction2021}
-  \item k-fold with small k
-\end{itemize}
+due to randomization failure. Since most serious ABIDE studies have approaching 1000 samples, an
+average of just 1 more correctly classified subject per fold will result in an overall accuracy
+increase of 0.5\% for 5-fold, and 1\% for 10-fold. Since ABIDE contains data from 20 different
+sites, it is not hard to see that one could achieve apparently impressive gains in overall accuracy,
+even with k-fold, simply by "seed hacking" (perhaps quite unwittingly) until validation sets overall
+tend to contain subjects from already-seen distributions \citep{picardTorchManualSeed2021}.
 
 Of the studies reviewed in this paper, \emph{none} except
-\citet{ingalhalikarFunctionalConnectivitybasedPrediction2021} mention stratification, seeds, or
-provide code for analyses. All the reported state-of-the-art overall accuracies are just within a
-few percentage points of each other. At about 900-1000 subjects typically for the ABIDE data, and
-with 5- or 10-fold cross-validation, this means that a difference in mean overall accuracy of just
-1\% can be due to just 2 mis-predicted subjects per fold. That is, one could likely very easily
-achieve  difference, on average, of   (i.e. due to a handful or less of ) exceptional results could
-just as easily be the result of a "lucky" split (torch.manual seed(3407) is all you need: On the
-influence of random seeds in deep learning architectures for computer vision)
+\citet{ingalhalikarFunctionalConnectivitybasedPrediction2021} and
+\citet{byeonArtificialNeuralNetwork2020} mention or consider stratification or report fold site
+distributions. Thus it is unclear whether strangely impressive results like a 5-fold accuracy of
+over 75\% in \citet{yangDeepNeuralNetwork2020} are the result of model design, validation
+procedures, or "lucky" splits.
+
+Additionally, all the reported state-of-the-art overall accuracies are just within a few percentage
+points of each other. Even on datasets orders of magnitudes larger, differences in seeds can result
+accuracy differences this large \citep{picardTorchManualSeed2021}. Thus without detailed reporting
+of validation splits, or setting aside established test subjects, it is almost impossible to
+determine if apparent model improvements are actually meaningful. We also make efforts to improve
+this state of affairs.
+
+\section{Methods}
+
+
+An fMRI image \(\bm{F}\) is a tensor or array with shape \texttt{(H,W,D,T)}, where \texttt{H},
+\texttt{W}, \texttt{D}, and \texttt{T} are the sizes of the height, width, depth, and time
+dimensions, respectively. The flattened array \(F\) thus has shape \((N = \texttt{H} \times
+\texttt{W} \times \texttt{D}, \texttt{T})\), such that \texttt{N} is the total number of voxels in
+the image (air voxels included). A region of interest (ROI) we denote with \(R\), and each of the
+\(n\) ROIs \(R_i\) of \(\bm{F}\) has shape \((N_i, \texttt{T})\), where \(\sum_i^n N_i= N\). ROIs
+are defined by an \emph{atlas}, which is an array of integers of shape \texttt{(H,W,D)}, with
+integer values up to \(n\).
+
+\subsection{ROI-Based Feature Extraction}
+
+By far the vast majority of studies (see \hyperref[tab:existing-attempts]{Table
+\ref{tab:existing-attempts}}) use atlas-based ROIs in order to convert the 4D fMRI image to a 2D
+array. Either ROI mean signals are used, as in \citet{el-gazzarHybrid3DCNN3DCLSTM2019}, or the
+(upper triangle) of the matrix of correlations between all such mean signals are used as input
+features.
+
+\subsection{}
+
+\subsection{Feature Extraction via Correlation Eigenvalues}
+
+DUe to the multi-site nature of the ABIDE data, the number of timepoints and repetition time (TR)
+vary across scans. ([TODO]: see Table or Histogram). However, deep or machine learning algorithms
+require inputs to be of the same size (if not generally, then in mini-batches of more than one
+input). While cropping, padding or interpolation are usually used to overcome such issues, these
+techniques are more difficult to justify when the underlying sampling rates differ and signals are
+noisy, and are likely to lead to poor generalization and memorization when sampling rates and image
+sizes vary significantly. I.e. padded inputs occupy completely different regions of space and so
+will form a clearly separable cluster, cropped inputs with different sampling rates represent
+different amounts of measurement time, and interpolated inputs are likely to have increased
+correlations between features (voxels) unless the interpolation is downsampling and does not apply
+any averaging or smoothing (e.g. as in nearest-neighbour interpolation).
+
+Thus there is a challenge of converting all images to some common representation which is relatively
+insensitive to these temporal differences, or which eliminates these differences while retaining
+rich information about the original signals.
+
+One recent finding has been that the functional connectivity of rs-fMRI is surprisingly robust to the
+the underlying sampling rate \citep{huotariSamplingRateEffects2019,shakilEvaluationSlidingWindow2016}
+
+\subsection{Previous Approaches}
+
+TODO: Summarize various studies listed in notes below (\ref{key-articles} and \ref{other-articles})
+in table or other condensed form.
+
+% \citet{eslamiASDDiagNetHybridLearning2019} use an autoencoder to
+
+
+\section{Methods} \label{sec:methods}
+
+\subsection{Data}
+
+\subsubsection{ABIDE Data}
+
+Publicly availabile fMRI data is limited. While databases such as OpenNeuro
+\citep{markiewiczOpenNeuroOpenResource2021} exist and cover a wide variety of domains, the number
+of subjects is typically far too small for machine learning applications, and the studies are far
+too heterogenous to be usefully combined. Perhaps the most popular publicly available fMRI dataset
+is the ABIDE I dataset, which includes 1112 resting-state fMRI (rs-fMRI) scans from 539 subjects
+with autism spectrum disorders (ASD) and 573 age-matched controls with typical development (TD)
+\citep{dimartinoAutismBrainImaging2014}.
+
+The ABIDE I dataset is an appropriate size for ML and DL approaches, but is particularly challenging
+due to the inclusion of subjects from 20 different sites. This results in highly varied demographic
+and psychological characteristics and scanning parameters. While this heterogeneity makes ML and DL
+approaches difficult, it also means that if such an approach performs well on this data, that it has
+much more potential clinical utility and relevance.
+
+
+The ABIDE I dataset \citep{dimartinoAutismBrainImaging2014} is a publicly acessible rs-fMRI dataset of over
+1112 subjects, 539 of which are diagnosed with Autism Spectrum Disorder (ASD),
+and 573 of which are typical development (TD). The data are collected from 17 different sites with
+varying scan parameters, and subjects vary considerably in age, making the dataset analytically
+challenging. However, the high heterogeneity of the data also makes it more suitable for testing the
+generalizability of modern predictive methods, and methods that perform well on the ABIDE data
+\emph{a priori} have more potential clinical utility.
+
+The ABIDE I data is available fully-preprocessed, and investigators can choose from a number of
+pre-processing pipelines and options. The main options involve filtering (bandpass filtering, global
+signal regression), and a choice of one of four pipelines \citep{dimartinoAutismBrainImaging2014}.
+However, to keep analyses consistent with similar papers
+\citet{abrahamDerivingReproducibleBiomarkers2017, mostafaDiagnosisAutismSpectrum2019,
+yinDiagnosisAutismSpectrum2021, heinsfeldIdentificationAutismSpectrum2018} we use the subjects from
+the Configurable Pipeline for the Analysis of Connectomes
+\citep[CPAC;][]{cameronAutomatedAnalysisConnectomes2013}, and exclude subjects that fail to pass quality
+control checks from three independent experts \citep[see][for
+details]{abrahamDerivingReproducibleBiomarkers2017}, giving a final total of 871 subjects (XXX ASD,
+XXX TD).
+
+\subsubsection{\href{http://preprocessed-connectomes-project.org/adhd200/}{ADHD-200}}
+
+TODO: If things all work well with ABIDE, download this dataset and use our methods, and also
+compare to existing research there.
+
+
+
+\subsection{Feature Extraction}
+\subsubsection{ROI Means}
+
+These are available from the CPAC pipeline for direct download [cite]. In the interest of reproducibility we simply
+use these directly.
+
+\subsubsection{ROI Standard Deviations}
+
+Each ROI
+
+
+
+
+
+
 
 \newpage
 \begin{landscape}
@@ -296,7 +443,8 @@ influence of random seeds in deep learning architectures for computer vision)
     Biased = feature selection using full data.
     \\\hspace{\textheight} \(^a\) Note this paper also reports 5-fold accuracies of 71-72\% with simple
     logistic regression, ridge regression, and linear SVM, which seems very difficult to square with
-    other studies reviewed here, especially since 5-fold should be much more difficult than 10-fold.
+    other studies reviewed here, especially since 5-fold should be much more difficult than 10-fold,
+    unless perhaps stratification is involved
     \\\hspace{\textheight} \(^b\) Bracketed values are values without ensembling.
     \\\hspace{\textheight} \(^c\) 264 ROI Atlas from \citep{powerFunctionalNetworkOrganization2011}
     \\\hspace{\textheight} \(^d\) Authors in fact use 80\% of data for training and feature selection,
@@ -310,144 +458,6 @@ influence of random seeds in deep learning architectures for computer vision)
   \normalsize
 \end{table}
 \end{landscape}
-
-\paragraph{Contamination}
-
-A number of studies on the ABIDE data reporting overall accuracies above 71\% use feature selection procedures which are
-given access to the full number of subjects. That is, given \(N\) subjects total, feature selection procedures are run
-on all \(N\) subjects, and then final validation is done with e.g. k-fold on the same \(N\) subjects, sometimes even using
-the exact same model that was used during feature selection [citations]. This procedure is not valid.
-
-\subsection{Prediction from 4D Spatial or Spatiotemporal Data}
-
-In deep learning, it is common to divide the dimensions of the data into spatial and channel
-dimensions. For example, colour images are usually described as multi-channel 2D, as there are
-typically three colour dimensions (RGB), and two spatial dimensions (height and width). Channel
-dimensions are special in that their \emph{ordering} is largely arbitrary: shuffling the order of
-the channels has no meaningful impact on the semantics or usable information in the inputs.
-Intuitively, channels represent parallel features with the same spatial dimensions.
-
-Thus color video is multi-channel 3D: there are three color channels, and 3 spatial dimensions
-(height, width, and time). The most natural approach to processing video is thus to take successful
-multi-channel 2D networks (e.g. ResNet) and expand the convolutions to be 3D. However, the
-computational costs of 3D convolution are considerably larger (a factor of [cite]
-\citet{tranCloserLookSpatiotemporal2018}), and so much more successful papers have instead used
-"channel-separated" or (2 + 1)D convolutions (\citet{tranCloserLookSpatiotemporal2018}), or other
-methods like ..., or even methods which rethink how temporal information can be encoded via
-correlations \cite{wangVideoModelingCorrelation2020}.
-
-fMRI is truly 4D (one-channel) spatio-temporal data. To properly process this would require 4D
-convolution, which is not implemented in most popular frameworks, and is extremely compute
-intensive. Simple three-channel, 2D video (i.e. three-channel 3D) already runs into compute
-problems, the 3D video data that comprise an fMRI image is especially difficult to handle
-effectively.
-
-In particular, the increased GPU memory and compute demands means that hyperparameter tuning, an
-absolutely necessary step when investigating new network architectures, can be extremely expensive
-
-
-Likewise, performance on messy data or data that has been corrupted even slightly results in often
-dramatically degraded performance
-\citep{metzUsingLearnedOptimizers2019,dodgeStudyComparisonHuman2017,hendrycksBenchmarkingNeuralNetwork2019,azulayWhyDeepConvolutional2019,rosenfeldElephantRoom2018}.
-Whether or nor fMRI images contain a large amount of "noise" relative to "signal" depends on one's
-analytic goals, however a number of factors (eye movement, heart rate, head movements, respiration
-...) are detectable in fMRI signals [cite], and /emph{a priori} not of clear causal relevance to a
-number of predictive goals.
-
-
-\subsection{Feature Extraction via Correlation Eigenvalues}
-
-An fMRI image \(\bm{F}\) is a tensor or array with shape \texttt{(H,W,D,T)}, where \texttt{H},
-\texttt{W}, \texttt{D}, and \texttt{T} are the sizes of the height, width, depth, and time
-dimensions, respectively. The flattened array \(F\) thus has shape \((N = \texttt{H} \times
-\texttt{W} \times \texttt{D}, \texttt{T})\), such that \texttt{N} is the total number of voxels in
-the image (air voxels included). A region of interest (ROI) we denote with \(R\), and each of the
-\(n\) ROIs \(R_i\) of \(\bm{F}\) has shape \((N_i, \texttt{T})\), where \(\sum_i^n N_i= N\). ROIs
-are defined by an \emph{atlas}, which is an array of integers of shape \texttt{(H,W,D)}, with
-integer values up to \(n\).
-
-DUe to the multi-site nature of the ABIDE data, the number of timepoints and repetition time (TR)
-vary across scans. ([TODO]: see Table or Histogram). However, deep or machine learning algorithms
-require inputs to be of the same size (if not generally, then in mini-batches of more than one
-input). While cropping, padding or interpolation are usually used to overcome such issues, these
-techniques are more difficult to justify when the underlying sampling rates differ and signals are
-noisy, and are likely to lead to poor generalization and memorization when sampling rates and image
-sizes vary significantly. I.e. padded inputs occupy completely different regions of space and so
-will form a clearly separable cluster, cropped inputs with different sampling rates represent
-different amounts of measurement time, and interpolated inputs are likely to have increased
-correlations between features (voxels) unless the interpolation is downsampling and does not apply
-any averaging or smoothing (e.g. as in nearest-neighbour interpolation).
-
-Thus there is a challenge of converting all images to some common representation which is relatively
-insensitive to these temporal differences, or which eliminates these differences while retaining
-rich information about the original signals.
-
-One recent finding has been that the functional connectivity of rs-fMRI is surprisingly robust to the
-the underlying sampling rate \citep{huotariSamplingRateEffects2019,shakilEvaluationSlidingWindow2016}
-
-\subsection{Previous Approaches}
-
-TODO: Summarize various studies listed in notes below (\ref{key-articles} and \ref{other-articles})
-in table or other condensed form.
-
-% \citet{eslamiASDDiagNetHybridLearning2019} use an autoencoder to
-
-
-\section{Methods}
-
-\subsection{ABIDE Data}
-
-Publicly availabile fMRI data is limited. While databases such as OpenNeuro
-\citep{markiewiczOpenNeuroOpenResource2021} exist and cover a wide variety of domains, the number
-of subjects is typically far too small for machine learning applications, and the studies are far
-too heterogenous to be usefully combined. Perhaps the most popular publicly available fMRI dataset
-is the ABIDE I dataset, which includes 1112 resting-state fMRI (rs-fMRI) scans from 539 subjects
-with autism spectrum disorders (ASD) and 573 age-matched controls with typical development (TD)
-\citep{dimartinoAutismBrainImaging2014}.
-
-The ABIDE I dataset is an appropriate size for ML and DL approaches, but is particularly challenging
-due to the inclusion of subjects from 20 different sites. This results in highly varied demographic
-and psychological characteristics and scanning parameters. While this heterogeneity makes ML and DL
-approaches difficult, it also means that if such an approach performs well on this data, that it has
-much more potential clinical utility and relevance.
-
-
-The ABIDE I dataset \citep{dimartinoAutismBrainImaging2014} is a publicly acessible rs-fMRI dataset of over
-1112 subjects, 539 of which are diagnosed with Autism Spectrum Disorder (ASD),
-and 573 of which are typical development (TD). The data are collected from 17 different sites with
-varying scan parameters, and subjects vary considerably in age, making the dataset analytically
-challenging. However, the high heterogeneity of the data also makes it more suitable for testing the
-generalizability of modern predictive methods, and methods that perform well on the ABIDE data
-\emph{a priori} have more potential clinical utility.
-
-The ABIDE I data is available fully-preprocessed, and investigators can choose from a number of
-pre-processing pipelines and options. The main options involve filtering (bandpass filtering, global
-signal regression), and a choice of one of four pipelines \citep{dimartinoAutismBrainImaging2014}.
-However, to keep analyses consistent with similar papers
-\citet{abrahamDerivingReproducibleBiomarkers2017, mostafaDiagnosisAutismSpectrum2019,
-yinDiagnosisAutismSpectrum2021, heinsfeldIdentificationAutismSpectrum2018} we use the subjects from
-the Configurable Pipeline for the Analysis of Connectomes
-\citep[CPAC;][]{cameronAutomatedAnalysisConnectomes2013}, and exclude subjects that fail to pass quality
-control checks from three independent experts \citep[see][for
-details]{abrahamDerivingReproducibleBiomarkers2017}, giving a final total of 871 subjects (XXX ASD,
-XXX TD).
-
-
-
-\subsubsection{ROI Means}
-
-These are available from the CPAC pipeline for direct download [cite]. In the interest of reproducibility we simply
-use these directly.
-
-\subsubsection{ROI Standard Deviations}
-
-
-
-
-
-
-\newpage
-
 \section{Key Articles} \label{key-articles}
 
 Note for below I also seem to use the CPAC minimal pipeline, I think.
