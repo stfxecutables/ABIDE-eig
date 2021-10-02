@@ -10,6 +10,7 @@ from pandas import DataFrame, Series
 ROOT = Path(__file__).resolve().parent
 JSONS = sorted(ROOT.rglob("*.json"))
 
+
 def min_format(df: DataFrame) -> str:
     float_fmts = (
         "3.0f",  # number
@@ -38,6 +39,7 @@ def min_format(df: DataFrame) -> str:
         "",  # state
     )
     return df.to_markdown(tablefmt="simple", floatfmt=float_fmts, index=False)
+
 
 def print_htune_table(df: DataFrame) -> Tuple[DataFrame, pd.Timedelta]:
     def renamer(s: str) -> str:
@@ -107,10 +109,12 @@ if __name__ == "__main__":
     print("Best models:")
     for table, exp, time in zip(tables, exps, times):
         best5 = table.sort_values(by="val_acc_max", ascending=False)[:5]
-        percents, edges = np.histogram(table.val_acc_max, density=True)
+        percents, edges = np.histogram(table.dropna().val_acc_max, density=True)
         print(f"  {exp} val_acc distribution after {time} hours:")
         for i, percent in enumerate(percents):
-            print(f"  [{np.round(edges[i], 3)}, {np.round(edges[i+1], 3)}]: {np.round(percent, 2)}%")
+            print(
+                f"  [{np.round(edges[i], 3)}, {np.round(edges[i+1], 3)}]: {np.round(percent, 2)}%"
+            )
         print(f"  {exp} Best 5:")
         print(min_format(best5))
     print(f"Total time tuning all models: {np.sum(times)} hours")
