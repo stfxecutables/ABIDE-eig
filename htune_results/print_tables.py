@@ -113,8 +113,9 @@ if __name__ == "__main__":
         print(f"  {exp} val_acc distribution after {time} hours:")
         for i, percent in enumerate(percents):
             print(
-                f"  [{np.round(edges[i], 3)}, {np.round(edges[i+1], 3)}]: {np.round(percent, 2)}%"
+                f"  [{np.round(edges[i], 3):0.3f}, {np.round(edges[i+1], 3):0.3f}]: {np.round(100 * percent, 2)}%"
             )
         print(f"  {exp} Best 5:")
         print(min_format(best5))
+        print("="*80)
     print(f"Total time tuning all models: {np.sum(times)} hours")
