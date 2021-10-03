@@ -286,8 +286,9 @@ integer values up to \(n\).
 By far the vast majority of studies (see \hyperref[tab:existing-attempts]{Table
 \ref{tab:existing-attempts}}) use atlas-based ROIs in order to convert the 4D fMRI image to a 2D
 array. Either ROI mean signals are used, as in \citet{el-gazzarHybrid3DCNN3DCLSTM2019}, or the
-(upper triangle) of the matrix of correlations between all such mean signals are used as input
-features.
+(upper triangle) of the matrix of correlations (FC) between all such mean signals are used as input
+features. If ROI mean signals are used, the input features have shape \((n, T)\), and if the shap \((n, n)\) FC
+matrix is used, then since this matrix is symmetric with 1s on the diagonals, then there are \(n(n-1)/2\) unique features.
 
 \subsection{}
 
