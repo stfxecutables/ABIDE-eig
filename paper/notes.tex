@@ -13,6 +13,7 @@
 \usepackage{nicefrac}       % compact symbols for 1/2, etc.
 \usepackage{microtype}      % microtypography
 % \usepackage{lipsum}		% Can be removed after putting your text content
+\usepackage{verbatim}
 \usepackage{pdflscape}
 \usepackage{graphicx}
 \usepackage{natbib}
@@ -287,14 +288,63 @@ By far the vast majority of studies (see \hyperref[tab:existing-attempts]{Table
 \ref{tab:existing-attempts}}) use atlas-based ROIs in order to convert the 4D fMRI image to a 2D
 array. Either ROI mean signals are used, as in \citet{el-gazzarHybrid3DCNN3DCLSTM2019}, or the
 (upper triangle) of the matrix of correlations (FC) between all such mean signals are used as input
-features. If ROI mean signals are used, the input features have shape \((n, T)\), and if the shap \((n, n)\) FC
-matrix is used, then since this matrix is symmetric with 1s on the diagonals, then there are \(n(n-1)/2\) unique features.
+features.
 
-\subsection{}
+The mean is just a statistic, i.e. a formal method of summarizing data. Other statistics could be
+just as useful here. In particular, rather than a measure of location, a measure of scale, like the
+variance, could be used to summarize the ROI signals. For example, we could compute a "variance
+signal" which, at each timepoint, is the standard deviation of the ROI voxels at that timepoint.
 
-\subsection{Feature Extraction via Correlation Eigenvalues}
+If ROI mean or variance signals are used directly as features, the input tensor has shape \((n,
+T)\). If the correlations of these ROI signals are used as features, then since the correlation
+matrix is symmetric with 1s on the diagonals, then there are \(n(n-1)/2\) unique features.
 
-DUe to the multi-site nature of the ABIDE data, the number of timepoints and repetition time (TR)
+Finally, this correlation matrix can itself be summarized, either by graph theoretic measures as in
+\citet{yinDiagnosisAutismSpectrum2021} and \citet{mostafaDiagnosisAutismSpectrum2019}, which compute
+the eigenvalues of the Laplacian of the thresholded correlation matrix, or simply by the
+eigenvalues.
+
+Thus, we extract eight ROI-based features: the ROI mean signals (\(\mu_{\text{ROI}}\)), the ROI
+standard deviation signals \(\sigma_{\text{ROI}}\), the correlations between these
+\(r_{\mu,\text{ROI}}\) and \(r_{\sigma\text{,ROI}}\), the eigenvalues of the Laplacian of these,
+thresholded at \(T\), \(\lambda_{\mu,\text{ROI},T}\) and \(\lambda_{\sigma,\text{ROI},T}\), and the
+direct eigenvalues of the correlations, \(\lambda_{\mu,\text{ROI}}\) and
+\(\lambda_{\sigma,\text{ROI}}\), as well as concatenations of these  Their shapes are in \ref{tab:feature-shapes}.
+
+\begin{table}
+	\centering
+	\begin{tabular}{lll}
+		\toprule
+		Feature     & Name     & Shape  \\
+		\midrule
+    ROI means                                                                                  & \(\tsub{\mu}{ROI}\)                        & \((n, T)\)    \\
+    ROI standard deviations (sds)                                                              & \(\tsub{\sigma}{ROI}\)                     & \((n, T)\)    \\
+    ROI descriptive sequences                                                                  & \((\tsub{\mu}{ROI}, \tsub{\sigma}{ROI})\)  & \((2, n, T)\) or \((2n, T)\) \\
+    Correlation of ROI means                                                                   & \(\mathbf{r}_{\mu,\text{ROI}}\)            & \((n, n)\)    \\
+    Correlation of ROI sds                                                                     & \(\mathbf{r}_{\sigma,\text{ROI}}\)         & \((n, n)\)    \\
+    Correlation descriptives \([\mathbf{r}_{\mu,\text{ROI}}; \mathbf{r}_{\sigma\text{,ROI}}]\) & \(\tsub{r}{ROI}\)                          & \((2, n, n)\) or \((2n, n)\)\\
+    T-thresholded Laplacian eigenvalues of \(\mathbf{r}_{\mu,\text{ROI}}\)                     & \(\mathbf{\lambda}_{\mu,\text{ROI},T}\)    & \(n-1\)       \\
+    T-thresholded Laplacian eigenvalues of \(\mathbf{r}_{\sigma\text{,ROI}}\)                  & \(\mathbf{\lambda}_{\sigma,\text{ROI},T}\) & \(n-1\)       \\
+    Concatenated T-thresholded Laplacian eigenvalues                                           & \(\mathbf{\lambda}_{\text{ROI},T}\)        & \((2, n-1)\)  \\
+    Eigenvalues of \(\mathbf{r}_{\mu,\text{ROI}}\)                                             & \(\mathbf{\lambda}_{\mu,\text{ROI}}\)      & \(n-1\)       \\
+    Eigenvalues of \(\mathbf{r}_{\sigma\text{,ROI}}\)                                          & \(\mathbf{\lambda}_{\sigma,\text{ROI}}\)   & \(n-1\)       \\
+    Concatenated eigenvalues \([\mathbf{r}_{\sigma\text{,ROI}}; \mathbf{r}_{\sigma\text{,ROI}}]\)  & \(\tsub{\lambda}{ROI}\)                & \((2, n-1)\)  \\
+		\bottomrule
+	\end{tabular}
+	\label{tab:feature-shapes}
+	\caption{ROI-based feature shapes. \(n\) = number of ROIs. \([A;B]\) = concatenation of \(A\) and \(B\) along new initial (channel) dimension for deep learning, or along initial dimension, for classical ML.}
+\end{table}
+
+As the highest quality existing results and studies use mostly either the CC-200 or CC-400 [cite] atlases for extracting
+ROI sequences, we test results for both of these atlases. We also compare concatenated pairings of mean and standard
+
+\subsection{Whole-Brain-Based Feature Extraction}
+
+[Describe eigenvalue perturbation procedure here]
+
+\subsubsection{Motivation for Eigenvalue Perturbation}
+
+Due to the multi-site nature of the ABIDE data, the number of timepoints and repetition time (TR)
 vary across scans. ([TODO]: see Table or Histogram). However, deep or machine learning algorithms
 require inputs to be of the same size (if not generally, then in mini-batches of more than one
 input). While cropping, padding or interpolation are usually used to overcome such issues, these
@@ -313,34 +363,9 @@ rich information about the original signals.
 One recent finding has been that the functional connectivity of rs-fMRI is surprisingly robust to the
 the underlying sampling rate \citep{huotariSamplingRateEffects2019,shakilEvaluationSlidingWindow2016}
 
-\subsection{Previous Approaches}
-
-TODO: Summarize various studies listed in notes below (\ref{key-articles} and \ref{other-articles})
-in table or other condensed form.
-
-% \citet{eslamiASDDiagNetHybridLearning2019} use an autoencoder to
-
-
-\section{Methods} \label{sec:methods}
-
 \subsection{Data}
 
 \subsubsection{ABIDE Data}
-
-Publicly availabile fMRI data is limited. While databases such as OpenNeuro
-\citep{markiewiczOpenNeuroOpenResource2021} exist and cover a wide variety of domains, the number
-of subjects is typically far too small for machine learning applications, and the studies are far
-too heterogenous to be usefully combined. Perhaps the most popular publicly available fMRI dataset
-is the ABIDE I dataset, which includes 1112 resting-state fMRI (rs-fMRI) scans from 539 subjects
-with autism spectrum disorders (ASD) and 573 age-matched controls with typical development (TD)
-\citep{dimartinoAutismBrainImaging2014}.
-
-The ABIDE I dataset is an appropriate size for ML and DL approaches, but is particularly challenging
-due to the inclusion of subjects from 20 different sites. This results in highly varied demographic
-and psychological characteristics and scanning parameters. While this heterogeneity makes ML and DL
-approaches difficult, it also means that if such an approach performs well on this data, that it has
-much more potential clinical utility and relevance.
-
 
 The ABIDE I dataset \citep{dimartinoAutismBrainImaging2014} is a publicly acessible rs-fMRI dataset of over
 1112 subjects, 539 of which are diagnosed with Autism Spectrum Disorder (ASD),
@@ -364,23 +389,20 @@ XXX TD).
 
 \subsubsection{\href{http://preprocessed-connectomes-project.org/adhd200/}{ADHD-200}}
 
-TODO: If things all work well with ABIDE, download this dataset and use our methods, and also
+\textbf{TODO}: If things all work well with ABIDE, download this dataset and use our methods, and also
 compare to existing research there.
 
+\subsection{Models and Architectures}
+
+[\textbf{TODO}: Describe depthwise-separable Conv3d to ConvLSTM3d architecture here, and motivation.]
+[\textbf{TODO}: Describe SVM, RandomForest, AdaBoost models for comparison]
+
+\subsection{Fitting Procedure}
+
+[\textbf{TODO}: Describe automated hyperparameter tuning via Optuna]
 
 
-\subsection{Feature Extraction}
-\subsubsection{ROI Means}
-
-These are available from the CPAC pipeline for direct download [cite]. In the interest of reproducibility we simply
-use these directly.
-
-\subsubsection{ROI Standard Deviations}
-
-Each ROI
-
-
-
+\section{Results}
 
 
 
@@ -459,6 +481,8 @@ Each ROI
   \normalsize
 \end{table}
 \end{landscape}
+
+\begin{comment}
 \section{Key Articles} \label{key-articles}
 
 Note for below I also seem to use the CPAC minimal pipeline, I think.
@@ -760,6 +784,7 @@ See Section \ref{sec:headings}.
 \paragraph{Paragraph}
 
 A footnote \footnote{Sample of the first footnote.}.
+\end{comment}
 
 \bibliographystyle{unsrtnat}
 \bibliography{references}
