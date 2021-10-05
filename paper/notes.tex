@@ -270,7 +270,7 @@ of validation splits, or setting aside established test subjects, it is almost i
 determine if apparent model improvements are actually meaningful. We also make efforts to improve
 this state of affairs.
 
-\section{Methods}
+\section{Methods} \label{sec:methods}
 
 
 An fMRI image \(\bm{F}\) is a tensor or array with shape \texttt{(H,W,D,T)}, where \texttt{H},
@@ -281,6 +281,7 @@ the image (air voxels included). A region of interest (ROI) we denote with \(R\)
 \(n\) ROIs \(R_i\) of \(\bm{F}\) has shape \((N_i, \texttt{T})\), where \(\sum_i^n N_i= N\). ROIs
 are defined by an \emph{atlas}, which is an array of integers of shape \texttt{(H,W,D)}, with
 integer values up to \(n\).
+
 
 \subsection{ROI-Based Feature Extraction}
 
@@ -311,6 +312,7 @@ thresholded at \(T\), \(\lambda_{\mu,\text{ROI},T}\) and \(\lambda_{\sigma,\text
 direct eigenvalues of the correlations, \(\lambda_{\mu,\text{ROI}}\) and
 \(\lambda_{\sigma,\text{ROI}}\), as well as concatenations of these  Their shapes are in \ref{tab:feature-shapes}.
 
+
 \begin{table}
 	\centering
 	\begin{tabular}{lll}
@@ -337,6 +339,86 @@ direct eigenvalues of the correlations, \(\lambda_{\mu,\text{ROI}}\) and
 
 As the highest quality existing results and studies use mostly either the CC-200 or CC-400 [cite] atlases for extracting
 ROI sequences, we test results for both of these atlases. We also compare concatenated pairings of mean and standard
+
+\subsubsection{Sampling Heterogeneity and Unequal Timepoints}
+
+Prior to the development of DL and CNNs, handling sequences of different lengths in predictive
+algorithms was a serious challenge. While sequences lengths that differ by multiple orders of
+magnitude are still a problem, smaller differences can generally be handled quite simply by padding
+the beginning  of short sequences with zeroes [cite]. This seems to work especially well with CNNs
+[cite]. For certain types of data, long sequences can also be truncated, when appropriate. Given the
+open-ended and non-specific nature of the rs-fMRI "task" we believe truncation is (reasonably)
+harmless here.
+
+For correlation-based methods, most previous studies ignore these issues, as the shape of the
+correlation matrix is a function of the number of ROIs, and not the number of timepoints. In the
+interest of comparison to these methods, we do the same, and use all timepoints to compute correlations.
+
+However, for methods using the actual ROI sequences, or the eigenvalues, the number of timepoints
+effects the extracted feature length. The distribution of timepoints in the ABIDE data is shown in
+\hyperref[tab:timepoints]{Table \ref{tab:timepoints}}.
+
+For simplicity, similarity to the size of the CC-200 atlas, and to keep extracted features
+comparable, we use only the first 200 timepoints for ROI sequences (\(\tsub{\mu}{ROI}\),
+\(\tsub{\sigma}{ROI}\), and their concatenation), and use only the first 201 timepoints when
+extracting eigenvalues (as an \(n \times n\) correlation matrix has at most \(n-1\) unique
+eigenvalues. For subjects with less timepoints, the sequences are *first* normalized, and then front
+zero-padded to a length of 200. E.g. subjects with 78 timepoints have the 77 non-zero eigenvalues
+computed, normalized, and then 113 zeros are added to the front of the sequence.
+
+\begin{table}
+  \centering
+  \begin{tabular}{rr}
+  \toprule
+  T &   \(N\) subjects \\
+  \midrule
+  78  &      25 \\
+  116 &     119 \\
+  124 &       4 \\
+  146 &      59 \\
+  152 &      29 \\
+  176 &     211 \\
+  196 &     129 \\
+  202 &       1 \\
+  206 &      28 \\
+  232 &       1 \\
+  236 &      86 \\
+  246 &      56 \\
+  296 &     120 \\
+  316 &       3 \\
+  \bottomrule
+\end{tabular}\label{tab:timepoints}
+\caption{Heterogeneity in ABIDE number of timepoints. Mean number of timepoints = 193, median = 176. Standard deviation = 58.1}
+\end{table}
+
+\begin{table}
+  \centering
+  \begin{tabular}{cr}
+  \toprule
+  TR (s) &   \(N\) subjects \\
+  \midrule
+  1.5  &      81 \\
+  1.7 &       56 \\
+  2    &     519 \\
+  2.2  &      26 \\
+  2.5  &      58 \\
+  3    &     131 \\
+  \bottomrule
+  \end{tabular}\label{tab:trs}
+\caption{Heterogeneity in ABIDE repetition times. Note many subjects have different TR values very close to 1.666 due to rounding issue, so are just reported here as 1.7 for simplicity}
+\end{table}
+
+\subsubsection{Eigenvalue Normalization}
+
+Both the graph Laplacian and correlation matrix eigenvalues are all positive, by virtue of the
+positive semi-definite nature of the parent matrices. Additionally, the size of the largest and
+smallest eigenvalues are dependent on the matrix dimensions. As per Random Matrix Theory, the
+spacings between eigenvalues tends to be highly exponential, e.g. the \(i\)th largest eigenvalue
+\(\lambda_i\) will be orders of magnitude larger than the smallest eigenvalue. Thus, non-linear
+normalization methods might be preferable to linear methods. We test two methods for normalizing
+eigenvalue-based features: MinMax Normalization (linear), where \(\tilde{\lambda}_i\ = (\lambda_i -
+\lambda_{\text{min}}) / (\lambda_{\text{max}} - \lambda_{\text{min}})\), and "exponential
+normalization", where we
 
 \subsection{Whole-Brain-Based Feature Extraction}
 
