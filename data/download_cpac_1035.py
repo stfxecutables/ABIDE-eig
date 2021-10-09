@@ -5,7 +5,9 @@ import traceback
 from argparse import ArgumentParser
 from io import StringIO
 from pathlib import Path
+from shutil import copyfile
 from time import strftime
+from typing import Tuple
 from urllib.request import urlretrieve
 
 import numpy as np
@@ -13,6 +15,7 @@ import pandas as pd
 from pandas import DataFrame
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
+from tqdm.contrib.concurrent import process_map
 
 PIPELINE = "cpac"
 STRATEGY = "filt_noglobal"  # see http://preprocessed-connectomes-project.org/abide/Pipelines.html
@@ -44,8 +47,12 @@ USEFUL_COLUMNS = [  # note these are almost all NaN or Nones
 ]
 ROI_OUTS = [Path(__file__).resolve().parent / f"rois_cpac_{atlas}" for atlas in ROI_ATLASES]
 NII_OUT = Path(__file__).resolve().parent / "nii_cpac"
+NII_F16_DIR = NII_OUT.parent / "nii_cpac_f16"
+NII_F16_SUBSAMPLE = NII_OUT.parent / "nii_cpac_f16_subsample"
 if not NII_OUT.exists():
     os.makedirs(NII_OUT, exist_ok=True)
+if not NII_F16_SUBSAMPLE.exists():
+    os.makedirs(NII_F16_SUBSAMPLE, exist_ok=True)
 for out in ROI_OUTS:
     os.makedirs(out, exist_ok=True)
 SHAPES_DATA = NII_OUT / "shapes.json"
@@ -296,11 +303,49 @@ def download_fmri_subset() -> None:
         )
 
 
+def copy_file(src: Path) -> None:
+    try:
+        copyfile(src, NII_F16_SUBSAMPLE)
+    except Exception as e:
+        traceback.print_exc()
+        print(e)
+
+
+def set_aside_16bit_subset() -> None:
+    csv = download_csv().iloc[:, 3:]
+    csv = csv.sort_values(by="subject")
+    # note `stratify` argument needs a 1D vector, so we just hack here
+    # and concatenate the stratify labels. We don't need to look at shapes
+    # or scan-info, since they are the same within a site
+    stratify = csv.SITE_ID.astype(str) + csv.DX_GROUP.astype(str)
+    info = pd.DataFrame(
+        {
+            "sid": csv.index.to_series(),
+            "fname": csv.fname.values,
+            "site": csv.SITE_ID.values,
+            "cls": csv.DX_GROUP.apply(lambda s: "ASD" if str(s) == "1" else "TD"),
+        }
+    )
+    train, _ = train_test_split(info, train_size=200, stratify=stratify, random_state=333)
+    train = train.sort_values(by=["site", "cls"])
+    print(train.drop(columns="fname").groupby(["site", "cls"]).count())
+    # NOTE 200 subjects is roughly 21.5 GB (roughly 107MB per subject)
+    train.to_json(Path(__file__).resolve().parent / "reduced_subset.json")
+    all_niis = sorted(NII_F16_DIR.rglob("*.nii.gz"))
+    subsample = []
+    for nii in all_niis:
+        for fname in train.fname:
+            if fname in str(nii):
+                subsample.append(nii)
+    process_map(copy_file, subsample, desc="Copying f16 niis")
+
+
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--subsample", action="store_true")
     parser.add_argument("--rois", action="store_true")
     parser.add_argument("--fmri", action="store_true")
+    parser.add_argument("--f16", action="store_true")
     args = parser.parse_args()
     subsample = args.subsample
     if args.rois:
@@ -309,5 +354,7 @@ if __name__ == "__main__":
         download_fmri_subset()
     elif args.fmri:
         download_fmri()
+    if args.f16:
+        set_aside_16bit_subset()
     else:
         print("Done.")
