@@ -414,7 +414,12 @@ Both the graph Laplacian and correlation matrix eigenvalues are all positive, by
 positive semi-definite nature of the parent matrices. Additionally, the size of the largest and
 smallest eigenvalues are dependent on the matrix dimensions. As per Random Matrix Theory, the
 spacings between eigenvalues tends to be highly exponential, e.g. the \(i\)th largest eigenvalue
-\(\lambda_i\) will be orders of magnitude larger than the smallest eigenvalue. Thus, non-linear
+\(\lambda_i\) will be orders of magnitude larger than the smallest eigenvalue. In other words, the
+eigenvalues have a strongly increasing monotonic trend. 
+
+Such a trend can be a problem for deep learners using convolutions or that apply the same weights to each timepoint (e.g. LSTM). Thus, we potentially need to remove this trend for such methods [cite or argue]. 
+
+Thus, non-linear
 normalization methods might be preferable to linear methods. We test two methods for normalizing
 eigenvalue-based features: MinMax Normalization (linear), where \(\tilde{\lambda}_i\ = (\lambda_i -
 \lambda_{\text{min}}) / (\lambda_{\text{max}} - \lambda_{\text{min}})\), and "exponential
