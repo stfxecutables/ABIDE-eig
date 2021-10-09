@@ -11,6 +11,7 @@ from urllib.request import urlretrieve
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
+from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
 PIPELINE = "cpac"
@@ -47,6 +48,7 @@ if not NII_OUT.exists():
     os.makedirs(NII_OUT, exist_ok=True)
 for out in ROI_OUTS:
     os.makedirs(out, exist_ok=True)
+SHAPES_DATA = NII_OUT / "shapes.json"
 
 # we compare to Table 1 of Heinsfeld, A. S., Franco, A. R., Craddock, R. C., Buchweitz, A., &
 # Meneguzzi, F. (2018). Identification of autism spectrum disorder using deep learning and the ABIDE
@@ -261,8 +263,28 @@ def download_fmri() -> None:
 
 
 def download_fmri_subset() -> None:
-    csv = download_csv()
-    fids = csv.fname.to_list()
+    csv = download_csv().iloc[:, 3:]
+    csv = csv.sort_values(by="subject")
+    # note `stratify` argument needs a 1D vector, so we just hack here
+    # and concatenate the stratify labels. We don't need to look at shapes
+    # or scan-info, since they are the same within a site
+    stratify = csv.SITE_ID.astype(str) + csv.DX_GROUP.astype(str)
+    info = pd.DataFrame(
+        {
+            "sid": csv.index.to_series(),
+            "fname": csv.fname.values,
+            "site": csv.SITE_ID.values,
+            "cls": csv.DX_GROUP.apply(lambda s: "ASD" if str(s) == "1" else "TD"),
+        }
+    )
+    train, _ = train_test_split(info, train_size=200, stratify=stratify, random_state=333)
+    train = train.sort_values(by=["site", "cls"])
+    print(train.drop(columns="fname").groupby(["site", "cls"]).count())
+    fids = train.fname.to_list()
+    # NOTE 200 subjects is roughly 21.5 GB (roughly 107MB per subject)
+    res = input("Given subject distribution above, proceed to download? [y/N]\n")
+    if res.lower() != "y":
+        sys.exit()
     for fid in tqdm(fids):
         url = FUNC_TEMPLATE.format(fname=fid)
         subprocess.run(
@@ -274,6 +296,7 @@ def download_fmri_subset() -> None:
 
 
 if __name__ == "__main__":
+    download_fmri_subset()
     parser = ArgumentParser()
     parser.add_argument("--subsample", action="store_true")
     parser.add_argument("--rois", action="store_true")
