@@ -296,7 +296,6 @@ def download_fmri_subset() -> None:
 
 
 if __name__ == "__main__":
-    download_fmri_subset()
     parser = ArgumentParser()
     parser.add_argument("--subsample", action="store_true")
     parser.add_argument("--rois", action="store_true")
