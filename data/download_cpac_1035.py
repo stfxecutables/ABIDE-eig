@@ -206,7 +206,10 @@ def download_csv() -> DataFrame:
 
 def download_file(url: str, outdir: Path) -> subprocess.CompletedProcess:
     return subprocess.run(
-        f"cd {outdir} && wget --continue {url}", capture_output=True, check=True, shell=True
+        f"cd {outdir} && wget --timestamp --continue {url}",
+        capture_output=False,
+        check=True,
+        shell=True,
     )
 
 
@@ -241,7 +244,7 @@ def download_fmri() -> None:
         LOGFILE.touch()
     csv = download_csv()
     fids = csv.fname.to_list()
-    for fid in tqdm(fids, desc=f"Downloading fMRI images"):
+    for fid in tqdm(fids, desc="Downloading fMRI images"):
         url = FUNC_TEMPLATE.format(fname=fid)
         try:
             download_file(url=url, outdir=NII_OUT)
@@ -263,7 +266,10 @@ def download_fmri_subset() -> None:
     for fid in tqdm(fids):
         url = FUNC_TEMPLATE.format(fname=fid)
         subprocess.run(
-            f"cd {NII_OUT} && wget --continue {url}", capture_output=False, check=False, shell=True
+            f"cd {NII_OUT} && wget --timestamping --continue {url}",
+            capture_output=False,
+            check=False,
+            shell=True,
         )
 
 
