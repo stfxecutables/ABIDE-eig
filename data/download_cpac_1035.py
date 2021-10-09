@@ -305,7 +305,7 @@ def download_fmri_subset() -> None:
 
 def copy_file(src: Path) -> None:
     try:
-        copyfile(src, NII_F16_SUBSAMPLE)
+        copyfile(src, NII_F16_SUBSAMPLE / src.name)
     except Exception as e:
         traceback.print_exc()
         print(e)
