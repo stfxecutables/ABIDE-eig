@@ -284,7 +284,7 @@ def download_fmri_subset() -> None:
             "cls": csv.DX_GROUP.apply(lambda s: "ASD" if str(s) == "1" else "TD"),
         }
     )
-    train, _ = train_test_split(info, train_size=200, stratify=stratify, random_state=333)
+    train, _ = train_test_split(info, train_size=250, stratify=stratify, random_state=333)
     train = train.sort_values(by=["site", "cls"])
     print(train.drop(columns="fname").groupby(["site", "cls"]).count())
     fids = train.fname.to_list()
@@ -326,7 +326,7 @@ def set_aside_16bit_subset() -> None:
             "cls": csv.DX_GROUP.apply(lambda s: "ASD" if str(s) == "1" else "TD"),
         }
     )
-    train, _ = train_test_split(info, train_size=200, stratify=stratify, random_state=333)
+    train, _ = train_test_split(info, train_size=250, stratify=stratify, random_state=333)
     train = train.sort_values(by=["site", "cls"])
     print(train.drop(columns="fname").groupby(["site", "cls"]).count())
     # NOTE 200 subjects is roughly 21.5 GB (roughly 107MB per subject)
