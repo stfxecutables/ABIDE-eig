@@ -282,6 +282,7 @@ def download_fmri_subset() -> None:
     print(train.drop(columns="fname").groupby(["site", "cls"]).count())
     fids = train.fname.to_list()
     # NOTE 200 subjects is roughly 21.5 GB (roughly 107MB per subject)
+    train.to_json(Path(__file__).resolve().parent / "reduced_subset.json")
     res = input("Given subject distribution above, proceed to download? [y/N]\n")
     if res.lower() != "y":
         sys.exit()
