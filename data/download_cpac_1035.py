@@ -326,10 +326,13 @@ def set_aside_16bit_subset() -> None:
             "cls": csv.DX_GROUP.apply(lambda s: "ASD" if str(s) == "1" else "TD"),
         }
     )
-    train, _ = train_test_split(info, train_size=250, stratify=stratify, random_state=333)
+    train, _ = train_test_split(info, train_size=300, stratify=stratify, random_state=333)
     train = train.sort_values(by=["site", "cls"])
     print(train.drop(columns="fname").groupby(["site", "cls"]).count())
     # NOTE 200 subjects is roughly 21.5 GB (roughly 107MB per subject)
+    res = input("Continue? [y/N]\n")
+    if res.lower() != "y":
+        sys.exit()
     train.to_json(Path(__file__).resolve().parent / "reduced_subset.json")
     all_niis = sorted(NII_F16_DIR.rglob("*.nii.gz"))
     subsample = []
