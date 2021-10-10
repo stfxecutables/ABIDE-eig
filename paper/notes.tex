@@ -364,7 +364,9 @@ comparable, we use only the first 200 timepoints for ROI sequences (\(\tsub{\mu}
 extracting eigenvalues (as an \(n \times n\) correlation matrix has at most \(n-1\) unique
 eigenvalues. For subjects with less timepoints, the sequences are *first* normalized, and then front
 zero-padded to a length of 200. E.g. subjects with 78 timepoints have the 77 non-zero eigenvalues
-computed, normalized, and then 113 zeros are added to the front of the sequence.
+computed, normalized, and then 113 zeros are added to the front of the sequence.[NOTE: might we want
+to pad the actual fMRI first (e.g. using repeat or reflect) before extracting eigenvalues to ensure
+more consistency of eigenvalue scale? I think so.]
 
 \begin{table}
   \centering
@@ -372,20 +374,22 @@ computed, normalized, and then 113 zeros are added to the front of the sequence.
   \toprule
   T &   \(N\) subjects \\
   \midrule
-  78  &      25 \\
-  116 &     119 \\
-  124 &       4 \\
-  146 &      59 \\
-  152 &      29 \\
-  176 &     211 \\
-  196 &     129 \\
-  202 &       1 \\
-  206 &      28 \\
-  232 &       1 \\
-  236 &      86 \\
-  246 &      56 \\
-  296 &     120 \\
-  316 &       3 \\
+   78 &   26 \\
+  116 &  134 \\
+  124 &    6 \\
+  146 &   84 \\
+  152 &   42 \\
+  176 &  227 \\
+  177 &    1 \\
+  196 &  158 \\
+  202 &    1 \\
+  206 &   34 \\
+  232 &    1 \\
+  234 &    2 \\
+  236 &  103 \\
+  246 &   63 \\
+  296 &  140 \\
+  316 &   13 \\
   \bottomrule
 \end{tabular}\label{tab:timepoints}
 \caption{Heterogeneity in ABIDE number of timepoints. Mean number of timepoints = 193, median = 176. Standard deviation = 58.1}
@@ -415,9 +419,9 @@ positive semi-definite nature of the parent matrices. Additionally, the size of 
 smallest eigenvalues are dependent on the matrix dimensions. As per Random Matrix Theory, the
 spacings between eigenvalues tends to be highly exponential, e.g. the \(i\)th largest eigenvalue
 \(\lambda_i\) will be orders of magnitude larger than the smallest eigenvalue. In other words, the
-eigenvalues have a strongly increasing monotonic trend. 
+eigenvalues have a strongly increasing monotonic trend.
 
-Such a trend can be a problem for deep learners using convolutions or that apply the same weights to each timepoint (e.g. LSTM). Thus, we potentially need to remove this trend for such methods [cite or argue]. 
+Such a trend can be a problem for deep learners using convolutions or that apply the same weights to each timepoint (e.g. LSTM). Thus, we potentially need to remove this trend for such methods [cite or argue].
 
 Thus, non-linear
 normalization methods might be preferable to linear methods. We test two methods for normalizing
