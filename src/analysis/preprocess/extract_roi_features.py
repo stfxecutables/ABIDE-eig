@@ -9,10 +9,8 @@ import nibabel as nib
 import numpy as np
 import pandas as pd
 from numpy import ndarray
-from pandas import DataFrame, Series
-from scipy.stats import mannwhitneyu, ttest_ind
-from sklearn.decomposition import PCA
-from sklearn.metrics import roc_auc_score
+from numpy.core.fromnumeric import trace
+from pandas import DataFrame
 from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 from typing_extensions import Literal
@@ -23,20 +21,7 @@ if CC_CLUSTER is not None:
     os.environ["MPLCONFIGDIR"] = str(Path(SCRATCH) / ".mplconfig")
 ROOT = Path(__file__).resolve().parent.parent.parent.parent
 sys.path.append(str(ROOT))
-from src.analysis.predict.reducers import (
-    RoiReduction,
-    identity,
-    max,
-    mean,
-    median,
-    normalize,
-    pca,
-    std,
-    subject_labels,
-    trim,
-)
 from src.eigenimage.compute import eigs_via_transpose
-from src.eigenimage.compute_batch import T_LENGTH
 
 """
 Notes
@@ -72,14 +57,14 @@ if not ROIS.exists():
 EIGS = DATA / "eigs"  # for normalizing
 SUBJ_DATA = DATA / "Phenotypic_V1_0b_preprocessed1.csv"
 EIGIMGS = DATA / "eigimgs"
-ATLAS_DIR = DATA / "atlases"
-ATLAS = ATLAS_DIR / "cc400_roi_atlas_ALIGNED.nii.gz"
-LEGEND = ATLAS_DIR / "CC400_ROI_labels.csv"
 
+ATLAS_DIR = DATA / "atlases"
 ATLAS_400 = ATLAS_DIR / "cc400_roi_atlas_ALIGNED.nii.gz"
 LEGEND_400 = ATLAS_DIR / "CC400_ROI_labels.csv"
 ATLAS_200 = ATLAS_DIR / "cc200_roi_atlas_ALIGNED.nii.gz"
 LEGEND_200 = ATLAS_DIR / "CC200_ROI_labels.csv"
+ATLASES = {"cc200": ATLAS_200, "cc400": ATLAS_400}
+LEGENDS = {"cc200": LEGEND_200, "cc400": LEGEND_400}
 MASK = ATLAS_DIR / "MASK.nii.gz"
 
 
@@ -152,6 +137,10 @@ def compute_full_eigs(arr: ndarray, T: int = 203, crop: bool = False, pad: bool 
     """
     mask = nib.load(str(MASK)).get_fdata().astype(bool)
     brain = arr[mask, :]
+    # remove constant voxels, which result in undefined sd, correlation
+    constants = brain.std(axis=1) <= 1e-15  # almost np.finfo(np.float64).eps
+    brain = brain[~constants]
+    # resize
     t = brain.shape[-1]
     if crop and t > T:
         brain = brain[:, :T]
@@ -161,7 +150,7 @@ def compute_full_eigs(arr: ndarray, T: int = 203, crop: bool = False, pad: bool 
     return eigs[1:]
 
 
-def compute_laplacian_eigs(corrs: ndarray, T: float) -> ndarray:
+def compute_laplacian_eigs(corrs: ndarray) -> Tuple[ndarray, ndarray]:
     """
     Notes
     -----
@@ -172,16 +161,80 @@ def compute_laplacian_eigs(corrs: ndarray, T: float) -> ndarray:
         https://doi.org/10.1109/ACCESS.2019.2940198
 
     Note however the procedure is a bit dubious, as when dealing with Laplacians of directed graphs
-    we should have two degree matrices, depending on whether we are counting indegrees or outdegrees.
-    Presumably, the authors are treating here the matrix as a *weighted* directed graph, in order to
-    ignore this issue, but then it is not clear why a threshold T is used in the first place...
+    we should have two degree matrices, depending on whether we are counting indegrees or
+    outdegrees. Presumably, the authors are treating here the matrix as a *weighted* directed graph,
+    in order to ignore this issue, but then it is not clear why a threshold T is used in the first
+    place...
+
+    As per the above paper, and also:
+
+        Yin, W., Mostafa, S., & Wu, F. (2021). Diagnosis of Autism Spectrum Disorder Based on
+        Functional Brain Networks with Deep Learning. Journal of Computational Biology, 28(2),
+        146–165. https://doi.org/10.1089/cmb.2020.0252
+
+    the values T = 0.2 and T = 0.4 produce highest accuracies for the ABIDE data, so we just just
+    those two.
     """
     # construct adjacency matrix A using threshold T
-    A = np.copy(corrs)
-    A[np.abs(corrs) < T] = 0
-    A[corrs >= T] = 1
-    A[corrs <= -T] = -1
-    A[np.diag_indices_from(A)] = 0
-    D = np.diag(np.sum(A, axis=1))  # construct degree matrix D
-    L = D - A  # Laplacian
-    return np.linalg.eigvalsh(L)
+    eigs = []
+    for T in [0.2, 0.4]:
+        A = np.copy(corrs)
+        A[np.abs(corrs) < T] = 0
+        A[corrs >= T] = 1
+        A[corrs <= -T] = -1
+        A[np.diag_indices_from(A)] = 0
+        D = np.diag(np.sum(A, axis=1))  # construct degree matrix D
+        L = D - A  # Laplacian
+        eigs.append(np.linalg.eigvalsh(L))
+    return eigs[0], eigs[1]
+
+
+def extract_features(nii: Path) -> None:
+    try:
+        arr = nib.load(str(nii)).get_fdata()
+        for atlas_name, atlas in ATLASES.items():
+            # even with CC400 matrix each result is only 400x400, e.g. 1.2 MB max
+            roi_means = compute_roi_descriptives(arr, atlas, "mean")
+            roi_sds = compute_roi_descriptives(arr, atlas, "sd")
+            r_mean = compute_desc_correlations(roi_means)
+            r_sd = compute_desc_correlations(roi_sds)
+            lap_mean02, lap_mean04 = compute_laplacian_eigs(r_mean)
+            lap_sd02, lap_sd04 = compute_laplacian_eigs(r_sd)
+            eig_mean = compute_corr_eigs(r_mean)
+            eig_sd = compute_corr_eigs(r_sd)
+            eig_full = compute_full_eigs(arr, T=203, crop=False, pad=False)
+            eig_full_p = compute_full_eigs(arr, T=203, crop=False, pad=True)
+            eig_full_c = compute_full_eigs(arr, T=203, crop=True, pad=False)
+            eig_full_pc = compute_full_eigs(arr, T=203, crop=True, pad=True)
+            features = dict(
+                roi_means=roi_means,
+                roi_sds=roi_sds,
+                r_mean=r_mean,
+                r_sd=r_sd,
+                lap_mean02=lap_mean02,
+                lap_mean04=lap_mean04,
+                lap_sd02=lap_sd02,
+                lap_sd04=lap_sd02,
+                eig_mean=eig_mean,
+                eig_sd=eig_sd,
+                eig_full=eig_full,
+                eig_full_p=eig_full_p,
+                eig_full_c=eig_full_c,
+                eig_full_pc=eig_full_pc,
+            )
+            atlas_outdir = FEATURES_DIR / atlas_name
+            for feature_name, feature in features.items():
+                outdir = atlas_outdir / feature_name
+                outfile = outdir / nii.name.replace("func_preproc.nii.gz", f"_{feature_name}.npy")
+                if not outdir.exists():
+                    os.makedirs(outdir, exist_ok=True)
+                np.save(outfile, feature, allow_pickle=False, fix_imports=False)
+    except Exception as e:
+        traceback.print_exc()
+        print(f"Got error for subject {nii}:")
+        print(e)
+
+
+if __name__ == "__main__":
+    niis = sorted(NIIS.rglob("*.nii.gz"))[:30]
+    process_map(extract_features, niis, desc="Extracting features")
