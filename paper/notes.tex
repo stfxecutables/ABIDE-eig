@@ -340,6 +340,13 @@ direct eigenvalues of the correlations, \(\lambda_{\mu,\text{ROI}}\) and
 As the highest quality existing results and studies use mostly either the CC-200 or CC-400 [cite] atlases for extracting
 ROI sequences, we test results for both of these atlases. We also compare concatenated pairings of mean and standard
 
+In some cases, ROIs can have a constant mean or variance signal. This leads to undefined
+correlations. While one can replace the undefined correlations with zero, this loses information
+that may be specific to the subject. In addition, each such ROI causes a row and column of zeros in
+the correlation matrix, which reduces the rank, and thus increases the number of zero eigenvalues
+(increases the multiplicity of some eigenvalue). So we instead replace such degenerate ROIs with the
+global mean (or variance) signal.
+
 \subsubsection{Sampling Heterogeneity and Unequal Timepoints}
 
 Prior to the development of DL and CNNs, handling sequences of different lengths in predictive
