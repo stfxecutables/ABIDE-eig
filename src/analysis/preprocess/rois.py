@@ -20,7 +20,8 @@ from typing_extensions import Literal
 if os.environ.get("CC_CLUSTER") is not None:
     SCRATCH = os.environ["SCRATCH"]
     os.environ["MPLCONFIGDIR"] = str(Path(SCRATCH) / ".mplconfig")
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
+ROOT = Path(__file__).resolve().parent.parent.parent.parent
+sys.path.append(str(ROOT))
 from src.analysis.predict.reducers import (
     RoiReduction,
     identity,
@@ -35,7 +36,7 @@ from src.analysis.predict.reducers import (
 )
 from src.eigenimage.compute_batch import T_LENGTH
 
-DATA = Path(__file__).resolve().parent.parent.parent / "data"
+DATA = ROOT / "data"
 NIIS = DATA / "niis"
 ROIS = DATA / "rois"
 if not ROIS.exists():
@@ -49,6 +50,11 @@ ATLAS_DIR = DATA / "atlases"
 ATLAS = ATLAS_DIR / "cc400_roi_atlas_ALIGNED.nii.gz"
 LEGEND = ATLAS_DIR / "CC400_ROI_labels.csv"
 
+ATLAS_400 = ATLAS_DIR / "cc400_roi_atlas_ALIGNED.nii.gz"
+LEGEND_400 = ATLAS_DIR / "CC400_ROI_labels.csv"
+ATLAS_200 = ATLAS_DIR / "cc200_roi_atlas_ALIGNED.nii.gz"
+LEGEND_200 = ATLAS_DIR / "CC200_ROI_labels.csv"
+
 
 def parse_legend(legend: Path) -> DataFrame:
     """Get a simple, usable legend with columns "ID" for ROI number, and "Name"
@@ -56,7 +62,10 @@ def parse_legend(legend: Path) -> DataFrame:
     """
     leg = pd.read_csv(legend)
     if "CC400" in legend.stem or "CC200" in legend.stem:  # Craddock
-        name = "Talairach-Tournoux"
+        # The Cameron-Craddock atlases are derived from multiple atlases, and so each CC ROI
+        # can be described as a composite of parts of the base atlases (Eickhoff-Zilles, HO,
+        # Talairach-Tournoux). We just want *some* name, and EZ has the least "None" values
+        name = "Eickhoff-Zilles"
         df = leg.loc[:, ["ROI number", name]].copy()
         df.rename(columns={"ROI number": "ID", name: "Name"}, inplace=True)
         df.index = df["ID"]
