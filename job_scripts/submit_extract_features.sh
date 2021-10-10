@@ -6,7 +6,7 @@
 #SBATCH --mail-type=FAIL
 #SBATCH --output=feat_extract%A__%a.out
 #SBATCH --job-name=f_extract
-#SBATCH --time=6:00:00
+#SBATCH --time=2:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=80
 

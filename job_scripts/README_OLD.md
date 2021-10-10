@@ -1,8 +1,7 @@
-# Setup for Niagara Jobs
-
-**TODO**: Convert to Poetry auto-install.
+# Setup
 
 ```sh
+# assumes on Compute Canada Niagara
 module load python/3.8.2
 
 cd $SCRATCH
@@ -12,19 +11,7 @@ cd ABIDE-eig
 python virtualenv --no-download .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-pip install antspyx \
-    matplotlib \
-    nibabel \
-    numpy \
-    optuna \
-    pandas \
-    pytest \
-    scikit-learn \
-    scipy \
-    statsmodels \
-    tqdm \
-    typing_extensions \
-    ;
+pip install antspyx matplotlib nibabel numpy pandas scikit-learn statsmodels tqdm pytest
 ```
 
 # Data Download
@@ -34,16 +21,16 @@ After running setup:
 ```sh
 source $SCRATCH/ABIDE-eig/.venv/bin/activate
 cd $SCRATCH/ABIDE-eig/data/niis
-python data/download_cpac_1035.py --fmri
+python download_all.py
 ```
 
-After downloading the data, you should also run
+After downloading the data, you must also run
 
 ```sh
-python $SCRATCH/ABIDE-eig/data/nii_cpac/log_shapes.py
+python $SCRATCH/ABIDE-eig/data/niis/log_shapes.py
 ```
 
-to generate the `$SCRATCH/ABIDE-eig/data/nii_cpac/shapes.json` summary file needed for some later steps.
+to generate the `$SCRATCH/ABIDE-eig/data/niis/shapes.json` summary file needed for some later steps.
 
 
 # To Run All Analyses
@@ -51,19 +38,13 @@ to generate the `$SCRATCH/ABIDE-eig/data/nii_cpac/shapes.json` summary file need
 ## Pre-Computations
 
 These steps make various modified versions of the original files available.
+This assumes you have run `cd $SCRATCH/job_scripts` first.
 
-### Precompute ROI and Whole-Brain 1D and 2D Features
-
-```sh
-sbatch job_scripts/submit_extract_features.sh
-```
-
-<!-- ### Precompute eigenimages (must be completed first)
+### Precompute eigenimages (must be completed first)
 
 ```sh
 sbatch submit_precompute_eigimgs.sh
 ```
-
 ### Precompute other intermediates (can be submitted in parallel)
 
 ```sh
@@ -78,4 +59,4 @@ echo "All precompute jobs submitted."
 ```sh
 sbatch submit_compute_roi.sh
 sbatch submit_compute_seq.sh
-``` -->
+```
