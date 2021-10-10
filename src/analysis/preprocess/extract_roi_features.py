@@ -9,7 +9,6 @@ import nibabel as nib
 import numpy as np
 import pandas as pd
 from numpy import ndarray
-from numpy.core.fromnumeric import trace
 from pandas import DataFrame
 from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
@@ -58,6 +57,7 @@ EIGS = DATA / "eigs"  # for normalizing
 SUBJ_DATA = DATA / "Phenotypic_V1_0b_preprocessed1.csv"
 EIGIMGS = DATA / "eigimgs"
 
+# NOTE!!! CC_400 only actually has 392 ROIS...
 ATLAS_DIR = DATA / "atlases"
 ATLAS_400 = ATLAS_DIR / "cc400_roi_atlas_ALIGNED.nii.gz"
 LEGEND_400 = ATLAS_DIR / "CC400_ROI_labels.csv"
@@ -95,20 +95,44 @@ def compute_roi_descriptives(
     rois = np.empty((arr.shape[-1], len(roi_ids)))
     for i, rid in enumerate(roi_ids):
         roi = arr[atlas == rid]
-        seq = np.mean(roi) if summary == "mean" else np.std(roi, ddof=1)
+        seq = np.mean(roi, axis=0) if summary == "mean" else np.std(roi, axis=0, ddof=1)
         rois[:, i] = seq
     return rois
 
 
-def compute_desc_correlations(desc: ndarray) -> ndarray:
+def compute_desc_correlations(
+    arr: ndarray, desc: ndarray, summary: Literal["mean", "sd"]
+) -> ndarray:
     """Assumes `desc` has shape (T, n_ROI).
 
     Returns
     -------
     corrs: ndarray
         Array of Pearson correlations of ROIs, shape (n_ROI, n_ROI)
+
+    Notes
+    -----
+    Believe it or not, some ROIs are constant. This will lead to NaNs in the
+    correlation matrix, because constant ROIs have zero sd, and we need to
+    divide by the sd to get a correlation. We can of course replace the NaNs
+    with zeroes, but this reduces the rank, and causes eigenvalues to have
+    multiplicities greater than 1, i.e. we get extra zero eigenvalues as well.
+
+    An alternative might be to replace such ROIs with the global mean signal (or
+    global sd signal, for the ROI sds). We do the latter.
     """
-    return np.corrcoef(desc, rowvar=False)
+    const_idx = np.where(np.std(desc, axis=0, ddof=1) == 0)[0]
+    if len(const_idx) > 0:
+        replace = (
+            np.mean(arr, axis=(0, 1, 2))
+            if summary == "mean"
+            else np.std(arr, axis=(0, 1, 2), ddof=1)
+        )
+        desc = np.copy(desc)
+        for idx in const_idx:
+            desc[:, idx] = replace
+    c = np.corrcoef(desc, rowvar=False)
+    return c
 
 
 def compute_corr_eigs(corrs: ndarray) -> ndarray:
@@ -192,12 +216,13 @@ def compute_laplacian_eigs(corrs: ndarray) -> Tuple[ndarray, ndarray]:
 def extract_features(nii: Path) -> None:
     try:
         arr = nib.load(str(nii)).get_fdata()
-        for atlas_name, atlas in ATLASES.items():
+        for atlas_name, atlas_path in ATLASES.items():
             # even with CC400 matrix each result is only 400x400, e.g. 1.2 MB max
+            atlas = nib.load(str(atlas_path)).get_fdata()
             roi_means = compute_roi_descriptives(arr, atlas, "mean")
             roi_sds = compute_roi_descriptives(arr, atlas, "sd")
-            r_mean = compute_desc_correlations(roi_means)
-            r_sd = compute_desc_correlations(roi_sds)
+            r_mean = compute_desc_correlations(arr, roi_means, "mean")
+            r_sd = compute_desc_correlations(arr, roi_sds, "sd")
             lap_mean02, lap_mean04 = compute_laplacian_eigs(r_mean)
             lap_sd02, lap_sd04 = compute_laplacian_eigs(r_sd)
             eig_mean = compute_corr_eigs(r_mean)
@@ -214,7 +239,7 @@ def extract_features(nii: Path) -> None:
                 lap_mean02=lap_mean02,
                 lap_mean04=lap_mean04,
                 lap_sd02=lap_sd02,
-                lap_sd04=lap_sd02,
+                lap_sd04=lap_sd04,
                 eig_mean=eig_mean,
                 eig_sd=eig_sd,
                 eig_full=eig_full,
@@ -237,4 +262,6 @@ def extract_features(nii: Path) -> None:
 
 if __name__ == "__main__":
     niis = sorted(NIIS.rglob("*.nii.gz"))
+    # for nii in tqdm(niis):
+    #     extract_features(nii)
     process_map(extract_features, niis, desc="Extracting features")
