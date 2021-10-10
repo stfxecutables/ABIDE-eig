@@ -1,6 +1,5 @@
-from __future__ import annotations  # isort:skip
+from __future__ import annotations  # isort:skip # noqa
 
-import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -33,6 +32,8 @@ class Shape:
 
 
 class Feature:
+    """Class to contain everything needed to load data and fit a model (hopefully). """
+
     def __init__(self, name: str, atlas: Optional[Atlas] = None) -> None:
         self.name: str = name
         self.atlas: Optional[Atlas] = atlas
@@ -77,7 +78,6 @@ class Feature:
 
     def __str__(self) -> str:
         rois = self.atlas.name if self.atlas is not None else "whole"
-        sp = "\n    "
         label = f"{self.name} ({rois})"
         sinfo = f"{self.shape_data}"
         location = f"({self.path.relative_to(self.path.parent.parent.parent)})"
