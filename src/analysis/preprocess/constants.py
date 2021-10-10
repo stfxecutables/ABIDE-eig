@@ -2,6 +2,7 @@ import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional, Tuple
 
 # fmt: off
 CC_CLUSTER = os.environ.get("CC_CLUSTER")
@@ -12,13 +13,7 @@ ROOT = Path(__file__).resolve().parent.parent.parent.parent
 sys.path.append(str(ROOT))
 # fmt: on
 
-
-@dataclass
-class Atlas:
-    name: str
-    path: Path
-    legend: Path
-
+from src.analysis.preprocess.atlas import Atlas
 
 SUFFIX = "_f16_subsample" if CC_CLUSTER is None else ""
 DATA = ROOT / "data"
@@ -45,3 +40,5 @@ CC400 = Atlas("cc400", ATLAS_400, LEGEND_400)
 ATLASES = [CC200, CC400]
 
 MASK = ATLAS_DIR / "MASK.nii.gz"
+
+T_CROP = 203

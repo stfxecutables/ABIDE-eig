@@ -18,7 +18,7 @@ if CC_CLUSTER is not None:
     os.environ["MPLCONFIGDIR"] = str(Path(SCRATCH) / ".mplconfig")
 ROOT = Path(__file__).resolve().parent.parent.parent.parent
 sys.path.append(str(ROOT))
-from src.analysis.preprocess.constants import ATLASES, FEATURES_DIR, MASK, NIIS
+from src.analysis.preprocess.constants import ATLASES, FEATURES_DIR, MASK, NIIS, T_CROP
 from src.eigenimage.compute import eigs_via_transpose
 
 """
@@ -114,7 +114,9 @@ def compute_corr_eigs(corrs: ndarray) -> ndarray:
     return np.linalg.eigvalsh(corrs)
 
 
-def compute_full_eigs(arr: ndarray, T: int = 203, crop: bool = False, pad: bool = False) -> ndarray:
+def compute_full_eigs(
+    arr: ndarray, T: int = T_CROP, crop: bool = False, pad: bool = False
+) -> ndarray:
     """Compute the full eigenvalues using transpose trick.
 
     Parameters
@@ -143,7 +145,7 @@ def compute_full_eigs(arr: ndarray, T: int = 203, crop: bool = False, pad: bool 
     if crop and t > T:
         brain = brain[:, :T]
     if pad and t < T:
-        brain = np.pad(brain, ((0, T - t), (0, 0)), "wrap")
+        brain = np.pad(brain, ((0, 0), (0, T - t)), "wrap")
     eigs = eigs_via_transpose(brain, covariance=False)
     return eigs[1:]
 
@@ -187,7 +189,7 @@ def compute_laplacian_eigs(corrs: ndarray) -> Tuple[ndarray, ndarray]:
     return eigs[0], eigs[1]
 
 
-def extract_features(nii: Path) -> None:
+def extract_roi_features(nii: Path) -> None:
     try:
         arr = nib.load(str(nii)).get_fdata()
         for atlas_data in ATLASES:
@@ -201,10 +203,6 @@ def extract_features(nii: Path) -> None:
             lap_sd02, lap_sd04 = compute_laplacian_eigs(r_sd)
             eig_mean = compute_corr_eigs(r_mean)
             eig_sd = compute_corr_eigs(r_sd)
-            eig_full = compute_full_eigs(arr, T=203, crop=False, pad=False)
-            eig_full_p = compute_full_eigs(arr, T=203, crop=False, pad=True)
-            eig_full_c = compute_full_eigs(arr, T=203, crop=True, pad=False)
-            eig_full_pc = compute_full_eigs(arr, T=203, crop=True, pad=True)
             features = dict(
                 roi_means=roi_means,
                 roi_sds=roi_sds,
@@ -216,10 +214,6 @@ def extract_features(nii: Path) -> None:
                 lap_sd04=lap_sd04,
                 eig_mean=eig_mean,
                 eig_sd=eig_sd,
-                eig_full=eig_full,
-                eig_full_p=eig_full_p,
-                eig_full_c=eig_full_c,
-                eig_full_pc=eig_full_pc,
             )
             atlas_outdir = FEATURES_DIR / atlas_data.name
             for feature_name, feature in features.items():
@@ -233,9 +227,36 @@ def extract_features(nii: Path) -> None:
         print(f"Got error for subject {nii}:")
         print(e)
 
+def extract_wholebrain_features(nii: Path) -> None:
+    try:
+        arr = nib.load(str(nii)).get_fdata()
+        eig_full = compute_full_eigs(arr, T=203, crop=False, pad=False)
+        eig_full_p = compute_full_eigs(arr, T=203, crop=False, pad=True)
+        eig_full_c = compute_full_eigs(arr, T=203, crop=True, pad=False)
+        eig_full_pc = compute_full_eigs(arr, T=203, crop=True, pad=True)
+        features = dict(
+            eig_full=eig_full,
+            eig_full_p=eig_full_p,
+            eig_full_c=eig_full_c,
+            eig_full_pc=eig_full_pc,
+        )
+        for feature_name, feature in features.items():
+            outdir = FEATURES_DIR / feature_name
+            outfile = outdir / nii.name.replace("func_preproc.nii.gz", f"_{feature_name}.npy")
+            if not outdir.exists():
+                os.makedirs(outdir, exist_ok=True)
+            np.save(outfile, feature, allow_pickle=False, fix_imports=False)
+    except Exception as e:
+        traceback.print_exc()
+        print(f"Got error for subject {nii}:")
+        print(e)
+
 
 if __name__ == "__main__":
     niis = sorted(NIIS.rglob("*.nii.gz"))
-    # for nii in tqdm(niis):
-    #     extract_features(nii)
-    process_map(extract_features, niis, desc="Extracting features")
+    if CC_CLUSTER is None:  # debugging
+        niis = niis[:10]
+        for nii in niis:
+            extract_roi_features(nii)
+    # process_map(extract_roi_features, niis, desc="Extracting ROI features")
+    process_map(extract_wholebrain_features, niis, desc="Extracting whole-brain features")
