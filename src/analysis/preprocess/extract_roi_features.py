@@ -236,5 +236,5 @@ def extract_features(nii: Path) -> None:
 
 
 if __name__ == "__main__":
-    niis = sorted(NIIS.rglob("*.nii.gz"))[:30]
+    niis = sorted(NIIS.rglob("*.nii.gz"))
     process_map(extract_features, niis, desc="Extracting features")
