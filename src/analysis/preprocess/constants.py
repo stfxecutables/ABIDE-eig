@@ -6,7 +6,7 @@ from typing import Optional, Tuple
 
 # fmt: off
 CC_CLUSTER = os.environ.get("CC_CLUSTER")
-if CC_CLUSTER is not None:
+if CC_CLUSTER is not None and (CC_CLUSTER == "niagara"):
     SCRATCH = os.environ["SCRATCH"]
     os.environ["MPLCONFIGDIR"] = str(Path(SCRATCH) / ".mplconfig")
 ROOT = Path(__file__).resolve().parent.parent.parent.parent

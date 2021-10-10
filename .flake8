@@ -11,3 +11,4 @@ per-file-ignores =
     test/test_compute_images.py:E402
     test/test_checkpointing.py:E402
     src/eigenimage/compute.py:E402
+    src/analysis/features.py:E241

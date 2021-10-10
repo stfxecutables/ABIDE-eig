@@ -9,6 +9,7 @@ import pytest
 import seaborn as sbn
 from numpy import ndarray
 from pandas import DataFrame, Series
+from tqdm import tqdm
 from typing_extensions import Literal
 
 # fmt: off
@@ -24,7 +25,7 @@ def _show_data_shapes(parent: Path) -> Tuple[ndarray, ndarray]:
     exclude = [FEATURES_DIR.name, "cc200", "cc400"]
     parents = np.unique([f.parent for f in files])
     dfs = []
-    for p in parents:
+    for p in tqdm(parents):
         if p.name in exclude:
             continue
         label = f"{p.parent.name}/{p.name}"
