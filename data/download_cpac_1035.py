@@ -167,7 +167,7 @@ def compare_counts(counts: DataFrame, full: bool = False) -> DataFrame:
     return discrep
 
 
-def filter_to_1035(csv: DataFrame) -> DataFrame:
+def filter_to_1035(csv: DataFrame, verbose: bool = False) -> DataFrame:
     all_subj = csv.copy()
     undiagnosed = csv.DSM_IV_TR.isna()
     QC_COLS = [
@@ -186,13 +186,14 @@ def filter_to_1035(csv: DataFrame) -> DataFrame:
     undiag_counts = get_site_counts(undiag)
     nameless_counts = get_site_counts(csv.loc[~nameless])
 
-    pd.options.display.max_rows = 900
-    print("Full data discrepancies from Heinsfeld")
-    print(compare_counts(our_counts))
-    print("Undiagnosed data discrepancies from Heinsfeld")
-    print(compare_counts(undiag_counts))
-    print("Nameless data discrepancies from Heinsfeld")
-    print(compare_counts(nameless_counts, full=True))
+    if verbose:
+        pd.options.display.max_rows = 900
+        print("Full data discrepancies from Heinsfeld")
+        print(compare_counts(our_counts))
+        print("Undiagnosed data discrepancies from Heinsfeld")
+        print(compare_counts(undiag_counts))
+        print("Nameless data discrepancies from Heinsfeld")
+        print(compare_counts(nameless_counts, full=True))
 
     # NOTE: from above it is clear that what all the 1035 subject papers *actually* do is
     # remove subjects that have "no_filename" as the name.
@@ -200,13 +201,13 @@ def filter_to_1035(csv: DataFrame) -> DataFrame:
     return subj_1035
 
 
-def download_csv() -> DataFrame:
+def download_csv(verbose: bool = False) -> DataFrame:
     CSV_FILE = Path(__file__).resolve().parent / "Phenotypic_V1_0b_preprocessed1.csv"
     CSV_WEB_PATH = "https://s3.amazonaws.com/fcp-indi/data/Projects/ABIDE_Initiative/Phenotypic_V1_0b_preprocessed1.csv"
     if not CSV_FILE.exists():
         urlretrieve(CSV_WEB_PATH, CSV_FILE)
     csv = pd.read_csv(CSV_FILE, header=0, na_values="-9999")
-    csv = filter_to_1035(csv)
+    csv = filter_to_1035(csv, verbose)
     csv = csv.rename(columns={"SUB_ID": "sid", "FILE_ID": "fname"})
     csv.index = csv.sid
     csv.drop(columns="sid", inplace=True)

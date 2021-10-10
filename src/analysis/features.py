@@ -3,15 +3,39 @@ from __future__ import annotations  # isort:skip # noqa
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union, cast, no_type_check
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import pytest
+import seaborn as sbn
+from numpy import ndarray
+from pandas import DataFrame, Series
+from typing_extensions import Literal
 
 # fmt: off
 ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.append(str(ROOT))
 # fmt: on
 
+from data.download_cpac_1035 import download_csv
+
 from src.analysis.preprocess.atlas import Atlas
 from src.analysis.preprocess.constants import ATLASES, FEATURES_DIR, T_CROP
+
+SUBJ_DATA = download_csv().loc[:, ["fname", "DX_GROUP"]]
+# fix idiotic default of 1 == ASD, 2 == TD, so that now
+# 1 = autism, 0 = TD (typical development, control)
+SUBJ_DATA.DX_GROUP = SUBJ_DATA.DX_GROUP.apply(lambda x: 2 - x)
+SUBJ_DATA.index = pd.Index(SUBJ_DATA.fname.values, name="fname")
+SUBJ_DATA.drop(columns="fname", inplace=True)
+
+
+def get_class(file: Path) -> int:
+    stem = file.stem
+    fname = stem[: stem.find("__")]
+    return int(SUBJ_DATA.loc[fname])
 
 
 @dataclass
@@ -39,6 +63,17 @@ class Feature:
         self.atlas: Optional[Atlas] = atlas
         self.path: Path = self.get_path(self.name, self.atlas)
         self.shape_data: Shape = self.get_shape(self.name, self.atlas)
+
+    def load(self) -> Tuple[ndarray, ndarray]:
+        """Returns data in form of (x, y), where `y` is the labels (0=TD, 1=ASD)"""
+        files = sorted(self.path.rglob("*.npy"))
+        arrs = [np.load(f) for f in files]
+        x = np.stack(arrs, axis=0)
+        y = np.array([get_class(f) for f in files])
+        return x, y
+
+    def inspect(self) -> None:
+        """Plot distributions, report stats, etc."""
 
     @staticmethod
     def get_path(name: str, atlas: Optional[Atlas] = None) -> Path:
@@ -115,3 +150,4 @@ for fname in WHOLE_FEATURE_NAMES:
 if __name__ == "__main__":
     for f in FEATURES:
         print(f)
+    FEATURES[0].load()
