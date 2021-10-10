@@ -1,16 +1,14 @@
 import os
 import sys
 import traceback
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, List, Optional, Tuple
+from typing import Tuple
 
 import nibabel as nib
 import numpy as np
 import pandas as pd
 from numpy import ndarray
 from pandas import DataFrame
-from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 from typing_extensions import Literal
 
@@ -20,6 +18,7 @@ if CC_CLUSTER is not None:
     os.environ["MPLCONFIGDIR"] = str(Path(SCRATCH) / ".mplconfig")
 ROOT = Path(__file__).resolve().parent.parent.parent.parent
 sys.path.append(str(ROOT))
+from src.analysis.preprocess.constants import ATLASES, FEATURES_DIR, MASK, NIIS
 from src.eigenimage.compute import eigs_via_transpose
 
 """
@@ -41,31 +40,6 @@ We need to extract:
 - eig_full_c: (eig_full cropping long scans prior to computing eigs)
 - eig_full_pc: (eig_full padding short and cropping long scans prior to computing eigs)
 """
-
-SUFFIX = "_f16_subsample" if CC_CLUSTER is None else ""
-DATA = ROOT / "data"
-NIIS = DATA / f"nii_cpac{SUFFIX}"
-FEATURES_DIR = DATA / f"features_cpac{SUFFIX}"
-
-
-ROIS = DATA / "rois"
-if not ROIS.exists():
-    os.makedirs(ROIS, exist_ok=True)
-    os.makedirs(ROIS / "ctrl", exist_ok=True)
-    os.makedirs(ROIS / "autism", exist_ok=True)
-EIGS = DATA / "eigs"  # for normalizing
-SUBJ_DATA = DATA / "Phenotypic_V1_0b_preprocessed1.csv"
-EIGIMGS = DATA / "eigimgs"
-
-# NOTE!!! CC_400 only actually has 392 ROIS...
-ATLAS_DIR = DATA / "atlases"
-ATLAS_400 = ATLAS_DIR / "cc400_roi_atlas_ALIGNED.nii.gz"
-LEGEND_400 = ATLAS_DIR / "CC400_ROI_labels.csv"
-ATLAS_200 = ATLAS_DIR / "cc200_roi_atlas_ALIGNED.nii.gz"
-LEGEND_200 = ATLAS_DIR / "CC200_ROI_labels.csv"
-ATLASES = {"cc200": ATLAS_200, "cc400": ATLAS_400}
-LEGENDS = {"cc200": LEGEND_200, "cc400": LEGEND_400}
-MASK = ATLAS_DIR / "MASK.nii.gz"
 
 
 def parse_legend(legend: Path) -> DataFrame:
@@ -216,9 +190,9 @@ def compute_laplacian_eigs(corrs: ndarray) -> Tuple[ndarray, ndarray]:
 def extract_features(nii: Path) -> None:
     try:
         arr = nib.load(str(nii)).get_fdata()
-        for atlas_name, atlas_path in ATLASES.items():
+        for atlas_data in ATLASES:
             # even with CC400 matrix each result is only 400x400, e.g. 1.2 MB max
-            atlas = nib.load(str(atlas_path)).get_fdata()
+            atlas = nib.load(str(atlas_data.path)).get_fdata()
             roi_means = compute_roi_descriptives(arr, atlas, "mean")
             roi_sds = compute_roi_descriptives(arr, atlas, "sd")
             r_mean = compute_desc_correlations(arr, roi_means, "mean")
@@ -247,7 +221,7 @@ def extract_features(nii: Path) -> None:
                 eig_full_c=eig_full_c,
                 eig_full_pc=eig_full_pc,
             )
-            atlas_outdir = FEATURES_DIR / atlas_name
+            atlas_outdir = FEATURES_DIR / atlas_data.name
             for feature_name, feature in features.items():
                 outdir = atlas_outdir / feature_name
                 outfile = outdir / nii.name.replace("func_preproc.nii.gz", f"_{feature_name}.npy")
