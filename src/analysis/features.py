@@ -12,6 +12,7 @@ import pytest
 import seaborn as sbn
 from numpy import ndarray
 from pandas import DataFrame, Series
+from tqdm import tqdm
 from typing_extensions import Literal
 
 # fmt: off
@@ -134,15 +135,33 @@ class Feature:
         if len(shape) == 1:
             x, y = self.load(normalize=False, stack=True)
             x_asd, x_td = x[y == 0], x[y == 1]
-            fig, axes = plt.subplots(ncols=3, sharex=True, sharey=True)
-            info_all = self.plot_hist(axes[0], x, "All subjects")
-            info_asd = self.plot_hist(axes[1], x_asd, "ASD")
-            info_td = self.plot_hist(axes[2], x_td, "TD")
+            fig, axes = plt.subplots(nrows=2, ncols=3, sharex=False, sharey=False)
+            axes[1][1].sharex(axes[1][0])
+            axes[1][2].sharex(axes[1][0])
+            axes[1][1].sharey(axes[1][0])
+            axes[1][2].sharey(axes[1][0])
+
+            axes[0][1].sharey(axes[0][0])
+            axes[0][2].sharey(axes[0][0])
+            axes[0][1].sharex(axes[0][0])
+            axes[0][2].sharex(axes[0][0])
+
+            info_all = self.plot_hist(axes[1][0], x, "All subjects")
+            info_asd = self.plot_hist(axes[1][1], x_asd, "ASD")
+            info_td = self.plot_hist(axes[1][2], x_td, "TD")
+            # self.plot_curves(axes[0][0], x, "All subjects")
+            self.plot_curves(axes[0][0], x_asd, "ASD", color="#ffa514")
+            self.plot_curves(axes[0][0], x_td, "TD", color="#146eff")
+            axes[0][0].set_title("All Subjects")
+            self.plot_curves(axes[0][1], x, "ASD")
+            self.plot_curves(axes[0][2], x, "TD")
             fig.text(x=0.16, y=0.05, s=info_all)
             fig.text(x=0.45, y=0.05, s=info_asd)
             fig.text(x=0.72, y=0.05, s=info_td)
-            fig.subplots_adjust(bottom=0.3)
-            fig.set_size_inches(h=6, w=16)
+            fig.subplots_adjust(
+                top=0.91, bottom=0.22, left=0.125, right=0.9, hspace=0.32, wspace=0.2
+            )
+            fig.set_size_inches(h=8, w=16)
             fig.suptitle(self.name)
             plt.show()
             return
@@ -177,11 +196,25 @@ class Feature:
         ax.vlines(mx, color="#a701f4", label="max all", ymin=0, ymax=ymax, lw=0.5, alpha=0.5)
 
         ax.set_xlabel("Feature values")
+        ax.set_ylabel("Count")
         # ax.set_xscale("log")
         ax.set_yscale("log")
         ax.legend()
         ax.set_title(label)
         return sd_info
+
+    def plot_curves(self, ax: plt.Axes, x: ndarray, label: str, color: str = "black") -> None:
+        alpha = 0.2 if color == "black" else 0.3
+        for i in range(x.shape[0]):
+            lab = label if (i == 0) else None
+            ax.plot(x[i], color=color, alpha=alpha, lw=0.75, label=lab)
+        ax.set_xlabel("Feature index")
+        ax.set_ylabel("Feature value")
+        # ax.set_xscale("log")
+        if "eig_" in self.name:
+            ax.set_yscale("log")
+        ax.set_title(label)
+        ax.legend()
 
     @staticmethod
     def get_path(name: str, atlas: Optional[Atlas] = None) -> Path:
