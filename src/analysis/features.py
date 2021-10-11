@@ -134,42 +134,61 @@ class Feature:
         """
         shape = self.shape_data.shape
         if len(shape) == 1:
-            x, y = self.load(normalize=False, stack=True)
-            x_asd, x_td = x[y == 0], x[y == 1]
-            fig, axes = plt.subplots(nrows=2, ncols=3, sharex=False, sharey=False)
-            axes[1][1].sharex(axes[1][0])
-            axes[1][2].sharex(axes[1][0])
-            axes[1][1].sharey(axes[1][0])
-            axes[1][2].sharey(axes[1][0])
-
-            axes[0][1].sharey(axes[0][0])
-            axes[0][2].sharey(axes[0][0])
-            axes[0][1].sharex(axes[0][0])
-            axes[0][2].sharex(axes[0][0])
-
-            info_all = self.plot_hist(axes[1][0], x, "All subjects")
-            info_asd = self.plot_hist(axes[1][1], x_asd, "ASD")
-            info_td = self.plot_hist(axes[1][2], x_td, "TD")
-            # self.plot_curves(axes[0][0], x, "All subjects")
-            self.plot_curves(axes[0][0], x_asd, "ASD", color="#ffa514")
-            self.plot_curves(axes[0][0], x_td, "TD", color="#146eff")
-            handles = [Line2D([0], [0], color="#ffa514", lw=0.75), Line2D([0], [0], color="#146eff", lw=0.75)]
-            labels = ["ASD", "TD"]
-            axes[0][0].legend(handles, labels)
-            axes[0][0].set_title("All Subjects")
-            self.plot_curves(axes[0][1], x_asd, "ASD")
-            self.plot_curves(axes[0][2], x_td, "TD")
-            fig.text(x=0.16, y=0.05, s=info_all)
-            fig.text(x=0.45, y=0.05, s=info_asd)
-            fig.text(x=0.72, y=0.05, s=info_td)
-            fig.subplots_adjust(
-                top=0.91, bottom=0.22, left=0.125, right=0.9, hspace=0.32, wspace=0.2
-            )
-            fig.set_size_inches(h=8, w=16)
-            fig.suptitle(self.name)
-            plt.show()
+            self.plot_1d_feature()
             return
         # now either we have a matrix, or actual waveforms
+
+    def plot_1d_feature(self) -> None:
+        x, y = self.load(normalize=False, stack=True)
+        x_asd, x_td = x[y == 0], x[y == 1]
+        fig, axes = self._plot_setup()
+
+        info_all = self.plot_hist(axes[1][0], x, "All subjects")
+        info_asd = self.plot_hist(axes[1][1], x_asd, "ASD")
+        info_td = self.plot_hist(axes[1][2], x_td, "TD")
+        # self.plot_curves(axes[0][0], x, "All subjects")
+        self.plot_curves(axes[0][0], x_asd, "ASD", color="#ffa514")
+        self.plot_curves(axes[0][0], x_td, "TD", color="#146eff")
+        handles = [
+            Line2D([0], [0], color="#ffa514", lw=0.75),
+            Line2D([0], [0], color="#146eff", lw=0.75),
+        ]
+        labels = ["ASD", "TD"]
+        axes[0][0].legend(handles, labels)
+        axes[0][0].set_title("All Subjects")
+        self.plot_curves(axes[0][1], x_asd, "ASD")
+        self.plot_curves(axes[0][2], x_td, "TD")
+        fig.text(x=0.16, y=0.05, s=info_all)
+        fig.text(x=0.45, y=0.05, s=info_asd)
+        fig.text(x=0.72, y=0.05, s=info_td)
+        fig.subplots_adjust(top=0.91, bottom=0.22, left=0.125, right=0.9, hspace=0.32, wspace=0.2)
+        fig.set_size_inches(h=8, w=16)
+        fig.suptitle(self.name)
+        plt.show()
+
+    def plot_2d_feature(self) -> None:
+        x, y = self.load(normalize=False, stack=True)
+        x_asd, x_td = x[y == 0], x[y == 1]
+        fig, axes = self._plot_setup()
+        if "r_" in self.name:
+            # grab upper triangle of matrix, flatten, sort by variance, make a big image 1000 x ROI(ROI-1)/2
+
+            return
+        # just scatter plot
+
+    @staticmethod
+    def _plot_setup() -> Tuple[plt.Figure, plt.Axes]:
+        fig, axes = plt.subplots(nrows=2, ncols=3, sharex=False, sharey=False)
+        axes[1][1].sharex(axes[1][0])
+        axes[1][2].sharex(axes[1][0])
+        axes[1][1].sharey(axes[1][0])
+        axes[1][2].sharey(axes[1][0])
+
+        axes[0][1].sharey(axes[0][0])
+        axes[0][2].sharey(axes[0][0])
+        axes[0][1].sharex(axes[0][0])
+        axes[0][2].sharex(axes[0][0])
+        return fig, axes
 
     @staticmethod
     def plot_hist(ax: plt.Axes, x: ndarray, label: str) -> str:
@@ -284,7 +303,7 @@ WHOLE_FEATURE_NAMES = [
     "eig_full_p",
     "eig_full_pc",
 ]
-FEATURES = []
+FEATURES: List[Feature] = []
 for atlas in ATLASES:  # also include non-atlas-based features
     for fname in ROI_FEATURE_NAMES:
         FEATURES.append(Feature(fname, atlas))
@@ -297,4 +316,6 @@ if __name__ == "__main__":
         print(f)
     # sys.exit()
     for f in FEATURES:
+        if len(f.shape_data.shape) == 1:
+            continue
         f.inspect()
