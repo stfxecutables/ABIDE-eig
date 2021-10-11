@@ -33,6 +33,13 @@ SUBJ_DATA.DX_GROUP = SUBJ_DATA.DX_GROUP.apply(lambda x: 2 - x)
 SUBJ_DATA.index = pd.Index(SUBJ_DATA.fname.values, name="fname")
 SUBJ_DATA.drop(columns="fname", inplace=True)
 
+COLORS = {
+    "All subjects": "black",
+    "All Subjects": "black",
+    "ASD": "#ffa514",
+    "TD": "#146eff",
+}
+
 
 def get_class(file: Path) -> int:
     stem = file.stem
@@ -136,6 +143,8 @@ class Feature:
         if len(shape) == 1:
             self.plot_1d_feature()
             return
+        if len(shape) == 2:
+            self.plot_2d_feature()
         # now either we have a matrix, or actual waveforms
 
     def plot_1d_feature(self) -> None:
@@ -171,10 +180,59 @@ class Feature:
         x_asd, x_td = x[y == 0], x[y == 1]
         fig, axes = self._plot_setup()
         if "r_" in self.name:
-            # grab upper triangle of matrix, flatten, sort by variance, make a big image 1000 x ROI(ROI-1)/2
-
+            # grab upper triangle of matrix, flatten, sort features by variance, make x = feature index, y = feature value,
+            # do a big scatter plot with transparency
+            self.scatter_2d(axes[0][0], x, "All Subjects")
+            self.scatter_2d(axes[0][1], x_asd, "ASD")
+            self.scatter_2d(axes[0][2], x_td, "TD")
+            self.pseudo_sequence_2d(axes[1][0], x, "All Subjects")
+            self.pseudo_sequence_2d(axes[1][1], x_asd, "All Subjects")
+            self.pseudo_sequence_2d(axes[1][2], x_td, "All Subjects")
+            fig.subplots_adjust(hspace=0.25)
+            fig.set_size_inches(h=8, w=16)
+            fig.suptitle(
+                f"{self.name}\n Feature Percentiles (top) and Feature means (bottom) across subjects"
+            )
+            plt.show()
             return
         # just scatter plot
+
+    @staticmethod
+    def scatter_2d(ax: plt.Axes, x: ndarray, title: str) -> None:
+        tri_idx = np.tril_indices_from(x[0], k=1)
+        mask = np.zeros_like(x[0], dtype=bool)
+        mask[tri_idx] = True
+        x = x[:, mask]
+        variances = np.std(x, axis=0, ddof=1)
+        sort_idx = np.argsort(variances)
+        x = x[:, sort_idx]
+        # It is too much to scatterplot each subject.Instead, let's just plot some percentiles
+        ps = np.linspace(0, 100, 32)
+        percentiles = np.percentile(x, ps, axis=0)
+        # palette = sbn.color_palette("Spectral", n_colors=len(ps), as_cmap=False)
+        palette = sbn.color_palette("icefire", n_colors=len(ps), as_cmap=False)
+        idx = list(range(x.shape[1]))
+        for i in list(range(percentiles.shape[0])):
+            ax.scatter(idx, percentiles[i], color=palette[i], s=0.2, alpha=0.1)
+        ax.set_title(title)
+        ax.set_xlabel("Feature index (variance sorted)")
+        ax.set_ylabel("Feature percentile values")
+
+    @staticmethod
+    def pseudo_sequence_2d(ax: plt.Axes, x: ndarray, title: str) -> None:
+        tri_idx = np.tril_indices_from(x[0], k=1)
+        mask = np.zeros_like(x[0], dtype=bool)
+        mask[tri_idx] = True
+        x = x[:, mask]
+        means = np.mean(x, axis=0)  # feature means
+        sort_idx = np.argsort(means)
+        x = x[:, sort_idx]
+        idx = range(x.shape[1])
+        for i in range(x.shape[0]):
+            ax.plot(idx, x[i], lw=0.1, alpha=0.1, color=COLORS[title])
+        ax.set_title(title)
+        ax.set_xlabel("Feature index (mean sorted)")
+        ax.set_ylabel("Feature values")
 
     @staticmethod
     def _plot_setup() -> Tuple[plt.Figure, plt.Axes]:
