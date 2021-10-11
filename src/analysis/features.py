@@ -64,16 +64,124 @@ class Feature:
         self.path: Path = self.get_path(self.name, self.atlas)
         self.shape_data: Shape = self.get_shape(self.name, self.atlas)
 
-    def load(self) -> Tuple[ndarray, ndarray]:
-        """Returns data in form of (x, y), where `y` is the labels (0=TD, 1=ASD)"""
+    def load(self, normalize: bool = True, stack: bool = True) -> Tuple[ndarray, ndarray]:
+        """Returns data in form of (x, y), where `y` is the labels (0=TD, 1=ASD)
+
+        Parameters
+        ----------
+        normalize: bool = True
+            Return the feature normalized via its particular normalization strategy.
+
+        stack: bool = True
+            Combine the features in a single numpy array where the first dimension is the subject
+            (batch) dimension.  If the feature has variable-length time dimension (first dimension),
+            it will be cropped and/or padded with a method appropriate to the feature.
+        """
         files = sorted(self.path.rglob("*.npy"))
         arrs = [np.load(f) for f in files]
-        x = np.stack(arrs, axis=0)
         y = np.array([get_class(f) for f in files])
+        if normalize:  # NOTE: MUST normalize first, before padding or whatever
+            pass
+        if not stack:
+            return arrs, y
+        x = self._stack_subjects(arrs)
         return x, y
 
+    def _stack_subjects(self, arrs: List[ndarray], unified_size: int = 200) -> ndarray:
+        if self.shape_data.shape[0] != -1:  # just works
+            return np.stack(arrs, axis=0)
+        if self.name == "eig_full_pc":  # unification was already handled
+            return np.stack(arrs, axis=0)
+        # now only two cases to handle, roi_means/roi_sds, and eig_full_/c/p
+        if "roi" in self.name:
+            # front-pad short sequences to 200 with zeroes, crop long ones
+            unified, T = [], unified_size
+            for arr in arrs:
+                t = arr.shape[0]
+                if t > T:
+                    unified.append(arr[:T, :])
+                elif t < T:
+                    unified.append(np.pad(arr, ((T - t, 0), (0, 0))))
+                else:
+                    unified.append(arr)
+            return np.stack(unified, axis=0)
+        if "eig_full" in self.name:
+            # this case is unpleasant... front zero pad to longest for now
+            unified, T = [], max([arr.shape[0] for arr in arrs])
+            for arr in arrs:
+                t = arr.shape[0]
+                if t > T:
+                    unified.append(arr[:T, :])
+                elif t < T:
+                    unified.append(np.pad(arr, (T - t, 0)))
+                else:
+                    unified.append(arr)
+            return np.stack(unified, axis=0)
+
+        return np.stack(arrs, axis=0)  # simple cases
+
     def inspect(self) -> None:
-        """Plot distributions, report stats, etc."""
+        """Plot distributions, report stats, etc.
+
+        Notes
+        -----
+        For 1D data, plot histogram and stats.
+        For 2D data:
+            - if ROI summary signals, plot waves
+            - if matrix, plot heatmap
+        """
+        shape = self.shape_data.shape
+        if len(shape) == 1:
+            x, y = self.load(normalize=False, stack=True)
+            x_asd, x_td = x[y == 0], x[y == 1]
+            fig, axes = plt.subplots(ncols=3, sharex=True, sharey=True)
+            info_all = self.plot_hist(axes[0], x, "All subjects")
+            info_asd = self.plot_hist(axes[1], x_asd, "ASD")
+            info_td = self.plot_hist(axes[2], x_td, "TD")
+            fig.text(x=0.16, y=0.05, s=info_all)
+            fig.text(x=0.45, y=0.05, s=info_asd)
+            fig.text(x=0.72, y=0.05, s=info_td)
+            fig.subplots_adjust(bottom=0.3)
+            fig.set_size_inches(h=6, w=16)
+            fig.suptitle(self.name)
+            plt.show()
+            return
+        # now either we have a matrix, or actual waveforms
+
+    @staticmethod
+    def plot_hist(ax: plt.Axes, x: ndarray, label: str) -> str:
+        # overall stats
+        mn, p5, p10, med, p90, p95, mx = np.nanpercentile(
+            x, [0, 5, 10, 50, 90, 95, 100], axis=(0, 1)
+        )
+        # subject variance
+        sd_mn, sd_p5, sd_p10, sd_med, sd_p90, sd_p95, sd_mx = np.std(
+            np.nanpercentile(x, [0, 5, 10, 50, 90, 95, 100], axis=1), axis=1
+        )
+        sd_info = (
+            f"Btw. subject sds:\n"
+            f"  min/max: [{sd_mn:1.1e}, {sd_mx:1.1e}]\n"
+            f"   5%/95%: [{sd_p5:1.1e}, {sd_p95:1.1e}]\n"
+            f"  10%/90%: [{sd_p10:1.1e}, {sd_p90:1.1e}]\n"
+            f"   median:  {sd_med:1.1e}"
+        )
+        counts = ax.hist((x[~np.isnan(x)]).ravel(), bins=200, color="black")[0]
+        ymax = np.max(counts)
+        ymax += 0.1 * ymax
+        ax.vlines(mn, color="#f40101", label="min all", ymin=0, ymax=ymax, lw=0.5, alpha=0.5)
+        ax.vlines(p5, color="#f47201", label="5% all", ymin=0, ymax=ymax, lw=0.5, alpha=0.5)
+        ax.vlines(p10, color="#f4e701", label="10% all", ymin=0, ymax=ymax, lw=0.5, alpha=0.5)
+        ax.vlines(med, color="#22f401", label="med all", ymin=0, ymax=ymax, lw=0.5, alpha=0.5)
+        ax.vlines(p90, color="#017af4", label="90% all", ymin=0, ymax=ymax, lw=0.5, alpha=0.5)
+        ax.vlines(p95, color="#4a01f4", label="95% all", ymin=0, ymax=ymax, lw=0.5, alpha=0.5)
+        ax.vlines(mx, color="#a701f4", label="max all", ymin=0, ymax=ymax, lw=0.5, alpha=0.5)
+
+        ax.set_xlabel("Feature values")
+        # ax.set_xscale("log")
+        ax.set_yscale("log")
+        ax.legend()
+        ax.set_title(label)
+        return sd_info
 
     @staticmethod
     def get_path(name: str, atlas: Optional[Atlas] = None) -> Path:
@@ -150,4 +258,6 @@ for fname in WHOLE_FEATURE_NAMES:
 if __name__ == "__main__":
     for f in FEATURES:
         print(f)
-    FEATURES[0].load()
+    # sys.exit()
+    for f in FEATURES:
+        f.inspect()
