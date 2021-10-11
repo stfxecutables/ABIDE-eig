@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import seaborn as sbn
+from matplotlib.lines import Line2D
 from numpy import ndarray
 from pandas import DataFrame, Series
 from tqdm import tqdm
@@ -152,9 +153,12 @@ class Feature:
             # self.plot_curves(axes[0][0], x, "All subjects")
             self.plot_curves(axes[0][0], x_asd, "ASD", color="#ffa514")
             self.plot_curves(axes[0][0], x_td, "TD", color="#146eff")
+            handles = [Line2D([0], [0], color="#ffa514", lw=0.75), Line2D([0], [0], color="#146eff", lw=0.75)]
+            labels = ["ASD", "TD"]
+            axes[0][0].legend(handles, labels)
             axes[0][0].set_title("All Subjects")
-            self.plot_curves(axes[0][1], x, "ASD")
-            self.plot_curves(axes[0][2], x, "TD")
+            self.plot_curves(axes[0][1], x_asd, "ASD")
+            self.plot_curves(axes[0][2], x_td, "TD")
             fig.text(x=0.16, y=0.05, s=info_all)
             fig.text(x=0.45, y=0.05, s=info_asd)
             fig.text(x=0.72, y=0.05, s=info_td)
@@ -204,17 +208,17 @@ class Feature:
         return sd_info
 
     def plot_curves(self, ax: plt.Axes, x: ndarray, label: str, color: str = "black") -> None:
-        alpha = 0.2 if color == "black" else 0.3
+        # alpha = 0.2 if color == "black" else 0.3
+        alpha = 0.1
         for i in range(x.shape[0]):
             lab = label if (i == 0) else None
-            ax.plot(x[i], color=color, alpha=alpha, lw=0.75, label=lab)
+            ax.plot(x[i], color=color, alpha=alpha, lw=0.5, label=lab)
         ax.set_xlabel("Feature index")
         ax.set_ylabel("Feature value")
         # ax.set_xscale("log")
         if "eig_" in self.name:
             ax.set_yscale("log")
         ax.set_title(label)
-        ax.legend()
 
     @staticmethod
     def get_path(name: str, atlas: Optional[Atlas] = None) -> Path:
