@@ -1,5 +1,6 @@
 from __future__ import annotations  # isort:skip # noqa
 
+import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -14,6 +15,7 @@ from matplotlib.lines import Line2D
 from numpy import ndarray
 from pandas import DataFrame, Series
 from tqdm import tqdm
+from tqdm.contrib.concurrent import process_map
 from typing_extensions import Literal
 
 # fmt: off
@@ -39,6 +41,26 @@ COLORS = {
     "ASD": "#ffa514",
     "TD": "#146eff",
 }
+TITLES = {
+    "eig_mean": "Eigenvalues of correlations of ROI mean signals",
+    "eig_sd": "Eigenvalues of standard deviations of ROI mean signals",
+    "lap_mean02": "Eigenvalues of Laplacian of thresholded corrs. of ROI means (T=0.2)",
+    "lap_mean04": "Eigenvalues of Laplacian of thresholded corrs. of ROI means (T=0.4)",
+    "lap_sd02": "Eigenvalues of Laplacian of thresholded corrs. of ROI sds (T=0.2)",
+    "lap_sd04": "Eigenvalues of Laplacian of thresholded corrs. of ROI sds (T=0.4)",
+    "r_mean": "Correlations of ROI mean signals",
+    "r_sd": "Correlations of ROI standard deviation signals",
+    "roi_means": "ROI mean signals",
+    "roi_sds": "ROI standard deviation signals",
+    "eig_full": "Eigenvalues of all voxel-voxel correlations",
+    "eig_full_c": "Eigenvalues of all voxel-voxel correlations (cropped)",
+    "eig_full_p": "Eigenvalues of all voxel-voxel correlations (padded)",
+    "eig_full_pc": "Eigenvalues of all voxel-voxel correlations (padded and cropped)",
+}
+
+DPI = 300
+INSPECT_OUTDIR = ROOT / "results/feature_plots"
+os.makedirs(INSPECT_OUTDIR, exist_ok=True)
 
 
 def get_class(file: Path) -> int:
@@ -129,7 +151,7 @@ class Feature:
 
         return np.stack(arrs, axis=0)  # simple cases
 
-    def inspect(self) -> None:
+    def inspect(self, show: bool = True) -> None:
         """Plot distributions, report stats, etc.
 
         Notes
@@ -141,13 +163,13 @@ class Feature:
         """
         shape = self.shape_data.shape
         if len(shape) == 1:
-            self.plot_1d_feature()
+            self.plot_1d_feature(show)
             return
         if len(shape) == 2:
-            self.plot_2d_feature()
+            self.plot_2d_feature(show)
         # now either we have a matrix, or actual waveforms
 
-    def plot_1d_feature(self) -> None:
+    def plot_1d_feature(self, show: bool) -> None:
         x, y = self.load(normalize=False, stack=True)
         x_asd, x_td = x[y == 0], x[y == 1]
         fig, axes = self._plot_setup()
@@ -172,10 +194,15 @@ class Feature:
         fig.text(x=0.72, y=0.05, s=info_td)
         fig.subplots_adjust(top=0.91, bottom=0.22, left=0.125, right=0.9, hspace=0.32, wspace=0.2)
         fig.set_size_inches(h=8, w=16)
-        fig.suptitle(self.name)
-        plt.show()
+        atlas = f" ({self.atlas.name.upper()} atlas)" if self.atlas is not None else ""
+        fig.suptitle(f"{TITLES[self.name]}{atlas}")
+        if show:
+            plt.show()
+        else:
+            fig.savefig(INSPECT_OUTDIR / f"{self.name}_{atlas}.png", dpi=DPI)
+        plt.close()
 
-    def plot_2d_feature(self) -> None:
+    def plot_2d_feature(self, show: bool) -> None:
         x, y = self.load(normalize=False, stack=True)
         x_asd, x_td = x[y == 0], x[y == 1]
         fig, axes = self._plot_setup()
@@ -188,13 +215,17 @@ class Feature:
             self.pseudo_sequence_2d(axes[1][0], x, "All Subjects")
             self.pseudo_sequence_2d(axes[1][1], x_asd, "All Subjects")
             self.pseudo_sequence_2d(axes[1][2], x_td, "All Subjects")
-            fig.subplots_adjust(hspace=0.25)
-            fig.set_size_inches(h=8, w=16)
-            fig.suptitle(
-                f"{self.name}\n Feature Percentiles (top) and Feature means (bottom) across subjects"
-            )
+        fig.subplots_adjust(hspace=0.25)
+        fig.set_size_inches(h=8, w=16)
+        atlas = f" ({self.atlas.name} atlas)" if self.atlas is not None else ""
+        fig.suptitle(
+            f"{TITLES[self.name]}{atlas}\nFeature Percentiles (top) and Feature means (bottom) across subjects"
+        )
+        if show:
             plt.show()
-            return
+        else:
+            fig.savefig(INSPECT_OUTDIR / f"{self.name}_{atlas}.png", dpi=DPI)
+        plt.close()
         # just scatter plot
 
     @staticmethod
@@ -369,11 +400,12 @@ for fname in WHOLE_FEATURE_NAMES:
     FEATURES.append(Feature(fname, None))
 
 
+def call(f: Feature) -> None:
+    f.inspect(show=False)
+
+
 if __name__ == "__main__":
     for f in FEATURES:
         print(f)
     # sys.exit()
-    for f in FEATURES:
-        if len(f.shape_data.shape) == 1:
-            continue
-        f.inspect()
+    process_map(call, FEATURES)
