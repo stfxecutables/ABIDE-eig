@@ -6,12 +6,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sbn
 from matplotlib.lines import Line2D
 from numpy import ndarray
+from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 
 # fmt: off
@@ -53,7 +55,24 @@ TITLES = {
     "eig_full_p": "Eigenvalues of all voxel-voxel correlations (padded)",
     "eig_full_pc": "Eigenvalues of all voxel-voxel correlations (padded and cropped)",
 }
+LEGEND_LOC = {
+    "eig_mean": {"top": "top left", "bottom": "top right"},
+    "eig_sd": {"top": "", "bottom": ""},
+    "lap_mean02": {"top": "bottom right", "bottom": "top left"},
+    "lap_mean04": {"top": "bottom right", "bottom": "top left"},
+    "lap_sd02": {"top": "bottom right", "bottom": "top left"},
+    "lap_sd04": {"top": "top left", "bottom": "top right"},
+    "r_mean": {"top": None, "bottom": None},
+    "r_sd": {"top": None, "bottom": None},
+    "roi_means": {"top": None, "bottom": None},
+    "roi_sds": {"top": None, "bottom": None},
+    "eig_full": {"top": "top left", "bottom": "top right"},
+    "eig_full_c": {"top": "top left", "bottom": "top right"},
+    "eig_full_p": {"top": "top left", "bottom": "top right"},
+    "eig_full_pc": {"top": "top left", "bottom": "top right"},
+}
 
+FILETYPE = ".png"
 DPI = 300
 INSPECT_OUTDIR = ROOT / "results/feature_plots"
 os.makedirs(INSPECT_OUTDIR, exist_ok=True)
@@ -195,15 +214,17 @@ class Feature:
         if show:
             plt.show()
         else:
-            fig.savefig(INSPECT_OUTDIR / f"{self.name}_{atlas}.png", dpi=DPI)
+            fig.savefig(INSPECT_OUTDIR / f"{self.name}_{atlas}{FILETYPE}", dpi=DPI)
         plt.close()
 
     def plot_2d_feature(self, show: bool) -> None:
         x, y = self.load(normalize=False, stack=True)
         x_asd, x_td = x[y == 0], x[y == 1]
         fig, axes = self._plot_setup()
+        atlas = f" ({self.atlas.name} atlas)" if self.atlas is not None else ""
         if "r_" in self.name:
-            # grab upper triangle of matrix, flatten, sort features by variance, make x = feature index, y = feature value,
+            # grab upper triangle of matrix, flatten, sort features by variance,
+            # make x = feature index, y = feature value,
             # do a big scatter plot with transparency
             self.scatter_2d(axes[0][0], x, "All Subjects")
             self.scatter_2d(axes[0][1], x_asd, "ASD")
@@ -211,18 +232,45 @@ class Feature:
             self.pseudo_sequence_2d(axes[1][0], x, "All Subjects")
             self.pseudo_sequence_2d(axes[1][1], x_asd, "All Subjects")
             self.pseudo_sequence_2d(axes[1][2], x_td, "All Subjects")
+            fig.suptitle(
+                f"{TITLES[self.name]}{atlas}\n"
+                "Feature Percentiles (top) and Feature means (bottom) across subjects"
+            )
+        elif "roi_" in self.name:
+            # on top, plot staggered signals colored by spectral pallete
+            # on bottom plot the feature image (as.imshow), time as x-axis
+            feat_sds = np.std(x, axis=0, ddof=1)
+            space = 2 * np.max(feat_sds)
+            self.maxmin_signals(axes[0][0], x, space, "All Subjects")
+            self.maxmin_signals(axes[0][1], x_asd, space, "ASD")
+            self.maxmin_signals(axes[0][2], x_td, space, "TD")
+            fig.suptitle(
+                f"{TITLES[self.name]}{atlas}\n"
+                "ROI max and min with colour indicating feature index (top) and Feature means (bottom) across subjects"
+            )
         fig.subplots_adjust(hspace=0.25)
         fig.set_size_inches(h=8, w=16)
-        atlas = f" ({self.atlas.name} atlas)" if self.atlas is not None else ""
-        fig.suptitle(
-            f"{TITLES[self.name]}{atlas}\nFeature Percentiles (top) and Feature means (bottom) across subjects"
-        )
         if show:
             plt.show()
         else:
-            fig.savefig(INSPECT_OUTDIR / f"{self.name}_{atlas}.png", dpi=DPI)
+            fig.savefig(INSPECT_OUTDIR / f"{self.name}_{atlas}{FILETYPE}", dpi=DPI)
         plt.close()
         # just scatter plot
+
+    @staticmethod
+    def maxmin_signals(ax: plt.Axes, x: ndarray, space: float, title: str) -> None:
+        # t is first dimension after batch
+        # palette = sbn.color_palette("icefire", n_colors=x.shape[2])
+        palette = sbn.color_palette("flare", n_colors=x.shape[2])
+        t = list(range(x.shape[1]))
+        for k in range(x.shape[2]):  # x[i, :, k] is timeseries
+            signal = np.max(x[:, :, k], axis=0) + k * space  # stagger heights
+            signal = np.min(x[:, :, k], axis=0) + k * space  # stagger heights
+            # signal = x[i, :, k]  # stagger heights
+            ax.plot(t, signal, color=palette[k], lw=0.4, alpha=0.9)
+        ax.set_title(title)
+        ax.set_xlabel("time")
+        ax.set_ylabel("Feature values (staggered)")
 
     @staticmethod
     def scatter_2d(ax: plt.Axes, x: ndarray, title: str) -> None:
@@ -401,7 +449,10 @@ def call(f: Feature) -> None:
 
 
 if __name__ == "__main__":
+    mpl.style.use("fast")
     for f in FEATURES:
         print(f)
-    # sys.exit()
+        if "roi_" in f.name:
+            f.inspect(show=True)
+    sys.exit()
     process_map(call, FEATURES)
