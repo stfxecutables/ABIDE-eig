@@ -214,7 +214,7 @@ class Feature:
         if show:
             plt.show()
         else:
-            fig.savefig(INSPECT_OUTDIR / f"{self.name}_{atlas}{FILETYPE}", dpi=DPI)
+            fig.savefig(INSPECT_OUTDIR / f"{self.name}_{atlas.replace(' ', '')}{FILETYPE}", dpi=DPI)
         plt.close()
 
     def plot_2d_feature(self, show: bool) -> None:
@@ -244,18 +244,33 @@ class Feature:
             self.maxmin_signals(axes[0][0], x, space, "All Subjects")
             self.maxmin_signals(axes[0][1], x_asd, space, "ASD")
             self.maxmin_signals(axes[0][2], x_td, space, "TD")
+            self.imshow(axes[1][0], x, "All Subjects")
+            self.imshow(axes[1][1], x_asd, "ASD")
+            self.imshow(axes[1][2], x_td, "TD")
             fig.suptitle(
                 f"{TITLES[self.name]}{atlas}\n"
-                "ROI max and min with colour indicating feature index (top) and Feature means (bottom) across subjects"
+                "ROI max and min with colour indicating feature index (top) and Feature mean image (bottom) across subjects"
             )
-        fig.subplots_adjust(hspace=0.25)
+        adjust = dict(bottom=0.1, hspace=0.4) if "200" in self.atlas.name else dict(hspace=0.25)
+        fig.subplots_adjust(**adjust)
         fig.set_size_inches(h=8, w=16)
         if show:
             plt.show()
         else:
-            fig.savefig(INSPECT_OUTDIR / f"{self.name}_{atlas}{FILETYPE}", dpi=DPI)
+            fig.savefig(INSPECT_OUTDIR / f"{self.name}_{atlas.replace(' ', '')}{FILETYPE}", dpi=DPI)
         plt.close()
         # just scatter plot
+
+    @staticmethod
+    def imshow(ax: plt.Axes, x: ndarray, title: str) -> None:
+        # t is first dimension after batch
+        cmap = sbn.color_palette("icefire", as_cmap=True)
+        img = np.mean(x, axis=0)
+        vmin, vmax = np.percentile(img, [0, 100])
+        ax.matshow(img, cmap=cmap, vmin=vmin, vmax=vmax)
+        ax.set_title(title)
+        ax.set_ylabel("Time")
+        ax.set_xlabel("Feature index")
 
     @staticmethod
     def maxmin_signals(ax: plt.Axes, x: ndarray, space: float, title: str) -> None:
@@ -284,7 +299,6 @@ class Feature:
         # It is too much to scatterplot each subject.Instead, let's just plot some percentiles
         ps = np.linspace(0, 100, 32)
         percentiles = np.percentile(x, ps, axis=0)
-        # palette = sbn.color_palette("Spectral", n_colors=len(ps), as_cmap=False)
         palette = sbn.color_palette("icefire", n_colors=len(ps), as_cmap=False)
         idx = list(range(x.shape[1]))
         for i in list(range(percentiles.shape[0])):
@@ -449,10 +463,10 @@ def call(f: Feature) -> None:
 
 
 if __name__ == "__main__":
-    mpl.style.use("fast")
-    for f in FEATURES:
-        print(f)
-        if "roi_" in f.name:
-            f.inspect(show=True)
-    sys.exit()
+    # mpl.style.use("fast")
+    # for f in FEATURES:
+    #     print(f)
+    #     if "roi_" in f.name:
+    #         f.inspect(show=True)
+    # sys.exit()
     process_map(call, FEATURES)
