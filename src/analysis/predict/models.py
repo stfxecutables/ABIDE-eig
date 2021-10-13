@@ -30,11 +30,13 @@ Deep Learn: MLP, Conv1D, ...?
 """
 
 if __name__ == "__main__":
-    norm = NormMethod.F_MINMAX
+    norm = NormMethod.S_MINMAX
     features = [f for f in FEATURES if len(f.shape_data.shape) == 1]
     for f in features:
-        print(f"Fitting {f}")
+        print(f"Fitting {f} using normalization method {norm}")
         x, y = f.load(norm)
         htune_result = hypertune_classifier("rf", x, y, n_trials=10, verbosity=optuna.logging.DEBUG)
         result = evaluate_hypertuned(htune_result, 5, x, y, log=True)
-        print(result)
+        print("Validation results:")
+        for key, val in result.items():
+            print(f"{key}: {val}")

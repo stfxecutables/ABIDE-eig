@@ -44,7 +44,7 @@ def bagger(**kwargs: Any) -> Callable:
     return BaggingClassifier(base_estimator=LR(solver=LR_SOLVER), **kwargs)  # type: ignore
 
 
-def get_classifier_constructor(name: Classifier) -> Callable:
+def get_classifier_constructor(name: Classifier) -> Tuple[Callable, Dict]:
     CLASSIFIERS: Dict[str, Callable] = {
         "rf": RF,
         "svm": SVC,
@@ -52,8 +52,15 @@ def get_classifier_constructor(name: Classifier) -> Callable:
         "mlp": MLP,
         "bag": bagger,
     }
+    base_args = {
+        "rf": dict(n_jobs=-1, n_estimators=1000, bootstrap=True, max_depth=None),
+        "svm": dict(),
+        "dtree": dict(),
+        "mlp": dict(),
+        "bag": dict(),
+    }
     constructor = CLASSIFIERS[name]
-    return constructor
+    return constructor, base_args[name]
 
 
 @dataclass(init=True, repr=True, eq=True, frozen=True)
@@ -419,10 +426,11 @@ def evaluate_hypertuned(
                 auc_sd: float  # sd of AUC across folds
             }
     """
-    classifier = htuned.classifier
+    classifier_name = htuned.classifier
     params = htuned.best_params
-    args = mlp_args_from_params(params) if classifier == "mlp" else params
-    estimator = get_classifier_constructor(classifier)(**args)
+    args = mlp_args_from_params(params) if classifier_name == "mlp" else params
+    constructor, base_args = get_classifier_constructor(classifier_name)
+    estimator = constructor(**{**base_args, **args})
     if (X_test is None) and (y_test is None):
         _cv = get_cv(y_train, cv_method)
         scores = cv(estimator, X=X_train, y=y_train, scoring=TEST_SCORES, cv=_cv)
