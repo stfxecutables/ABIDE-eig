@@ -13,18 +13,27 @@ import pandas as pd
 import seaborn as sbn
 from matplotlib.lines import Line2D
 from numpy import ndarray
+from scipy.stats import boxcox, norm, yeojohnson
 from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
+from typing_extensions import Literal
 
 # fmt: off
 ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.append(str(ROOT))
 # fmt: on
 
+# HACK for local testing
+if os.environ.get("CC_CLUSTER") is None:
+    os.environ["CC_CLUSTER"] = "home"
+
 from data.download_cpac_1035 import download_csv
 
 from src.analysis.preprocess.atlas import Atlas
 from src.analysis.preprocess.constants import ATLASES, FEATURES_DIR, T_CROP
+
+Arrays = List[ndarray]
+NormMethod = Literal["f-minmax", "s-minmax", "f-sd", "s-sd", "yj"]
 
 SUBJ_DATA = download_csv().loc[:, ["fname", "DX_GROUP"]]
 # fix idiotic default of 1 == ASD, 2 == TD, so that now
@@ -40,36 +49,36 @@ COLORS = {
     "TD": "#146eff",
 }
 TITLES = {
+    "roi_means": "ROI mean signals",
+    "roi_sds": "ROI standard deviation signals",
+    "r_mean": "Correlations of ROI mean signals",
+    "r_sd": "Correlations of ROI standard deviation signals",
     "eig_mean": "Eigenvalues of correlations of ROI mean signals",
     "eig_sd": "Eigenvalues of standard deviations of ROI mean signals",
     "lap_mean02": "Eigenvalues of Laplacian of thresholded corrs. of ROI means (T=0.2)",
     "lap_mean04": "Eigenvalues of Laplacian of thresholded corrs. of ROI means (T=0.4)",
     "lap_sd02": "Eigenvalues of Laplacian of thresholded corrs. of ROI sds (T=0.2)",
     "lap_sd04": "Eigenvalues of Laplacian of thresholded corrs. of ROI sds (T=0.4)",
-    "r_mean": "Correlations of ROI mean signals",
-    "r_sd": "Correlations of ROI standard deviation signals",
-    "roi_means": "ROI mean signals",
-    "roi_sds": "ROI standard deviation signals",
+    "eig_full_pc": "Eigenvalues of all voxel-voxel correlations (padded and cropped)",
     "eig_full": "Eigenvalues of all voxel-voxel correlations",
     "eig_full_c": "Eigenvalues of all voxel-voxel correlations (cropped)",
     "eig_full_p": "Eigenvalues of all voxel-voxel correlations (padded)",
-    "eig_full_pc": "Eigenvalues of all voxel-voxel correlations (padded and cropped)",
 }
 LEGEND_LOC = {
+    "roi_means": {"top": None, "bottom": None},
+    "roi_sds": {"top": None, "bottom": None},
+    "r_mean": {"top": None, "bottom": None},
+    "r_sd": {"top": None, "bottom": None},
     "eig_mean": {"top": "top left", "bottom": "top right"},
     "eig_sd": {"top": "", "bottom": ""},
     "lap_mean02": {"top": "bottom right", "bottom": "top left"},
     "lap_mean04": {"top": "bottom right", "bottom": "top left"},
     "lap_sd02": {"top": "bottom right", "bottom": "top left"},
     "lap_sd04": {"top": "top left", "bottom": "top right"},
-    "r_mean": {"top": None, "bottom": None},
-    "r_sd": {"top": None, "bottom": None},
-    "roi_means": {"top": None, "bottom": None},
-    "roi_sds": {"top": None, "bottom": None},
+    "eig_full_pc": {"top": "top left", "bottom": "top right"},
     "eig_full": {"top": "top left", "bottom": "top right"},
     "eig_full_c": {"top": "top left", "bottom": "top right"},
     "eig_full_p": {"top": "top left", "bottom": "top right"},
-    "eig_full_pc": {"top": "top left", "bottom": "top right"},
 }
 
 FILETYPE = ".png"
@@ -127,13 +136,167 @@ class Feature:
         arrs = [np.load(f) for f in files]
         y = np.array([get_class(f) for f in files])
         if normalize:  # NOTE: MUST normalize first, before padding or whatever
-            pass
+            arrs = self._normalize(arrs, method="eig")
         if not stack:
             return arrs, y
         x = self._stack_subjects(arrs)
         return x, y
 
-    def _stack_subjects(self, arrs: List[ndarray], unified_size: int = 200) -> ndarray:
+    def compare_normalizations(self) -> None:
+        """Compare eigenvalue normalization techniques.
+
+        Compare: 11 = 2*6
+            s-mx, f-mx, s-sd, f-sd, yj,
+            f-mx+yj, yj+f-mx,  f-sd+yj, yj+f-sd,  yj+s-mx, yj+s-sd   (f first, mx first)
+        """
+        arrs, y = self.load(normalize=False, stack=False)
+        fig, axes = plt.subplots(nrows=4, ncols=6)
+
+        # one-shots
+        normed = self._minmax_1d(arrs, featurewise=False)
+        self.plot_eig_feature(axes[0][0], axes[1][0], normed, y, "subj min-max")
+        axes[0][0].set_yscale("log")
+        normed = self._minmax_1d(arrs, featurewise=True)
+        self.plot_eig_feature(axes[0][1], axes[1][1], normed, y, "feat min-max")
+        axes[0][1].set_yscale("linear")
+        normed = self._standardize_1d(arrs, featurewise=False)
+        self.plot_eig_feature(axes[0][2], axes[1][2], normed, y, "subj standardize")
+        axes[0][2].set_yscale("log")
+        normed = self._standardize_1d(arrs, featurewise=True)
+        self.plot_eig_feature(axes[0][3], axes[1][3], normed, y, "feat standardize")
+        axes[0][3].set_yscale("linear")
+        normed = self._yj(arrs)
+        self.plot_eig_feature(axes[0][4], axes[1][4], normed, y, "Yeo-Johnson")
+        axes[0][4].set_yscale("linear")
+        fig.delaxes(axes[0][5])
+        fig.delaxes(axes[1][5])
+
+        # combination
+        normed = self._yj(self._minmax_1d(arrs, featurewise=True))
+        self.plot_eig_feature(axes[2][0], axes[3][0], normed, y, "feat min-max, YJ")
+        axes[2][0].set_yscale("linear")
+        normed = self._minmax_1d(self._yj(arrs), featurewise=True)
+        self.plot_eig_feature(axes[2][1], axes[3][1], normed, y, "YJ, feat min-max")
+        axes[2][1].set_yscale("linear")
+        normed = self._yj(self._standardize_1d(arrs, featurewise=True))
+        self.plot_eig_feature(axes[2][2], axes[3][2], normed, y, "feat standardize, YJ")
+        axes[2][2].set_yscale("linear")
+        normed = self._standardize_1d(self._yj(arrs), featurewise=True)
+        self.plot_eig_feature(axes[2][3], axes[3][3], normed, y, "YJ, feat standardize")
+        axes[2][3].set_yscale("linear")
+        normed = self._minmax_1d(self._yj(arrs), featurewise=False)
+        self.plot_eig_feature(axes[2][4], axes[3][4], normed, y, "YJ, subj min-max")
+        axes[2][4].set_yscale("linear")
+        normed = self._standardize_1d(self._yj(arrs), featurewise=False)
+        self.plot_eig_feature(axes[2][5], axes[3][5], normed, y, "YJ, subj standardize")
+        axes[2][5].set_yscale("linear")
+
+        for ax in axes.ravel():
+            ax.set_xlabel("")
+            ax.set_ylabel("")
+        fig.set_size_inches(h=16, w=16)
+        atlas = f" ({self.atlas.name.upper()} atlas)" if self.atlas is not None else ""
+        fig.suptitle(
+            f"{TITLES[self.name]}{atlas} - x/y axes = (feat. index / feat. value) OR (feat. value / count)"
+        )
+        fig.subplots_adjust(top=0.931, bottom=0.06, left=0.043, right=0.99, hspace=0.3, wspace=0.2)
+        plt.show()
+
+    def _normalize(
+        self,
+        arrs: Arrays,
+        method: List[NormMethod],
+        featurewise: bool = True,
+        log: bool = False,
+    ) -> Arrays:
+        """Normalize feature using feature-relevant method. In most cases just subject-wise minmax.
+
+        Notes
+        -----
+        Most promising methods:
+
+        [Yeo-Johnson]
+            - better than boxcox
+        [featurewise minmax + YJ]
+            - dist still highly skewed, not in [0, 1]
+            - does not work at all for SD eigs
+            - not bad for full eigs, but still skewed
+        [YJ + featurewise minmax]
+            - extremely good for mean ROI 200, 400 eigs
+            - very promising for SD ROI 200
+            - quite promising for SD ROI 400 as well
+            - maybe okay for full eigs, certainly fixes distribution
+        [YJ + subjectwise minmax]
+            - decent for mean ROI 200, 400 (usual binarization)
+            - same as line above for SD ROI 200, 400
+            - maybe not so great for full eigs
+        [subjectwise minmax + YJ] [NO]
+            - seems to cause way too much shrinking in mean ROI eigs
+            - interesting effect on SD roi eigs, not sure desirable though
+            - huge amount of zero-features in full eigs
+
+        [featurewise-sd + YJ]
+            - mostly FANTASTIC for mean ROI 200, 400 eigs, in about [-3, 3]
+            - pretty good for sd ROI 200, 400 eigs, in about [-5, 5], some crazy positive outliers (>10) in 200 case
+            - OK for full eigs, makes giant hole (all zeros) in middle eigenvalues (e.g. at index 100)
+        [YJ + featurewise-sd] [NO, distortions too severe, except maybe for sd200 eigs]
+            - strange effects in lower eigenvalues (<75) for mean ROI 200 eigs (values mostly in [-5, 5])
+            - similar *very* strange effect for index up to ~275 in mean ROI 400 eigs (values most in [-5, 5])
+            - good, quite promising for sd 200 ROI eigs
+            - similar strange banding effects up ~ index 100 on CC400 atlas
+            - not bad for full eigenvalues, dead zone at index 200, would need to clip to [-5, 10] or so still to
+              kill some large outliers
+        [YJ + subjectwise-sd]
+            - lower indexes up to 100 constant
+
+        [boxcox]
+        - Maps a *tonne* of eigenindexes to constants, so seems
+            to be destroying a lot of info BUT gives non-sparse data in [0, 1]
+        - does not work on eigenvalues of ROI sd signals
+        - does not put full eigenvalues in [0, 1] (further minmax would be needed)
+        [featurewise minmax + box]
+        - promising, but requires another minmax to put ROI mean eigs in [0, 1]
+        - same for ROI sd eigs (though some craziness appears here too)
+        - also works for full eigenvalues
+        [featurewise minmax + box + subjectwise-minmax]
+        - definitely very promising, though very crazy features in all cases
+        [featurewise minmax + box + featurewise-minmax] [BEST SO FAR]
+        - excellent for mean ROI eigs, probably ideal
+        - still strong skew for SD ROI eigs in CC200 case
+        - quite good for full eigs too
+        [box + subjectwise-minmax]
+        - kind of binarizes the features to all near-zero or near-one for mean eigs
+        - similar for SD eigs, though flatter distribution
+        - probably also okay for full eigs
+        [featurewise-box]
+        - just no, doesn't work at all, ill-advised because *within* a feature, dist is not
+            really exponential
+
+        [subjectwise minmax + box]
+        - NO destroys all features
+        """
+
+        if "eig_" in self.name:  # x is list of 1D
+            # arrs = featurewise_1d_minmax(arrs)
+            # return box(arrs)
+            # arrs = subjectwise_1d_minmax(arrs)
+            # arrs = featurewise_1d_minmax(arrs)
+            # arrs = box(arrs, featurewise=True)
+            # arrs = box(arrs)
+            # arrs = subjectwise_1d_minmax(arrs)
+            # arrs = self._minmax_1d(arrs)
+            # arrs = self._standardize_1d(arrs, featurewise=True)
+            arrs = self._yj(arrs)
+            arrs = self._standardize_1d(arrs, featurewise=False)
+            # arrs = featurewise_1d_minmax(arrs)
+            # arrs = yj(arrs)
+            return arrs
+            return kmeans(arrs)
+
+        else:
+            return arrs
+
+    def _stack_subjects(self, arrs: Arrays, unified_size: int = 200) -> ndarray:
         if self.shape_data.shape[0] != -1:  # just works
             return np.stack(arrs, axis=0)
         if self.name == "eig_full_pc":  # unification was already handled
@@ -166,7 +329,16 @@ class Feature:
 
         return np.stack(arrs, axis=0)  # simple cases
 
-    def inspect(self, show: bool = True) -> None:
+    def describe(self) -> None:
+        """Describe crucial percentile and range info, for normalization decisions"""
+        shape = self.shape_data.shape
+        if len(shape) == 1:
+            self.describe_1d_feature()
+            return
+        if len(shape) == 2:
+            self.describe_2d_feature()
+
+    def inspect(self, show: bool = True, normalize: bool = False) -> None:
         """Plot distributions, report stats, etc.
 
         Notes
@@ -178,14 +350,17 @@ class Feature:
         """
         shape = self.shape_data.shape
         if len(shape) == 1:
-            self.plot_1d_feature(show)
+            self.plot_1d_feature(show, normalize)
             return
         if len(shape) == 2:
-            self.plot_2d_feature(show)
+            self.plot_2d_feature(show, normalize)
         # now either we have a matrix, or actual waveforms
 
-    def plot_1d_feature(self, show: bool) -> None:
-        x, y = self.load(normalize=False, stack=True)
+    def describe_1d_feature(self) -> None:
+        x, y = self.load(normalize=False, stack=False)
+
+    def plot_1d_feature(self, show: bool, normalize: bool) -> None:
+        x, y = self.load(normalize=normalize, stack=True)
         x_asd, x_td = x[y == 0], x[y == 1]
         fig, axes = self._plot_setup()
 
@@ -217,8 +392,33 @@ class Feature:
             fig.savefig(INSPECT_OUTDIR / f"{self.name}_{atlas.replace(' ', '')}{FILETYPE}", dpi=DPI)
         plt.close()
 
-    def plot_2d_feature(self, show: bool) -> None:
-        x, y = self.load(normalize=False, stack=True)
+    def plot_eig_feature(
+        self,
+        ax_curve: plt.Axes,
+        ax_hist: plt.Axes,
+        arrs: ndarray,
+        y: ndarray,
+        title: str,
+        legend: bool = False,
+    ) -> None:
+        x = self._stack_subjects(arrs)
+        x_asd, x_td = x[y == 0], x[y == 1]
+        self.plot_hist(ax_hist, x, "All subjects")
+        ax_hist.get_legend().remove()
+        ax_hist.set_title("")
+        self.plot_curves(ax_curve, x_asd, "ASD", color="#ffa514")
+        self.plot_curves(ax_curve, x_td, "TD", color="#146eff")
+        if legend:
+            handles = [
+                Line2D([0], [0], color="#ffa514", lw=0.75),
+                Line2D([0], [0], color="#146eff", lw=0.75),
+            ]
+            labels = ["ASD", "TD"]
+            ax_curve.legend(handles, labels)
+        ax_curve.set_title(title)
+
+    def plot_2d_feature(self, show: bool, normalize: bool) -> None:
+        x, y = self.load(normalize=normalize, stack=True)
         x_asd, x_td = x[y == 0], x[y == 1]
         fig, axes = self._plot_setup()
         atlas = f" ({self.atlas.name} atlas)" if self.atlas is not None else ""
@@ -251,7 +451,7 @@ class Feature:
                 f"{TITLES[self.name]}{atlas}\n"
                 "ROI max and min with colour indicating feature index (top) and Feature mean image (bottom) across subjects"
             )
-        adjust = dict(bottom=0.1, hspace=0.4) if "200" in self.atlas.name else dict(hspace=0.25)
+        adjust = dict(bottom=0.1, hspace=0.4) if "200" in atlas else dict(hspace=0.25)
         fig.subplots_adjust(**adjust)
         fig.set_size_inches(h=8, w=16)
         if show:
@@ -422,6 +622,81 @@ class Feature:
         }[name]
         # fmt: on
 
+    @staticmethod
+    def _box(arrs: Arrays, featurewise: bool = False) -> Arrays:
+        """Box-Cox "normalization"."""
+        normed = []
+        for x in arrs:
+            x[np.isnan(x)] = 0
+            if np.std(x) <= 0:
+                normed.append(x)
+                continue
+            m = np.min(x) + 1
+            a = x + np.abs(m) + 1 if m <= 1 else x
+            normed.append(boxcox(a)[0])
+        return normed
+
+    def _yj(self, arrs: Arrays) -> Arrays:
+        """Yeo-Johnson normalization. Does not have annoying constraints of Box-Cox."""
+        normed = []
+        for x in arrs:
+            x[np.isnan(x)] = 0
+            if np.std(x) <= 0:
+                normed.append(x)
+                continue
+            normed.append(yeojohnson(x)[0])
+        return normed
+
+    def _minmax_1d(self, arrs: Arrays, featurewise: bool = True) -> Arrays:
+        """Simple MinMax Normalization / feature scaling."""
+
+        def _featurewise(arrs: Arrays) -> ndarray:
+            x = self._stack_subjects(arrs)
+            mxs = np.max(x, axis=0)
+            mns = np.min(x, axis=0)
+            normed = []
+            for i, arr in enumerate(arrs):
+                f = len(arr)  # only use last f (n feature) means since front-pad
+                a = (arr - mns[-f:]) / (mxs[-f:] - mns[-f:])
+                normed.append(a)
+            return normed
+
+        def _subjectwise(arrs: Arrays) -> Arrays:
+            normed = []
+            for arr in arrs:
+                mx = np.max(arr)
+                mn = np.min(arr)
+                x = (arr - mn) / (mx - mn)
+                normed.append(x)
+            return normed
+
+        res: List[ndarray] = _featurewise(arrs) if featurewise else _subjectwise(arrs)
+        return res
+
+    def _standardize_1d(self, arrs: Arrays, featurewise: bool = True) -> Arrays:
+        def _featurewise(arrs: Arrays) -> ndarray:
+            x = self._stack_subjects(arrs)
+            m = np.mean(x, axis=0)
+            sd = np.std(x, axis=0, ddof=1)
+            normed = []
+            for i, arr in enumerate(arrs):
+                f = len(arr)  # only use last f (n feature) means since front-pad
+                a = (arr - m[-f:]) / sd[-f:]
+                normed.append(a)
+            return normed
+
+        def _subjectwise(arrs: Arrays) -> Arrays:
+            normed = []
+            for arr in arrs:
+                m = np.mean(arr)
+                sd = np.std(arr, ddof=1)
+                x = (arr - m) / sd
+                normed.append(x)
+            return normed
+
+        res: List[ndarray] = _featurewise(arrs) if featurewise else _subjectwise(arrs)
+        return res
+
     def __str__(self) -> str:
         rois = self.atlas.name if self.atlas is not None else "whole"
         label = f"{self.name} ({rois})"
@@ -450,12 +725,25 @@ WHOLE_FEATURE_NAMES = [
     "eig_full_p",
     "eig_full_pc",
 ]
-FEATURES: List[Feature] = []
-for atlas in ATLASES:  # also include non-atlas-based features
-    for fname in ROI_FEATURE_NAMES:
-        FEATURES.append(Feature(fname, atlas))
-for fname in WHOLE_FEATURE_NAMES:
-    FEATURES.append(Feature(fname, None))
+
+
+def create_feature_list() -> List[Feature]:
+    UNSORTED: List[Feature] = []
+    for atlas in ATLASES:  # also include non-atlas-based features
+        for fname in ROI_FEATURE_NAMES:
+            UNSORTED.append(Feature(fname, atlas))
+    for fname in WHOLE_FEATURE_NAMES:
+        UNSORTED.append(Feature(fname, None))
+
+    features = []
+    for name in TITLES:
+        for f in UNSORTED:
+            if f.name == name:
+                features.append(f)
+    return features
+
+
+FEATURES: List[Feature] = create_feature_list()
 
 
 def call(f: Feature) -> None:
@@ -463,10 +751,11 @@ def call(f: Feature) -> None:
 
 
 if __name__ == "__main__":
-    # mpl.style.use("fast")
-    # for f in FEATURES:
-    #     print(f)
-    #     if "roi_" in f.name:
-    #         f.inspect(show=True)
-    # sys.exit()
+    mpl.style.use("fast")
+    f: Feature
+    for f in FEATURES:
+        print(f)
+        if "eig_" in f.name:
+            f.compare_normalizations()
+    sys.exit()
     process_map(call, FEATURES)
