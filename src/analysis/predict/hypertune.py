@@ -9,6 +9,7 @@ import optuna
 from numpy import ndarray
 from optuna import Trial
 from pandas import DataFrame
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.ensemble import BaggingClassifier
 from sklearn.ensemble import RandomForestClassifier as RF
 from sklearn.exceptions import ConvergenceWarning
@@ -23,7 +24,7 @@ from sklearn.tree import DecisionTreeClassifier as DTreeClassifier
 from typing_extensions import Literal
 
 Splits = Iterable[Tuple[ndarray, ndarray]]
-Classifier = Literal["rf", "svm", "dtree", "mlp", "bag"]
+Classifier = Literal["rf", "svm", "dtree", "mlp", "bag", "lda"]
 Kernel = Literal["rbf", "linear", "sigmoid"]
 ValMethod = Literal["holdout", "kfold", "k-fold", "loocv", "mc", "none"]
 CVMethod = Union[int, float, Literal["loocv", "mc"]]
@@ -38,29 +39,39 @@ TEST_SCORES = ["accuracy", "roc_auc"]
 SEED = 3
 VAL_SIZE = 0.2
 
+RF_BASE_ARGS = dict(n_jobs=-1, n_estimators=1000, bootstrap=True, max_depth=None)
+SVM_BASE_ARGS = dict(cache_size=500)
+DTREE_BASE_ARGS = dict()
+MLP_BASE_ARGS = dict()
+LDA_BASE_ARGS = dict()
+BASE_ARGS: Dict[Classifier, Dict] = {
+    "rf": RF_BASE_ARGS,
+    "svm": SVM_BASE_ARGS,
+    "dtree": DTREE_BASE_ARGS,
+    "mlp": MLP_BASE_ARGS,
+    "bag": dict(),
+    "lda": LDA_BASE_ARGS,
+}
+
 
 def bagger(**kwargs: Any) -> Callable:
     """Helper for uniform interface only"""
     return BaggingClassifier(base_estimator=LR(solver=LR_SOLVER), **kwargs)  # type: ignore
 
 
+CLASSIFIERS: Dict[str, Callable] = {
+    "rf": RF,
+    "svm": SVC,
+    "dtree": DTreeClassifier,
+    "mlp": MLP,
+    "bag": bagger,
+    "lda": LDA,
+}
+
+
 def get_classifier_constructor(name: Classifier) -> Tuple[Callable, Dict]:
-    CLASSIFIERS: Dict[str, Callable] = {
-        "rf": RF,
-        "svm": SVC,
-        "dtree": DTreeClassifier,
-        "mlp": MLP,
-        "bag": bagger,
-    }
-    base_args = {
-        "rf": dict(n_jobs=-1, n_estimators=1000, bootstrap=True, max_depth=None),
-        "svm": dict(),
-        "dtree": dict(),
-        "mlp": dict(),
-        "bag": dict(),
-    }
     constructor = CLASSIFIERS[name]
-    return constructor, base_args[name]
+    return constructor, BASE_ARGS[name]
 
 
 @dataclass(init=True, repr=True, eq=True, frozen=True)
@@ -168,7 +179,23 @@ def svm_objective(
             C=trial.suggest_loguniform("C", 1e-10, 1e10),
         )
         _cv = get_cv(y_train, cv_method)
-        estimator = SVC(cache_size=500, **args)
+        estimator = SVC(**{**SVM_BASE_ARGS, **args})
+        scores = cv(estimator, X=X_train, y=y_train, scoring="accuracy", cv=_cv, n_jobs=-1)
+        return float(np.mean(scores["test_score"]))
+
+    return objective
+
+
+def lda_objective(
+    X_train: DataFrame, y_train: DataFrame, cv_method: CVMethod = 5
+) -> Callable[[Trial], float]:
+    def objective(trial: Trial) -> float:
+        args: Dict = dict(
+            # kernel=trial.suggest_categorical("kernel", choices=["rbf"]),
+            # C=trial.suggest_loguniform("C", 1e-10, 1e10),
+        )
+        _cv = get_cv(y_train, cv_method)
+        estimator = LDA(**args)
         scores = cv(estimator, X=X_train, y=y_train, scoring="accuracy", cv=_cv, n_jobs=-1)
         return float(np.mean(scores["test_score"]))
 
@@ -194,7 +221,7 @@ def rf_objective(
             max_samples=trial.suggest_uniform("max_samples", 0.1, 1.0),
         )
         _cv = get_cv(y_train, cv_method)
-        estimator = RF(n_jobs=-1, n_estimators=1000, bootstrap=True, max_depth=None, **args)
+        estimator = RF(**{**RF_BASE_ARGS, **args})
         scores = cv(estimator, X=X_train, y=y_train, scoring="accuracy", cv=_cv, n_jobs=1)
         return float(np.mean(scores["test_score"]))
 
@@ -211,7 +238,7 @@ def dtree_objective(
             max_depth=trial.suggest_int("max_depth", 2, 50),
         )
         _cv = get_cv(y_train, cv_method)
-        estimator = DTreeClassifier(**args)
+        estimator = DTreeClassifier(**{**DTREE_BASE_ARGS, **args})
         scores = cv(estimator, X=X_train, y=y_train, scoring="accuracy", cv=_cv, n_jobs=-1)
         return float(np.mean(scores["test_score"]))
 
@@ -343,6 +370,7 @@ def hypertune_classifier(
         "dtree": dtree_objective(X_train, y_train, cv_method),
         "mlp": mlp_objective(X_train, y_train, cv_method),
         "bag": logistic_bagging_objective(X_train, y_train, cv_method),
+        "lda": lda_objective(X_train, y_train, cv_method),
     }
     # HYPERTUNING
     objective = OBJECTIVES[classifier]
@@ -482,3 +510,22 @@ def evaluate_hypertuned(
         return result
     else:
         raise ValueError("Invalid test data: only one of `X_test` or `y_test` was None.")
+
+
+def evaluate_untuned(
+    classifier: Classifier,
+    cv_method: CVMethod,
+    X_train: DataFrame,
+    y_train: DataFrame,
+    X_test: Optional[DataFrame] = None,
+    y_test: Optional[DataFrame] = None,
+    log: bool = True,
+) -> Dict[str, Any]:
+    htuned = HtuneResult(
+        classifier=classifier,
+        n_trials=-1,
+        cv_method=cv_method,
+        val_acc=-1,
+        best_params=BASE_ARGS[classifier],
+    )
+    return evaluate_hypertuned(htuned, cv_method, X_train, y_train, X_test, y_test, log)
