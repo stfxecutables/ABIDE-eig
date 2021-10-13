@@ -5,7 +5,7 @@ import sys
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union, cast
 from warnings import warn
 
 import matplotlib as mpl
@@ -14,7 +14,8 @@ import numpy as np
 import pandas as pd
 import seaborn as sbn
 from matplotlib.lines import Line2D
-from numpy import ndarray
+from numpy import float64 as f64
+from numpy.typing import NDArray
 from scipy.stats import boxcox, norm, yeojohnson
 from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
@@ -34,7 +35,8 @@ from data.download_cpac_1035 import download_csv
 from src.analysis.preprocess.atlas import Atlas
 from src.analysis.preprocess.constants import ATLASES, FEATURES_DIR, T_CROP
 
-Arrays = List[ndarray]
+f64Array = NDArray[f64]
+Arrays = List[f64Array]
 
 
 class NormMethod(Enum):
@@ -130,8 +132,8 @@ class Feature:
         self.shape_data: Shape = self.get_shape(self.name, self.atlas)
 
     def load(
-        self, normalize: Optional[NormMethod] = None, stack: bool = True, p: float = 25
-    ) -> Tuple[Union[Arrays, ndarray], ndarray]:
+        self, normalize: Optional[NormMethod] = None, p: float = 25
+    ) -> Tuple[f64Array, f64Array]:
         """Returns data in form of (x, y), where `y` is the labels (0=TD, 1=ASD)
 
         Parameters
@@ -144,15 +146,19 @@ class Feature:
             (batch) dimension.  If the feature has variable-length time dimension (first dimension),
             it will be cropped and/or padded with a method appropriate to the feature.
         """
+        arrs, y = self.load_unstacked(normalize, p)
+        x = self._stack_subjects(arrs)
+        return x, y
+
+    def load_unstacked(
+        self, normalize: Optional[NormMethod] = None, p: float = 25
+    ) -> Tuple[Arrays, f64Array]:
         files = sorted(self.path.rglob("*.npy"))
-        arrs = [np.load(f) for f in files]
+        arrs: List[f64Array] = [np.load(f) for f in files]
         y = np.array([get_class(f) for f in files])
         if normalize is not None:  # NOTE: MUST normalize first, before padding or whatever
             arrs = self._normalize(arrs, method=normalize, p=p)
-        if not stack:
-            return arrs, y
-        x = self._stack_subjects(arrs)
-        return x, y
+        return arrs, y
 
     def compare_normalizations(self) -> None:
         """Compare eigenvalue normalization techniques.
@@ -206,7 +212,7 @@ class Feature:
 
         Subject-level standardization just doesn't work AT ALL (though probably does for laplacian), so we don't even bother.
         """
-        arrs, y = self.load(normalize=False, stack=False)
+        arrs, y = self.load_unstacked(normalize=None)
         fig, axes = plt.subplots(nrows=4, ncols=6)
 
         # one-shots
@@ -257,7 +263,8 @@ class Feature:
         fig.set_size_inches(h=16, w=16)
         atlas = f" ({self.atlas.name.upper()} atlas)" if self.atlas is not None else ""
         fig.suptitle(
-            f"{TITLES[self.name]}{atlas} - x/y axes = (feat. index / feat. value) OR (feat. value / count)"
+            f"{TITLES[self.name]}{atlas}"
+            " - x/y axes = (feat. index / feat. value) OR (feat. value / count)"
         )
         fig.subplots_adjust(top=0.931, bottom=0.06, left=0.043, right=0.99, hspace=0.3, wspace=0.2)
         plt.show()
@@ -286,7 +293,7 @@ class Feature:
             warn("Normalization not yet implemented for 2D data.")
             return arrs
 
-    def _stack_subjects(self, arrs: Arrays, unified_size: int = 200) -> ndarray:
+    def _stack_subjects(self, arrs: Arrays, unified_size: int = 200) -> NDArray[f64]:
         if self.shape_data.shape[0] != -1:  # just works
             return np.stack(arrs, axis=0)
         if self.name == "eig_full_pc":  # unification was already handled
@@ -328,7 +335,7 @@ class Feature:
         if len(shape) == 2:
             self.describe_2d_feature()
 
-    def inspect(self, show: bool = True, normalize: bool = False) -> None:
+    def inspect(self, show: bool = True, normalize: Optional[NormMethod] = None) -> None:
         """Plot distributions, report stats, etc.
 
         Notes
@@ -347,10 +354,11 @@ class Feature:
         # now either we have a matrix, or actual waveforms
 
     def describe_1d_feature(self) -> None:
-        x, y = self.load(normalize=False, stack=False)
+        x, y = self.load_unstacked(normalize=None)
 
-    def plot_1d_feature(self, show: bool, normalize: bool) -> None:
-        x, y = self.load(normalize=normalize, stack=True)
+    def plot_1d_feature(self, show: bool, normalize: Optional[NormMethod]) -> None:
+        x: NDArray[f64]
+        x, y = self.load(normalize=None)
         x_asd, x_td = x[y == 0], x[y == 1]
         fig, axes = self._plot_setup()
 
@@ -386,8 +394,8 @@ class Feature:
         self,
         ax_curve: plt.Axes,
         ax_hist: plt.Axes,
-        arrs: ndarray,
-        y: ndarray,
+        arrs: Arrays,
+        y: NDArray[f64],
         title: str,
         legend: bool = False,
     ) -> None:
@@ -407,8 +415,8 @@ class Feature:
             ax_curve.legend(handles, labels)
         ax_curve.set_title(title)
 
-    def plot_2d_feature(self, show: bool, normalize: bool) -> None:
-        x, y = self.load(normalize=normalize, stack=True)
+    def plot_2d_feature(self, show: bool, normalize: Optional[NormMethod]) -> None:
+        x, y = self.load(normalize=normalize)
         x_asd, x_td = x[y == 0], x[y == 1]
         fig, axes = self._plot_setup()
         atlas = f" ({self.atlas.name} atlas)" if self.atlas is not None else ""
@@ -439,7 +447,8 @@ class Feature:
             self.imshow(axes[1][2], x_td, "TD")
             fig.suptitle(
                 f"{TITLES[self.name]}{atlas}\n"
-                "ROI max and min with colour indicating feature index (top) and Feature mean image (bottom) across subjects"
+                "ROI max and min with colour indicating feature index (top)"
+                "and Feature mean image (bottom) across subjects"
             )
         adjust = dict(bottom=0.1, hspace=0.4) if "200" in atlas else dict(hspace=0.25)
         fig.subplots_adjust(**adjust)
@@ -452,7 +461,7 @@ class Feature:
         # just scatter plot
 
     @staticmethod
-    def imshow(ax: plt.Axes, x: ndarray, title: str) -> None:
+    def imshow(ax: plt.Axes, x: NDArray[f64], title: str) -> None:
         # t is first dimension after batch
         cmap = sbn.color_palette("icefire", as_cmap=True)
         img = np.mean(x, axis=0)
@@ -463,7 +472,7 @@ class Feature:
         ax.set_xlabel("Feature index")
 
     @staticmethod
-    def maxmin_signals(ax: plt.Axes, x: ndarray, space: float, title: str) -> None:
+    def maxmin_signals(ax: plt.Axes, x: NDArray[f64], space: float, title: str) -> None:
         # t is first dimension after batch
         # palette = sbn.color_palette("icefire", n_colors=x.shape[2])
         palette = sbn.color_palette("flare", n_colors=x.shape[2])
@@ -478,7 +487,7 @@ class Feature:
         ax.set_ylabel("Feature values (staggered)")
 
     @staticmethod
-    def scatter_2d(ax: plt.Axes, x: ndarray, title: str) -> None:
+    def scatter_2d(ax: plt.Axes, x: NDArray[f64], title: str) -> None:
         tri_idx = np.tril_indices_from(x[0], k=1)
         mask = np.zeros_like(x[0], dtype=bool)
         mask[tri_idx] = True
@@ -498,7 +507,7 @@ class Feature:
         ax.set_ylabel("Feature percentile values")
 
     @staticmethod
-    def pseudo_sequence_2d(ax: plt.Axes, x: ndarray, title: str) -> None:
+    def pseudo_sequence_2d(ax: plt.Axes, x: NDArray[f64], title: str) -> None:
         tri_idx = np.tril_indices_from(x[0], k=1)
         mask = np.zeros_like(x[0], dtype=bool)
         mask[tri_idx] = True
@@ -528,7 +537,7 @@ class Feature:
         return fig, axes
 
     @staticmethod
-    def plot_hist(ax: plt.Axes, x: ndarray, label: str) -> str:
+    def plot_hist(ax: plt.Axes, x: NDArray[f64], label: str) -> str:
         # overall stats
         mn, p5, p10, med, p90, p95, mx = np.nanpercentile(
             x, [0, 5, 10, 50, 90, 95, 100], axis=(0, 1)
@@ -563,7 +572,7 @@ class Feature:
         ax.set_title(label)
         return sd_info
 
-    def plot_curves(self, ax: plt.Axes, x: ndarray, label: str, color: str = "black") -> None:
+    def plot_curves(self, ax: plt.Axes, x: NDArray[f64], label: str, color: str = "black") -> None:
         # alpha = 0.2 if color == "black" else 0.3
         alpha = 0.1
         for i in range(x.shape[0]):
@@ -640,7 +649,7 @@ class Feature:
     def _minmax_1d(self, arrs: Arrays, featurewise: bool = True) -> Arrays:
         """Simple MinMax Normalization / feature scaling."""
 
-        def _featurewise(arrs: Arrays) -> ndarray:
+        def _featurewise(arrs: Arrays) -> Arrays:
             x = self._stack_subjects(arrs)
             mxs = np.max(x, axis=0)
             mns = np.min(x, axis=0)
@@ -660,11 +669,11 @@ class Feature:
                 normed.append(x)
             return normed
 
-        res: List[ndarray] = _featurewise(arrs) if featurewise else _subjectwise(arrs)
+        res: List[NDArray[f64]] = _featurewise(arrs) if featurewise else _subjectwise(arrs)
         return res
 
     def _standardize_1d(self, arrs: Arrays, featurewise: bool = True) -> Arrays:
-        def _featurewise(arrs: Arrays) -> ndarray:
+        def _featurewise(arrs: Arrays) -> Arrays:
             x = self._stack_subjects(arrs)
             m = np.mean(x, axis=0)
             sd = np.std(x, axis=0, ddof=1)
@@ -684,11 +693,11 @@ class Feature:
                 normed.append(x)
             return normed
 
-        res: List[ndarray] = _featurewise(arrs) if featurewise else _subjectwise(arrs)
+        res: List[NDArray[f64]] = _featurewise(arrs) if featurewise else _subjectwise(arrs)
         return res
 
     def _medianize_1d(self, arrs: Arrays, featurewise: bool = True, p: float = 25) -> Arrays:
-        def _featurewise(arrs: Arrays) -> ndarray:
+        def _featurewise(arrs: Arrays) -> Arrays:
             x = self._stack_subjects(arrs)
             mn, m, mx = np.nanpercentile(x, [p, 50, 100 - p], axis=0)
             sd = mx - mn
@@ -708,7 +717,7 @@ class Feature:
                 normed.append(x)
             return normed
 
-        res: List[ndarray] = _featurewise(arrs) if featurewise else _subjectwise(arrs)
+        res: List[NDArray[f64]] = _featurewise(arrs) if featurewise else _subjectwise(arrs)
         return res
 
     def __str__(self) -> str:
