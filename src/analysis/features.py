@@ -148,6 +148,43 @@ class Feature:
         Compare: 11 = 2*6
             s-mx, f-mx, s-sd, f-sd, yj,
             f-mx+yj, yj+f-mx,  f-sd+yj, yj+f-sd,  yj+s-mx, yj+s-sd   (f first, mx first)
+
+        Notes
+        -----
+        When all options are plotted together like this, it becomes clear the only
+        real options are featurewise minmax or featurewise standardization, or just
+        Yeo-Johnson.
+
+        YJ maps all but the top quarter or third of eigenindices to zero, so embodies a prior that
+        only the large eigenvalues really matter. However it also smooths them out a lot, so maybe
+        also encodes the assumption eigensignals are noisy...
+
+        Featurewise MinMax *in theory* emobodies a prior that all eigenindices are equally important,
+        but we can see from the plots it effectively renders central eigen-indices constant. This is
+        because central eigenvalues are well-behaved / less variable than the extreme (small or large)
+        values. So practically, featurewise min-max normalization actually embeds a prior that the
+        spectrum tails are most important.
+
+        Featurewise "medianization" clearly has the practical effect of keeping variation only in in
+        the central / bulk eigenvalues. Presumably, central eigenindices are have an average greater
+        than their median, and are not crazily skewed, so divding by the median gives values in e.g.
+        [0, 5] or so. By contrast, it must be that extreme eigenindices are skewed extremely heavily
+        in the opposite way, since medianizing sends these all to near zero. BUT THIS ONLY WORKS for
+        eigenvalues of ROI means.
+
+        # Summary
+
+        | Feature  | Atlas | ftwise max | ftwise std | ftwise med | Yeo-Johnson |  clip sd |
+        --------------------------------------------------------------------------------------
+        | eig_mean |  200  |     Y      |     Y      |  p=25-33   |     ?       |    NO    |
+        | eig_mean |  400  |     Y      |     Y      |  p=25-33   |     ?       |    NO    |
+        |  eig_sd  |  200  |     Y      |     Y      |    NO      |     Y       |    NO    |
+        |  eig_sd  |  400  |     Y      |     Y      |    NO      |     Y       |    NO    |
+        | eig_full |       |     Y      |     ?      |    NO      |     ?       | [-5,20]? |
+
+
+
+        Subject-level standardization just doesn't work AT ALL, so we don't even bother.
         """
         arrs, y = self.load(normalize=False, stack=False)
         fig, axes = plt.subplots(nrows=4, ncols=6)
@@ -159,8 +196,8 @@ class Feature:
         normed = self._minmax_1d(arrs, featurewise=True)
         self.plot_eig_feature(axes[0][1], axes[1][1], normed, y, "feat min-max")
         axes[0][1].set_yscale("linear")
-        normed = self._standardize_1d(arrs, featurewise=False)
-        self.plot_eig_feature(axes[0][2], axes[1][2], normed, y, "subj standardize")
+        normed = self._medianize_1d(arrs, p=33.33, featurewise=False)
+        self.plot_eig_feature(axes[0][2], axes[1][2], normed, y, "subj medianize")
         axes[0][2].set_yscale("log")
         normed = self._standardize_1d(arrs, featurewise=True)
         self.plot_eig_feature(axes[0][3], axes[1][3], normed, y, "feat standardize")
@@ -168,8 +205,11 @@ class Feature:
         normed = self._yj(arrs)
         self.plot_eig_feature(axes[0][4], axes[1][4], normed, y, "Yeo-Johnson")
         axes[0][4].set_yscale("linear")
-        fig.delaxes(axes[0][5])
-        fig.delaxes(axes[1][5])
+        normed = self._medianize_1d(arrs, p=33.33, featurewise=True)
+        self.plot_eig_feature(axes[0][5], axes[1][5], normed, y, "feat medianize")
+        axes[0][5].set_yscale("log")
+        # fig.delaxes(axes[0][5])
+        # fig.delaxes(axes[1][5])
 
         # combination
         normed = self._yj(self._minmax_1d(arrs, featurewise=True))
@@ -690,6 +730,30 @@ class Feature:
             for arr in arrs:
                 m = np.mean(arr)
                 sd = np.std(arr, ddof=1)
+                x = (arr - m) / sd
+                normed.append(x)
+            return normed
+
+        res: List[ndarray] = _featurewise(arrs) if featurewise else _subjectwise(arrs)
+        return res
+
+    def _medianize_1d(self, arrs: Arrays, featurewise: bool = True, p: float = 25) -> Arrays:
+        def _featurewise(arrs: Arrays) -> ndarray:
+            x = self._stack_subjects(arrs)
+            mn, m, mx = np.nanpercentile(x, [p, 50, 100 - p], axis=0)
+            sd = mx - mn
+            normed = []
+            for i, arr in enumerate(arrs):
+                f = len(arr)  # only use last f (n feature) means since front-pad
+                a = (arr - m[-f:]) / sd[-f:]
+                normed.append(a)
+            return normed
+
+        def _subjectwise(arrs: Arrays) -> Arrays:
+            normed = []
+            for arr in arrs:
+                mn, m, mx = np.nanpercentile(arr, [p, 50, 100 - p], axis=0)
+                sd = mx - mn
                 x = (arr - m) / sd
                 normed.append(x)
             return normed
