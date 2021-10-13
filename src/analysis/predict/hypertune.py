@@ -30,6 +30,16 @@ CVMethod = Union[int, float, Literal["loocv", "mc"]]
 MultiTestCVMethod = Union[int, Literal["mc"]]
 
 
+
+
+LR_SOLVER = "liblinear"
+# MLP_LAYER_SIZES = [0, 8, 32, 64, 128, 256, 512]
+MLP_LAYER_SIZES = [4, 8, 16, 32]
+N_SPLITS = 5
+TEST_SCORES = ["accuracy", "roc_auc"]
+SEED = 3
+VAL_SIZE = 0.2
+
 def bagger(**kwargs: Any) -> Callable:
     """Helper for uniform interface only"""
     return BaggingClassifier(base_estimator=LR(solver=LR_SOLVER), **kwargs)  # type: ignore
@@ -45,15 +55,6 @@ def get_classifier_constructor(name: Classifier) -> Callable:
     }
     constructor = CLASSIFIERS[name]
     return constructor
-
-
-LR_SOLVER = "liblinear"
-# MLP_LAYER_SIZES = [0, 8, 32, 64, 128, 256, 512]
-MLP_LAYER_SIZES = [4, 8, 16, 32]
-N_SPLITS = 5
-TEST_SCORES = ["accuracy", "roc_auc"]
-SEED = 3
-VAL_SIZE = 0.2
 
 
 @dataclass(init=True, repr=True, eq=True, frozen=True)
@@ -171,16 +172,22 @@ def svm_objective(
 def rf_objective(
     X_train: DataFrame, y_train: DataFrame, cv_method: CVMethod = 5
 ) -> Callable[[Trial], float]:
+    """We follow papers and guides here https://stats.stackexchange.com/a/346984
+
+    As per https://arxiv.org/pdf/1705.05654.pdf, there is no point tuning n_estimators: more will
+    almost always be better, 500-1000 if computationally feasible. The case is likely similar for
+    max_depth, and so should be left at None. Tuning max_samples is reasonable with bootstrap=True,
+    as is tuning max_features.
+    """
     def objective(trial: Trial) -> float:
         args: Dict = dict(
-            n_estimators=trial.suggest_int("n_estimators", 5, 500),
             criterion=trial.suggest_categorical("criterion", ["gini", "entropy"]),
-            max_depth=trial.suggest_int("max_depth", 2, 50),
-            bootstrap=trial.suggest_categorical("bootstrap", [True, False]),
-            max_features=trial.suggest_categorical("max_features", ["auto", "sqrt", "log2"]),
+            # bootstrap=trial.suggest_categorical("bootstrap", [True]),
+            max_features=trial.suggest_uniform("max_features", 0.1, 1.0),
+            max_samples=trial.suggest_uniform("max_samples", 0.1, 1.0),
         )
         _cv = get_cv(y_train, cv_method)
-        estimator = RF(n_jobs=2, **args)
+        estimator = RF(n_jobs=2, n_estimators=1000, boostrap=True, max_depth=None, **args)
         scores = cv(estimator, X=X_train, y=y_train, scoring="accuracy", cv=_cv, n_jobs=4)
         return float(np.mean(scores["test_score"]))
 
