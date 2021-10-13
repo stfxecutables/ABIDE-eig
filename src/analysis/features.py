@@ -827,8 +827,7 @@ if __name__ == "__main__":
     f: Feature
     for f in FEATURES:
         print(f)
-        # if "eig_" in f.name:
-        if "lap" in f.name:
+        if "eig_" in f.name or "lap" in f.name:
             f.compare_normalizations()
     sys.exit()
     process_map(call, FEATURES)
