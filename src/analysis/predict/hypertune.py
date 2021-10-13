@@ -30,8 +30,6 @@ CVMethod = Union[int, float, Literal["loocv", "mc"]]
 MultiTestCVMethod = Union[int, Literal["mc"]]
 
 
-
-
 LR_SOLVER = "liblinear"
 # MLP_LAYER_SIZES = [0, 8, 32, 64, 128, 256, 512]
 MLP_LAYER_SIZES = [4, 8, 16, 32]
@@ -39,6 +37,7 @@ N_SPLITS = 5
 TEST_SCORES = ["accuracy", "roc_auc"]
 SEED = 3
 VAL_SIZE = 0.2
+
 
 def bagger(**kwargs: Any) -> Callable:
     """Helper for uniform interface only"""
@@ -179,6 +178,7 @@ def rf_objective(
     max_depth, and so should be left at None. Tuning max_samples is reasonable with bootstrap=True,
     as is tuning max_features.
     """
+
     def objective(trial: Trial) -> float:
         args: Dict = dict(
             criterion=trial.suggest_categorical("criterion", ["gini", "entropy"]),
@@ -187,8 +187,8 @@ def rf_objective(
             max_samples=trial.suggest_uniform("max_samples", 0.1, 1.0),
         )
         _cv = get_cv(y_train, cv_method)
-        estimator = RF(n_jobs=2, n_estimators=1000, boostrap=True, max_depth=None, **args)
-        scores = cv(estimator, X=X_train, y=y_train, scoring="accuracy", cv=_cv, n_jobs=4)
+        estimator = RF(n_jobs=-1, n_estimators=1000, bootstrap=True, max_depth=None, **args)
+        scores = cv(estimator, X=X_train, y=y_train, scoring="accuracy", cv=_cv, n_jobs=1)
         return float(np.mean(scores["test_score"]))
 
     return objective

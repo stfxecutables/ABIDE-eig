@@ -3,8 +3,10 @@ from __future__ import annotations  # isort:skip # noqa
 import os
 import sys
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
+from warnings import warn
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -33,7 +35,15 @@ from src.analysis.preprocess.atlas import Atlas
 from src.analysis.preprocess.constants import ATLASES, FEATURES_DIR, T_CROP
 
 Arrays = List[ndarray]
-NormMethod = Literal["f-minmax", "s-minmax", "f-sd", "s-sd", "yj"]
+
+
+class NormMethod(Enum):
+    F_MINMAX = "featurewise MinMax"
+    F_STD = "subjectwise Standardize"
+    S_MINMAX = "subjectwise MinMax"
+    F_MED = "featurewise Medianize"
+    YJ = "Yeo-Johnson"
+
 
 SUBJ_DATA = download_csv().loc[:, ["fname", "DX_GROUP"]]
 # fix idiotic default of 1 == ASD, 2 == TD, so that now
@@ -119,12 +129,14 @@ class Feature:
         self.path: Path = self.get_path(self.name, self.atlas)
         self.shape_data: Shape = self.get_shape(self.name, self.atlas)
 
-    def load(self, normalize: bool = True, stack: bool = True) -> Tuple[ndarray, ndarray]:
+    def load(
+        self, normalize: Optional[NormMethod] = None, stack: bool = True, p: float = 25
+    ) -> Tuple[Union[Arrays, ndarray], ndarray]:
         """Returns data in form of (x, y), where `y` is the labels (0=TD, 1=ASD)
 
         Parameters
         ----------
-        normalize: bool = True
+        normalize: Optional[NormMethod] = None
             Return the feature normalized via its particular normalization strategy.
 
         stack: bool = True
@@ -135,8 +147,8 @@ class Feature:
         files = sorted(self.path.rglob("*.npy"))
         arrs = [np.load(f) for f in files]
         y = np.array([get_class(f) for f in files])
-        if normalize:  # NOTE: MUST normalize first, before padding or whatever
-            arrs = self._normalize(arrs, method="eig")
+        if normalize is not None:  # NOTE: MUST normalize first, before padding or whatever
+            arrs = self._normalize(arrs, method=normalize, p=p)
         if not stack:
             return arrs, y
         x = self._stack_subjects(arrs)
@@ -174,21 +186,21 @@ class Feature:
 
         # Summary
 
-        | Feature  | Atlas | ftwise max | ftwise std | ftwise med | Yeo-Johnson |  clip sd | subj max | subj std |
-        ------------------------------------------------------------------------------------------------------------
-        | eig_mean |  200  |     Y      |     Y      |  p=25-33   |     ?       |    NO    |    NO    |    NO    |
-        | eig_mean |  400  |     Y      |     Y      |  p=25-33   |     ?       |    NO    |    NO    |    NO    |
-        |  eig_sd  |  200  |     Y      |     Y      |    NO      |     Y       |    NO    |    NO    |    NO    |
-        |  eig_sd  |  400  |     Y      |     Y      |    NO      |     Y       |    NO    |    NO    |    NO    |
-        | eig_full |       |     Y      |     ?      |    NO      |     ?       | [-5,20]? |    NO    |    NO    |
-        | lap_mn02 |  200  |     Y      |     ?      |     Y      |     NO      |    NO    |    Y     |    NO    |
-        | lap_mn02 |  400  |     Y      |     Y      |     Y      |     NO      |    NO    |    Y     |    NO    |
-        | lap_mn04 |  200  |     Y      |     ?      |    NO      |     NO      |    NO    |    Y     |    NO    |
-        | lap_mn04 |  400  |     Y      |     ?      |    NO      |     NO      |    NO    |    Y     |    NO    |
-        | lap_sd02 |  200  |     Y      |     ?      |     Y      |     NO      | [-7.5,5]Y|    Y     |    NO    |
-        | lap_sd02 |  400  |     Y      |     Y      |     Y      |     NO      |  [-5,5]Y |    Y     |    NO    |
-        | lap_sd04 |  200  |     Y      |     Y      |    NO      |     NO      | [-5,7.5]Y|    Y     |    NO    |
-        | lap_sd04 |  400  |     Y      |     Y      |    NO      |     NO      | [-5,10]Y |    Y     |    NO    |
+        | Feature  | Atlas | ftwise max | ftwise std | ftwise med | Yeo-Johnson |  clip sd | subj max | subj std |  # noqa
+        ------------------------------------------------------------------------------------------------------------# noqa
+        | eig_mean |  200  |     Y      |     Y      |  p=25-33   |     ?       |    NO    |    NO    |    NO    |  # noqa
+        | eig_mean |  400  |     Y      |     Y      |  p=25-33   |     ?       |    NO    |    NO    |    NO    |  # noqa
+        |  eig_sd  |  200  |     Y      |     Y      |    NO      |     Y       |    NO    |    NO    |    NO    |  # noqa
+        |  eig_sd  |  400  |     Y      |     Y      |    NO      |     Y       |    NO    |    NO    |    NO    |  # noqa
+        | eig_full |       |     Y      |     ?      |    NO      |     ?       | [-5,20]? |    NO    |    NO    |  # noqa
+        | lap_mn02 |  200  |     Y      |     ?      |     Y      |     NO      |    NO    |    Y     |    NO    |  # noqa
+        | lap_mn02 |  400  |     Y      |     Y      |     Y      |     NO      |    NO    |    Y     |    NO    |  # noqa
+        | lap_mn04 |  200  |     Y      |     ?      |    NO      |     NO      |    NO    |    Y     |    NO    |  # noqa
+        | lap_mn04 |  400  |     Y      |     ?      |    NO      |     NO      |    NO    |    Y     |    NO    |  # noqa
+        | lap_sd02 |  200  |     Y      |     ?      |     Y      |     NO      | [-7.5,5]Y|    Y     |    NO    |  # noqa
+        | lap_sd02 |  400  |     Y      |     Y      |     Y      |     NO      |  [-5,5]Y |    Y     |    NO    |  # noqa
+        | lap_sd04 |  200  |     Y      |     Y      |    NO      |     NO      | [-5,7.5]Y|    Y     |    NO    |  # noqa
+        | lap_sd04 |  400  |     Y      |     Y      |    NO      |     NO      | [-5,10]Y |    Y     |    NO    |  # noqa
 
 
 
@@ -253,95 +265,25 @@ class Feature:
     def _normalize(
         self,
         arrs: Arrays,
-        method: List[NormMethod],
-        featurewise: bool = True,
-        log: bool = False,
+        method: NormMethod,
+        p: float = 25,
     ) -> Arrays:
-        """Normalize feature using feature-relevant method. In most cases just subject-wise minmax.
-
-        Notes
-        -----
-        Most promising methods:
-
-        [Yeo-Johnson]
-            - better than boxcox
-        [featurewise minmax + YJ]
-            - dist still highly skewed, not in [0, 1]
-            - does not work at all for SD eigs
-            - not bad for full eigs, but still skewed
-        [YJ + featurewise minmax]
-            - extremely good for mean ROI 200, 400 eigs
-            - very promising for SD ROI 200
-            - quite promising for SD ROI 400 as well
-            - maybe okay for full eigs, certainly fixes distribution
-        [YJ + subjectwise minmax]
-            - decent for mean ROI 200, 400 (usual binarization)
-            - same as line above for SD ROI 200, 400
-            - maybe not so great for full eigs
-        [subjectwise minmax + YJ] [NO]
-            - seems to cause way too much shrinking in mean ROI eigs
-            - interesting effect on SD roi eigs, not sure desirable though
-            - huge amount of zero-features in full eigs
-
-        [featurewise-sd + YJ]
-            - mostly FANTASTIC for mean ROI 200, 400 eigs, in about [-3, 3]
-            - pretty good for sd ROI 200, 400 eigs, in about [-5, 5], some crazy positive outliers (>10) in 200 case
-            - OK for full eigs, makes giant hole (all zeros) in middle eigenvalues (e.g. at index 100)
-        [YJ + featurewise-sd] [NO, distortions too severe, except maybe for sd200 eigs]
-            - strange effects in lower eigenvalues (<75) for mean ROI 200 eigs (values mostly in [-5, 5])
-            - similar *very* strange effect for index up to ~275 in mean ROI 400 eigs (values most in [-5, 5])
-            - good, quite promising for sd 200 ROI eigs
-            - similar strange banding effects up ~ index 100 on CC400 atlas
-            - not bad for full eigenvalues, dead zone at index 200, would need to clip to [-5, 10] or so still to
-              kill some large outliers
-        [YJ + subjectwise-sd]
-            - lower indexes up to 100 constant
-
-        [boxcox]
-        - Maps a *tonne* of eigenindexes to constants, so seems
-            to be destroying a lot of info BUT gives non-sparse data in [0, 1]
-        - does not work on eigenvalues of ROI sd signals
-        - does not put full eigenvalues in [0, 1] (further minmax would be needed)
-        [featurewise minmax + box]
-        - promising, but requires another minmax to put ROI mean eigs in [0, 1]
-        - same for ROI sd eigs (though some craziness appears here too)
-        - also works for full eigenvalues
-        [featurewise minmax + box + subjectwise-minmax]
-        - definitely very promising, though very crazy features in all cases
-        [featurewise minmax + box + featurewise-minmax] [BEST SO FAR]
-        - excellent for mean ROI eigs, probably ideal
-        - still strong skew for SD ROI eigs in CC200 case
-        - quite good for full eigs too
-        [box + subjectwise-minmax]
-        - kind of binarizes the features to all near-zero or near-one for mean eigs
-        - similar for SD eigs, though flatter distribution
-        - probably also okay for full eigs
-        [featurewise-box]
-        - just no, doesn't work at all, ill-advised because *within* a feature, dist is not
-            really exponential
-
-        [subjectwise minmax + box]
-        - NO destroys all features
-        """
-
-        if "eig_" in self.name:  # x is list of 1D
-            # arrs = featurewise_1d_minmax(arrs)
-            # return box(arrs)
-            # arrs = subjectwise_1d_minmax(arrs)
-            # arrs = featurewise_1d_minmax(arrs)
-            # arrs = box(arrs, featurewise=True)
-            # arrs = box(arrs)
-            # arrs = subjectwise_1d_minmax(arrs)
-            # arrs = self._minmax_1d(arrs)
-            # arrs = self._standardize_1d(arrs, featurewise=True)
-            arrs = self._yj(arrs)
-            arrs = self._standardize_1d(arrs, featurewise=False)
-            # arrs = featurewise_1d_minmax(arrs)
-            # arrs = yj(arrs)
-            return arrs
-            return kmeans(arrs)
-
+        """Normalize feature using specified method."""
+        if len(self.shape_data.shape) == 1:
+            if method == NormMethod.F_MINMAX:
+                return self._minmax_1d(arrs, featurewise=True)
+            elif method == NormMethod.F_MED:
+                return self._medianize_1d(arrs, featurewise=True, p=p)
+            elif method == NormMethod.F_STD:
+                return self._standardize_1d(arrs, featurewise=True)
+            elif method == NormMethod.S_MINMAX:
+                return self._minmax_1d(arrs, featurewise=False)
+            elif method == NormMethod.YJ:
+                return self._yj(arrs)
+            else:
+                raise ValueError(f"`method` must be a {NormMethod}")
         else:
+            warn("Normalization not yet implemented for 2D data.")
             return arrs
 
     def _stack_subjects(self, arrs: Arrays, unified_size: int = 200) -> ndarray:
