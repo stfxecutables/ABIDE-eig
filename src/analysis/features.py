@@ -174,17 +174,25 @@ class Feature:
 
         # Summary
 
-        | Feature  | Atlas | ftwise max | ftwise std | ftwise med | Yeo-Johnson |  clip sd |
-        --------------------------------------------------------------------------------------
-        | eig_mean |  200  |     Y      |     Y      |  p=25-33   |     ?       |    NO    |
-        | eig_mean |  400  |     Y      |     Y      |  p=25-33   |     ?       |    NO    |
-        |  eig_sd  |  200  |     Y      |     Y      |    NO      |     Y       |    NO    |
-        |  eig_sd  |  400  |     Y      |     Y      |    NO      |     Y       |    NO    |
-        | eig_full |       |     Y      |     ?      |    NO      |     ?       | [-5,20]? |
+        | Feature  | Atlas | ftwise max | ftwise std | ftwise med | Yeo-Johnson |  clip sd | subj max | subj std |
+        ------------------------------------------------------------------------------------------------------------
+        | eig_mean |  200  |     Y      |     Y      |  p=25-33   |     ?       |    NO    |    NO    |    NO    |
+        | eig_mean |  400  |     Y      |     Y      |  p=25-33   |     ?       |    NO    |    NO    |    NO    |
+        |  eig_sd  |  200  |     Y      |     Y      |    NO      |     Y       |    NO    |    NO    |    NO    |
+        |  eig_sd  |  400  |     Y      |     Y      |    NO      |     Y       |    NO    |    NO    |    NO    |
+        | eig_full |       |     Y      |     ?      |    NO      |     ?       | [-5,20]? |    NO    |    NO    |
+        | lap_mn02 |  200  |     Y      |     ?      |     Y      |     NO      |    NO    |    Y     |    NO    |
+        | lap_mn02 |  400  |     Y      |     Y      |     Y      |     NO      |    NO    |    Y     |    NO    |
+        | lap_mn04 |  200  |     Y      |     ?      |    NO      |     NO      |    NO    |    Y     |    NO    |
+        | lap_mn04 |  400  |     Y      |     ?      |    NO      |     NO      |    NO    |    Y     |    NO    |
+        | lap_sd02 |  200  |     Y      |     ?      |     Y      |     NO      | [-7.5,5]Y|    Y     |    NO    |
+        | lap_sd02 |  400  |     Y      |     Y      |     Y      |     NO      |  [-5,5]Y |    Y     |    NO    |
+        | lap_sd04 |  200  |     Y      |     Y      |    NO      |     NO      | [-5,7.5]Y|    Y     |    NO    |
+        | lap_sd04 |  400  |     Y      |     Y      |    NO      |     NO      | [-5,10]Y |    Y     |    NO    |
 
 
 
-        Subject-level standardization just doesn't work AT ALL, so we don't even bother.
+        Subject-level standardization just doesn't work AT ALL (though probably does for laplacian), so we don't even bother.
         """
         arrs, y = self.load(normalize=False, stack=False)
         fig, axes = plt.subplots(nrows=4, ncols=6)
@@ -819,7 +827,8 @@ if __name__ == "__main__":
     f: Feature
     for f in FEATURES:
         print(f)
-        if "eig_" in f.name:
+        # if "eig_" in f.name:
+        if "lap" in f.name:
             f.compare_normalizations()
     sys.exit()
     process_map(call, FEATURES)

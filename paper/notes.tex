@@ -421,8 +421,27 @@ more consistency of eigenvalue scale? I think so.]
 
 \subsubsection{Eigenvalue Normalization}
 
-Both the graph Laplacian and correlation matrix eigenvalues are all positive, by virtue of the
-positive semi-definite nature of the parent matrices. Additionally, the size of the largest and
+\paragraph{Within- and Between-Subject Normalization}
+
+Eigenvalues computed from correlation matrices (full eigenvalues, ROI and SD eigenvalues)
+are all positive by virtue of the positive semi-definite nature of the parent matrices.
+
+Eigenvalues from the graph Laplacian are constrained to be in \([-r, r]\), where \(r\) is the number
+of ROIs in the atlas, by construction and by the Gershgorin circle theorem. That is, the Laplacian
+diagonals are the diagonals of the degree matrix, and each diagonal is the row or column sum of the
+adjacency matrix. Since the highest possible degree for a node is the number of nodes, \(r\), the
+largest possible degree \(d_i\) is \(r\). But since teh Laplacian has zeros on the diagonal, then
+all Laplacian eigenvalues are in \([-r, r]\).
+
+By similar reasoning, eigenvalues of correlation matrices of ROI summaries must be within \([1 - r,
+1 + r]\), and full eigenvalues must be within \([1-r, 1+r]\). However, while Laplacian eigenvalues
+are weakly and uni-modally exponentially distributed (see Fig.[]), full correlation matrix
+eigenvalues have bimodal (clustered) distributions (see Fig. []).  Roughly, large eigenvalues (e.g.
+in \([50, 250]\) in the CC400 atlas, or \([25, 125]\) in the CC200 atlas) have a unimodal
+bell-shaped distribution, but smaller eigenvalues are strongly exponentially distributed, and the
+vast majority very small (e.g.\(<10^{13}\). Thus any normalization strategy should not be linear
+
+Additionally, the size of the largest and
 smallest eigenvalues are dependent on the matrix dimensions. As per Random Matrix Theory, the
 spacings between eigenvalues tends to be highly exponential, e.g. the \(i\)th largest eigenvalue
 \(\lambda_i\) will be orders of magnitude larger than the smallest eigenvalue. In other words, the
