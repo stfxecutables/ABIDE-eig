@@ -71,6 +71,8 @@ def fit_to_args(args: Dict) -> Optional[Dict]:
 
 if __name__ == "__main__":
     features = [f for f in FEATURES if len(f.shape_data.shape) == 1]
+    # current grid is about 20-30 minutes for random forest, no tuning, 8 workers
+    # in tqdm, -1 workers in RF
     grid = list(
         ParameterGrid(
             dict(
@@ -84,6 +86,7 @@ if __name__ == "__main__":
         )
     )
     results = process_map(fit_to_args, grid, max_workers=8)
+    results = [r for r in results if r is not None]
     dfs = [DataFrame(info, index=[0]) for info in results]
     df = pd.concat(dfs, axis=0, ignore_index=True)
     df.to_parquet(ROOT / "htune_initial_results_LDA.parquet")
