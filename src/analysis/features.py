@@ -36,6 +36,7 @@ from src.analysis.preprocess.atlas import Atlas
 from src.analysis.preprocess.constants import ATLASES, FEATURES_DIR, T_CROP
 
 f64Array = NDArray[f64]
+i64Array = NDArray[np.int64]
 Arrays = List[f64Array]
 
 
@@ -47,12 +48,14 @@ class NormMethod(Enum):
     YJ = "Yeo-Johnson"
 
 
-SUBJ_DATA = download_csv().loc[:, ["fname", "DX_GROUP"]]
+SUBJ_DATA = download_csv().loc[:, ["fname", "DX_GROUP", "SITE_ID"]]
 # fix idiotic default of 1 == ASD, 2 == TD, so that now
 # 1 = autism, 0 = TD (typical development, control)
 SUBJ_DATA.DX_GROUP = SUBJ_DATA.DX_GROUP.apply(lambda x: 2 - x)
 SUBJ_DATA.index = pd.Index(SUBJ_DATA.fname.values, name="fname")
 SUBJ_DATA.drop(columns="fname", inplace=True)
+SUBJ_DATA = SUBJ_DATA.rename(columns={"SITE_ID": "site"})
+SUBJ_DATA.site = SUBJ_DATA.site.apply(lambda s: s.replace("_1", "").replace("_2", ""))  # unify
 
 COLORS = {
     "All subjects": "black",
@@ -102,7 +105,13 @@ os.makedirs(INSPECT_OUTDIR, exist_ok=True)
 def get_class(file: Path) -> int:
     stem = file.stem
     fname = stem[: stem.find("__")]
-    return int(SUBJ_DATA.loc[fname])
+    return int(SUBJ_DATA.drop(columns="site").loc[fname])
+
+
+def get_group(file: Path) -> str:
+    stem = file.stem
+    fname = stem[: stem.find("__")]
+    return str(SUBJ_DATA.drop(columns="DX_GROUP").loc[fname])
 
 
 @dataclass
@@ -133,7 +142,7 @@ class Feature:
 
     def load(
         self, normalize: Optional[NormMethod] = None, p: float = 25
-    ) -> Tuple[f64Array, f64Array]:
+    ) -> Tuple[f64Array, f64Array, List[str]]:
         """Returns data in form of (x, y), where `y` is the labels (0=TD, 1=ASD)
 
         Parameters
@@ -146,19 +155,20 @@ class Feature:
             (batch) dimension.  If the feature has variable-length time dimension (first dimension),
             it will be cropped and/or padded with a method appropriate to the feature.
         """
-        arrs, y = self.load_unstacked(normalize, p)
+        arrs, y, groups = self.load_unstacked(normalize, p)
         x = self._stack_subjects(arrs)
-        return x, y
+        return x, y, groups
 
     def load_unstacked(
         self, normalize: Optional[NormMethod] = None, p: float = 25
-    ) -> Tuple[Arrays, f64Array]:
+    ) -> Tuple[Arrays, f64Array, List[str]]:
         files = sorted(self.path.rglob("*.npy"))
         arrs: List[f64Array] = [np.load(f) for f in files]
         y = np.array([get_class(f) for f in files])
+        groups = [get_group(f) for f in files]
         if normalize is not None:  # NOTE: MUST normalize first, before padding or whatever
             arrs = self._normalize(arrs, method=normalize, p=p)
-        return arrs, y
+        return arrs, y, groups
 
     def compare_normalizations(self) -> None:
         """Compare eigenvalue normalization techniques.
@@ -212,7 +222,7 @@ class Feature:
 
         Subject-level standardization just doesn't work AT ALL (though probably does for laplacian), so we don't even bother.
         """
-        arrs, y = self.load_unstacked(normalize=None)
+        arrs, y, groups = self.load_unstacked(normalize=None)
         fig, axes = plt.subplots(nrows=4, ncols=6)
 
         # one-shots
@@ -354,11 +364,11 @@ class Feature:
         # now either we have a matrix, or actual waveforms
 
     def describe_1d_feature(self) -> None:
-        x, y = self.load_unstacked(normalize=None)
+        x, y, groups = self.load_unstacked(normalize=None)
 
     def plot_1d_feature(self, show: bool, normalize: Optional[NormMethod]) -> None:
         x: NDArray[f64]
-        x, y = self.load(normalize=None)
+        x, y, groups = self.load(normalize=None)
         x_asd, x_td = x[y == 0], x[y == 1]
         fig, axes = self._plot_setup()
 
@@ -416,7 +426,7 @@ class Feature:
         ax_curve.set_title(title)
 
     def plot_2d_feature(self, show: bool, normalize: Optional[NormMethod]) -> None:
-        x, y = self.load(normalize=normalize)
+        x, y, groups = self.load(normalize=normalize)
         x_asd, x_td = x[y == 0], x[y == 1]
         fig, axes = self._plot_setup()
         atlas = f" ({self.atlas.name} atlas)" if self.atlas is not None else ""

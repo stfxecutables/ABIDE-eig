@@ -4,12 +4,26 @@ https://github.com/pytorch/vision/blob/7d955df73fe0e9b47f7d6c77c699324b256fc41f/
 to use Linear layers
 """
 
-from typing import Any, Callable, Dict, List, Optional
+from functools import partialmethod
+from typing import Any, Callable, Dict, List, Optional, Tuple, no_type_check
 
 import torch
 import torch.nn as nn
+from pytorch_lightning import LightningModule
 from torch import Tensor
-from torch.nn import GELU, AdaptiveAvgPool1d, BatchNorm1d, Conv1d, Linear, Sequential
+from torch.nn import (
+    GELU,
+    AdaptiveAvgPool1d,
+    BatchNorm1d,
+    BCEWithLogitsLoss,
+    Conv1d,
+    Dropout,
+    Linear,
+    Sequential,
+)
+from torch.optim import Adam
+from torch.optim.lr_scheduler import CosineAnnealingLR, StepLR
+from torchmetrics.functional import accuracy
 
 
 class WideTabResLayer(nn.Module):
@@ -68,25 +82,98 @@ class TabWideResNet(nn.Module):
         in_features: int,
         width: int = 64,
         n_layers: int = 4,
+        dropout: float = 0.0,
     ) -> None:
         super().__init__()
         exp = 2
         self.width = width
         self.input = TabInput(in_features, width)
-        layers = []
+        layers: List[nn.Module] = []
         for d in range(n_layers):
             r_in, r_out = 2 ** d, 2 ** (d + 1)
             layers.append(WideTabResLayer(self.width * r_in, self.width * r_in))
             layers.append(WideTabResLayer(self.width * r_in, self.width * r_out))
+            if dropout > 0:
+                layers.append(Dropout(dropout, inplace=True))
         self.res_layers = Sequential(*layers)
         self.out = Linear(self.width * r_out, 1, bias=True)
 
     def forward(self, x: Tensor) -> Tensor:
         x = self.input(x)
         x = self.res_layers(x)
-        # x = torch.flatten(x)
         x = self.out(x)
         return x
+
+
+class TabLightningNet(LightningModule):
+    VAL_MAX = 0.72
+
+    def __init__(
+        self,
+        in_features: int,
+        width: int = 64,
+        n_layers: int = 4,
+        dropout: float = 0.0,
+        val_dummy: float = 0.5,
+    ) -> None:
+        super().__init__()
+        self.save_hyperparameters()
+        self.in_features: int = in_features
+        self.width: int = width
+        self.n_layers: int = n_layers
+        self.dropout = dropout
+        self.val_dummy = torch.Tensor([val_dummy]).squeeze().to(device="cuda")
+        self.max_gain = TabLightningNet.VAL_MAX - self.val_dummy
+        self.min_gain = -self.val_dummy
+        self.model = TabWideResNet(
+            in_features=self.in_features,
+            width=self.width,
+            n_layers=self.n_layers,
+            dropout=self.dropout,
+        )
+
+    # @no_type_check
+    # def forward(self, x: Tensor, *args, **kwargs) -> Any:
+    #     return self.model(x)
+
+    @no_type_check
+    def training_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> Tensor:
+        return self.shared_step(batch, batch_idx, label="train")
+
+    @no_type_check
+    def validation_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> None:
+        return self.shared_step(batch, batch_idx, label="val")
+
+    def shared_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int, label: str) -> Tensor:
+        x, target = batch
+        pred = self.model(x).squeeze()
+        criterion = BCEWithLogitsLoss()
+        loss: Tensor = criterion(pred, target)
+        if label != "train":
+            acc = accuracy(pred, target.int())
+            gain = acc - self.val_dummy
+            # rescale gain to be in [0, 100] for goal
+            goal = gain / self.max_gain
+            self.log(f"{label}_acc", acc, prog_bar=True)
+            self.log(f"{label}_gain", gain, prog_bar=True)
+            self.log(f"{label}_goal", goal, prog_bar=True)
+        self.log(f"{label}_loss", loss, prog_bar=True)
+        return loss
+
+    @no_type_check
+    def configure_optimizers(self):
+        # https://pytorch-lightning.readthedocs.io/en/latest/api/pytorch_lightning.core.lightning.html#pytorch_lightning.core.lightning.LightningModule.configure_optimizers
+        optimizer = Adam(self.parameters(), lr=1e-3, weight_decay=1e-5)
+        # scheduler = CosineAnnealingLR(optimizer, T_max=15, eta_min=1e-5)
+        scheduler = StepLR(optimizer, step_size=50, gamma=0.5)
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "interval": "epoch",
+                "frequency": 1,  # update each epoch
+            },
+        }
 
 
 if __name__ == "__main__":

@@ -1,7 +1,8 @@
 import os
 from dataclasses import dataclass, field
+from functools import partialmethod
 from pprint import pprint
-from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 from warnings import filterwarnings
 
 import numpy as np
@@ -22,9 +23,12 @@ from sklearn.neural_network import MLPClassifier as MLP
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier as DTreeClassifier
 from typing_extensions import Literal
+from xgboost.callback import TrainingCallback
+from xgboost.core import Booster, Metric
+from xgboost.sklearn import XGBClassifier, XGBModel
 
 Splits = Iterable[Tuple[ndarray, ndarray]]
-Classifier = Literal["rf", "svm", "dtree", "mlp", "bag", "lda"]
+Classifier = Literal["rf", "svm", "dtree", "mlp", "bag", "lda", "xgb"]
 Kernel = Literal["rbf", "linear", "sigmoid"]
 ValMethod = Literal["holdout", "kfold", "k-fold", "loocv", "mc", "none"]
 CVMethod = Union[int, float, Literal["loocv", "mc"]]
@@ -44,6 +48,9 @@ SVM_BASE_ARGS = dict(cache_size=500)
 DTREE_BASE_ARGS = dict()
 MLP_BASE_ARGS = dict()
 LDA_BASE_ARGS = dict()
+XGB_BASE_ARGS = dict(
+    use_label_encoder=False, tree_method="hist", objective="binary:logistic", n_jobs=-1
+)
 BASE_ARGS: Dict[Classifier, Dict] = {
     "rf": RF_BASE_ARGS,
     "svm": SVM_BASE_ARGS,
@@ -51,7 +58,50 @@ BASE_ARGS: Dict[Classifier, Dict] = {
     "mlp": MLP_BASE_ARGS,
     "bag": dict(),
     "lda": LDA_BASE_ARGS,
+    "xgb": XGB_BASE_ARGS,
 }
+
+# NOTE: MONKEY PATCH BAD XGBOOST INTERFACE
+
+
+class XGB(XGBClassifier):
+    def __init__(
+        self, *, objective: str = "binary:logistic", use_label_encoder: bool = False, **kwargs: Any
+    ) -> None:
+        super().__init__(objective=objective, use_label_encoder=use_label_encoder, **kwargs)
+
+    def fit(
+        self,
+        X: Any,
+        y: Any,
+        *,
+        sample_weight: Optional[Any] = None,
+        base_margin: Optional[Any] = None,
+        eval_set: Optional[List[Tuple[Any, Any]]] = None,
+        eval_metric: Optional[Union[str, List[str], Metric]] = None,
+        early_stopping_rounds: Optional[int] = None,
+        verbose: Optional[bool] = True,
+        xgb_model: Optional[Union[Booster, str, XGBModel]] = None,
+        sample_weight_eval_set: Optional[List[Any]] = None,
+        base_margin_eval_set: Optional[List[Any]] = None,
+        feature_weights: Optional[Any] = None,
+        callbacks: Optional[List[TrainingCallback]] = None,
+    ) -> "XGBClassifier":
+        return super().fit(
+            X,
+            y,
+            sample_weight=sample_weight,
+            base_margin=base_margin,
+            eval_set=eval_set,
+            eval_metric="logloss",
+            early_stopping_rounds=early_stopping_rounds,
+            verbose=verbose,
+            xgb_model=xgb_model,
+            sample_weight_eval_set=sample_weight_eval_set,
+            base_margin_eval_set=base_margin_eval_set,
+            feature_weights=feature_weights,
+            callbacks=callbacks,
+        )
 
 
 def bagger(**kwargs: Any) -> Callable:
@@ -66,6 +116,7 @@ CLASSIFIERS: Dict[str, Callable] = {
     "mlp": MLP,
     "bag": bagger,
     "lda": LDA,
+    "xgb": XGB,
 }
 
 
@@ -228,6 +279,26 @@ def rf_objective(
     return objective
 
 
+def xgb_objective(
+    X_train: DataFrame, y_train: DataFrame, cv_method: CVMethod = 5
+) -> Callable[[Trial], float]:
+    """https://xgboost.readthedocs.io/en/latest/parameter.html """
+
+    def objective(trial: Trial) -> float:
+        args: Dict = dict(
+            max_depth=trial.suggest_int("max_depth", 1, 50),
+            learning_rate=trial.suggest_uniform("learning_rate", 0, 1),
+            reg_alpha=trial.suggest_loguniform("reg_alpha", 1e-2, 1e4),
+            reg_lambda=trial.suggest_loguniform("reg_lambda", 1e-10, 1),
+        )
+        _cv = get_cv(y_train, cv_method)
+        estimator = XGB(**{**XGB_BASE_ARGS, **args})
+        scores = cv(estimator, X=X_train, y=y_train, scoring="accuracy", cv=_cv, n_jobs=1)
+        return float(np.mean(scores["test_score"]))
+
+    return objective
+
+
 def dtree_objective(
     X_train: DataFrame, y_train: DataFrame, cv_method: CVMethod = 5
 ) -> Callable[[Trial], float]:
@@ -371,6 +442,7 @@ def hypertune_classifier(
         "mlp": mlp_objective(X_train, y_train, cv_method),
         "bag": logistic_bagging_objective(X_train, y_train, cv_method),
         "lda": lda_objective(X_train, y_train, cv_method),
+        "xgb": xgb_objective(X_train, y_train, cv_method),
     }
     # HYPERTUNING
     objective = OBJECTIVES[classifier]
