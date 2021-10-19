@@ -111,7 +111,7 @@ def get_class(file: Path) -> int:
 def get_group(file: Path) -> str:
     stem = file.stem
     fname = stem[: stem.find("__")]
-    return str(SUBJ_DATA.drop(columns="DX_GROUP").loc[fname])
+    return str(SUBJ_DATA.drop(columns="DX_GROUP").loc[fname].item())
 
 
 @dataclass

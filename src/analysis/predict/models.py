@@ -16,7 +16,7 @@ import torch
 from pandas import DataFrame
 from pytorch_lightning import LightningModule, Trainer
 from pytorch_lightning.callbacks import LearningRateMonitor
-from sklearn.model_selection import GroupShuffleSplit, ParameterGrid
+from sklearn.model_selection import GroupShuffleSplit, ParameterGrid, StratifiedShuffleSplit
 from torch.nn import Module
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
@@ -115,8 +115,12 @@ def resnet_sanity_test(features: List[Feature], slice_min=0.0, slice_max=1.0) ->
         sl = slice(smin, smax)
         x = x[:, sl]
         x, y = torch.from_numpy(x).float(), torch.from_numpy(y).float()
+        stratifier = [f"{site}{target}" for site, target in zip(y, groups)]
+        # stratifier = groups
         tr, val = next(
-            GroupShuffleSplit(n_splits=1, test_size=200).split(np.arange(x.shape[0]), groups=groups)
+            StratifiedShuffleSplit(n_splits=1, test_size=200).split(
+                np.arange(x.shape[0]), y=stratifier
+            )
         )
         x_train, y_train = x[tr], y[tr]
         x_val, y_val = x[val], y[val]
@@ -134,7 +138,9 @@ def resnet_sanity_test(features: List[Feature], slice_min=0.0, slice_max=1.0) ->
         )
         atlas = f.atlas.name if f.atlas is not None else ""
         print("=" * 120)
-        print(f"Beginning training for {f.name} ({atlas}) sliced to [{smin}:{smax})")
+        print(
+            f"Beginning training for {f.name} ({atlas}) sliced to [{smin}:{smax}) normalization {norm.value}"
+        )
         print(f)
         print("=" * 120)
         outdir = ROOT / "resnet_sanity_test"
@@ -142,10 +148,11 @@ def resnet_sanity_test(features: List[Feature], slice_min=0.0, slice_max=1.0) ->
         outdir /= norm.name
         trainer = Trainer(
             gpus=1,
-            max_epochs=200,
+            max_epochs=2000,
             default_root_dir=outdir,
             callbacks=[LearningRateMonitor()],
             progress_bar_refresh_rate=34,  # batches per epoch
+            precision=16,
         )
         trainer.fit(model, train_loader, val_loader)
 
@@ -156,4 +163,4 @@ if __name__ == "__main__":
     features = [f for f in FEATURES if len(f.shape_data.shape) == 1 and "eig_mean" in f.name][0]
     # features_sanity_test(features, CLASSIFIER)
     # even tiny slices (0.95 to 1.0) result in identical performance to full data...
-    resnet_sanity_test([features], slice_min=0.90, slice_max=1.0)
+    resnet_sanity_test([features], slice_min=0.00, slice_max=1.0)

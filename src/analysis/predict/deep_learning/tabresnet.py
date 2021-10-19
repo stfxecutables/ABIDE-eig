@@ -22,8 +22,10 @@ from torch.nn import (
     Sequential,
 )
 from torch.optim import Adam
-from torch.optim.lr_scheduler import CosineAnnealingLR, StepLR
-from torchmetrics.functional import accuracy
+from torch.optim.lr_scheduler import CosineAnnealingLR, MultiStepLR, StepLR
+from torchmetrics.functional import accuracy, auroc
+from torchmetrics.functional import f1 as f1score
+from torchmetrics.functional import precision_recall
 
 
 class WideTabResLayer(nn.Module):
@@ -150,13 +152,21 @@ class TabLightningNet(LightningModule):
         criterion = BCEWithLogitsLoss()
         loss: Tensor = criterion(pred, target)
         if label != "train":
-            acc = accuracy(pred, target.int())
+            target = target.int()
+            acc = accuracy(pred, target)
+            auc = auroc(pred, target)
+            f1 = f1score(pred, target)
+            precision, recall = precision_recall(pred, target)
             gain = acc - self.val_dummy
             # rescale gain to be in [0, 100] for goal
-            goal = gain / self.max_gain
+            goal = torch.round(1000 * gain / self.max_gain) / 1000  # round to 3 decimals
             self.log(f"{label}_acc", acc, prog_bar=True)
             self.log(f"{label}_gain", gain, prog_bar=True)
             self.log(f"{label}_goal", goal, prog_bar=True)
+            self.log(f"{label}_auc", auc, prog_bar=True)
+            self.log(f"{label}_f1", f1, prog_bar=True)
+            self.log(f"{label}_precision", precision, prog_bar=False)
+            self.log(f"{label}_recall", recall, prog_bar=False)
         self.log(f"{label}_loss", loss, prog_bar=True)
         return loss
 
@@ -165,7 +175,7 @@ class TabLightningNet(LightningModule):
         # https://pytorch-lightning.readthedocs.io/en/latest/api/pytorch_lightning.core.lightning.html#pytorch_lightning.core.lightning.LightningModule.configure_optimizers
         optimizer = Adam(self.parameters(), lr=1e-3, weight_decay=1e-5)
         # scheduler = CosineAnnealingLR(optimizer, T_max=15, eta_min=1e-5)
-        scheduler = StepLR(optimizer, step_size=50, gamma=0.5)
+        scheduler = MultiStepLR(optimizer, milestones=[50, 100, 150, 200, 300, 400, 500], gamma=0.5)
         return {
             "optimizer": optimizer,
             "lr_scheduler": {
