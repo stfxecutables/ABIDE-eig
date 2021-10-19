@@ -23,8 +23,6 @@ from sklearn.neural_network import MLPClassifier as MLP
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier as DTreeClassifier
 from typing_extensions import Literal
-from xgboost.callback import TrainingCallback
-from xgboost.core import Booster, Metric
 from xgboost.sklearn import XGBClassifier, XGBModel
 
 Splits = Iterable[Tuple[ndarray, ndarray]]
@@ -81,11 +79,11 @@ class XGB(XGBClassifier):
         eval_metric: Optional[Union[str, List[str], Metric]] = None,
         early_stopping_rounds: Optional[int] = None,
         verbose: Optional[bool] = True,
-        xgb_model: Optional[Union[Booster, str, XGBModel]] = None,
+        xgb_model: Optional[Union[Any, str, XGBModel]] = None,
         sample_weight_eval_set: Optional[List[Any]] = None,
         base_margin_eval_set: Optional[List[Any]] = None,
         feature_weights: Optional[Any] = None,
-        callbacks: Optional[List[TrainingCallback]] = None,
+        callbacks: Optional[List[Any]] = None,
     ) -> "XGBClassifier":
         return super().fit(
             X,
@@ -559,7 +557,7 @@ def evaluate_hypertuned(
         y_pred = estimator.fit(X_train, y_train).predict(X_test)
         y_score = (
             estimator.decision_function(X_test)
-            if classifier != "mlp"
+            if classifier_name != "mlp"
             else estimator.predict_proba(X_test)
         )
         acc = accuracy_score(y_test, y_pred)
