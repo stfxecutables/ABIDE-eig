@@ -134,7 +134,7 @@ def resnet_sanity_test(features: List[Feature], slice_min=0.0, slice_max=1.0) ->
         )
         val_loader = DataLoader(val_data, batch_size=25, shuffle=False, num_workers=8)
         model = TabLightningNet(
-            in_features=x.shape[1], width=32, n_layers=2, dropout=0.0, val_dummy=val_dummy
+            in_features=x.shape[1], width=32, n_layers=2, dropout=0.2, val_dummy=val_dummy
         )
         atlas = f.atlas.name if f.atlas is not None else ""
         print("=" * 120)
@@ -152,7 +152,6 @@ def resnet_sanity_test(features: List[Feature], slice_min=0.0, slice_max=1.0) ->
             default_root_dir=outdir,
             callbacks=[LearningRateMonitor()],
             progress_bar_refresh_rate=34,  # batches per epoch
-            precision=16,
         )
         trainer.fit(model, train_loader, val_loader)
 
