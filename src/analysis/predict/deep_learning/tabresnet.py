@@ -173,9 +173,11 @@ class TabLightningNet(LightningModule):
     @no_type_check
     def configure_optimizers(self):
         # https://pytorch-lightning.readthedocs.io/en/latest/api/pytorch_lightning.core.lightning.html#pytorch_lightning.core.lightning.LightningModule.configure_optimizers
+        # milestones = [50, 100, 150, 200, 300, 400, 500]
+        milestones = [75, 150, 300, 500, 750, 1000]
         optimizer = Adam(self.parameters(), lr=1e-3, weight_decay=1e-5)
         # scheduler = CosineAnnealingLR(optimizer, T_max=15, eta_min=1e-5)
-        scheduler = MultiStepLR(optimizer, milestones=[50, 100, 150, 200, 300, 400, 500], gamma=0.5)
+        scheduler = MultiStepLR(optimizer, milestones=milestones, gamma=0.5)
         return {
             "optimizer": optimizer,
             "lr_scheduler": {

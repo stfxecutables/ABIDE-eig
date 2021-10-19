@@ -148,7 +148,7 @@ def resnet_sanity_test(features: List[Feature], slice_min=0.0, slice_max=1.0) ->
         outdir /= norm.name
         trainer = Trainer(
             gpus=1,
-            max_epochs=2000,
+            max_epochs=2500,
             default_root_dir=outdir,
             callbacks=[LearningRateMonitor()],
             progress_bar_refresh_rate=34,  # batches per epoch
