@@ -76,7 +76,7 @@ class XGB(XGBClassifier):
         sample_weight: Optional[Any] = None,
         base_margin: Optional[Any] = None,
         eval_set: Optional[List[Tuple[Any, Any]]] = None,
-        eval_metric: Optional[Union[str, List[str], Metric]] = None,
+        eval_metric: Optional[Union[str, List[str], Any]] = None,
         early_stopping_rounds: Optional[int] = None,
         verbose: Optional[bool] = True,
         xgb_model: Optional[Union[Any, str, XGBModel]] = None,
