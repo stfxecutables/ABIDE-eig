@@ -163,6 +163,8 @@ class Feature:
         self, normalize: Optional[NormMethod] = None, p: float = 25
     ) -> Tuple[Arrays, f64Array, List[str]]:
         files = sorted(self.path.rglob("*.npy"))
+        if len(files) < 10:
+            raise FileNotFoundError(f"Not enough feature files found in {self.path}")
         arrs: List[f64Array] = [np.load(f) for f in files]
         y = np.array([get_class(f) for f in files])
         groups = [get_group(f) for f in files]
