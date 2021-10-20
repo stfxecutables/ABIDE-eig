@@ -1,13 +1,16 @@
 from math import floor
 from typing import Dict, Tuple, Union, cast
 
+import torch
 from torch import Tensor
 from torch.nn import (
     BatchNorm3d,
     BCEWithLogitsLoss,
     ConstantPad3d,
+    Conv1d,
     Conv3d,
     Dropout,
+    Flatten,
     GroupNorm,
     InstanceNorm3d,
     LayerNorm,
@@ -18,6 +21,7 @@ from torch.nn import (
     ReLU,
     Sequential,
 )
+from torch.nn.modules import padding
 from torch.nn.modules.pooling import MaxPool3d
 from typing_extensions import Literal
 
@@ -29,6 +33,267 @@ from src.analysis.predict.deep_learning.models.layers.utils import (
     outsize_3d,
     padding_same,
 )
+
+Padding = Union[Literal["same"], int]
+
+
+class SpatialUnflatten(Module):
+    def __init__(self, spatial_shape: Tuple[int, ...]) -> None:
+        super().__init__()
+        self.spatial_shape = spatial_shape
+
+    def forward(self, x: Tensor) -> Tensor:
+        return torch.reshape(x, [*x.shape[:2], *self.spatial_shape])
+
+
+# see https://github.com/pytorch/vision/blob/9e474c3c46c0871838c021093c67a9c7eb1863ea/torchvision/models/video/resnet.py#L36
+class Conv3Plus1D(Sequential):
+    """Expects inputs of shape (B, C, T, *SPATIAL)
+
+    Notes
+    -----
+    To make this efficient, our spatial convolution (Conv3D) needs to treat timepoints as channels, and use
+    depthwise-separable convolutions so that the same convolution is applied to all timepoints. Then, because
+    there is no nice Conv4D so we can just do a hacky Conv4d(kernel_size=(k, 1, 1, 1)) trick, we have to do
+    a Conv1D on a flattened image (!!). So we do some trickery with channels and re-interpeting dimensions,
+    but it should work...
+
+    Since out inputs have shape (B, C, T, *SPATIAL), after the first spatial conv they have shape
+    (B, mid_channels, T, *SPATIAL_R), where *SPATIAL_R depends on padding, stride, dilation, etc.
+
+    Here is the way it all works:
+
+    x = torch.ones([1, 4, 5, 5])  # 4-channel image 5x5 pixes, batch size is 1
+    for i in range(x.shape[1]):
+        x[0, i] = i + 1
+    x
+    >>> tensor([[[
+            [1., 1., 1., 1., 1.],
+            [1., 1., 1., 1., 1.],
+            [1., 1., 1., 1., 1.],
+            [1., 1., 1., 1., 1.],
+            [1., 1., 1., 1., 1.]],
+
+            [[2., 2., 2., 2., 2.],
+            [2., 2., 2., 2., 2.],
+            [2., 2., 2., 2., 2.],
+            [2., 2., 2., 2., 2.],
+            [2., 2., 2., 2., 2.]],
+
+            [[3., 3., 3., 3., 3.],
+            [3., 3., 3., 3., 3.],
+            [3., 3., 3., 3., 3.],
+            [3., 3., 3., 3., 3.],
+            [3., 3., 3., 3., 3.]],
+
+            [[4., 4., 4., 4., 4.],
+            [4., 4., 4., 4., 4.],
+            [4., 4., 4., 4., 4.],
+            [4., 4., 4., 4., 4.],
+            [4., 4., 4., 4., 4.]]]])
+
+    conv = torch.nn.Conv2d(in_channels=4, out_channels=4*2, kernel_size=3, groups=4, bias=False)
+    print(conv.weight.shape)  # [8, 1, 3, 3]
+    conv.weight = 1  # set all weights to 1 for easy visualization
+    conv.weight[0] = 2
+    conv.weight[1] = 0.5
+    conv.weight
+    >>> tensor([[[
+            [2.0000, 2.0000, 2.0000],
+            [2.0000, 2.0000, 2.0000],
+            [2.0000, 2.0000, 2.0000]]],
+
+            [[[0.5000, 0.5000, 0.5000],
+            [0.5000, 0.5000, 0.5000],
+            [0.5000, 0.5000, 0.5000]]],
+
+            [[[1.0000, 1.0000, 1.0000],
+            [1.0000, 1.0000, 1.0000],
+            [1.0000, 1.0000, 1.0000]]],
+
+            [[[1.0000, 1.0000, 1.0000],
+            [1.0000, 1.0000, 1.0000],
+            [1.0000, 1.0000, 1.0000]]],
+
+            [[[1.0000, 1.0000, 1.0000],
+            [1.0000, 1.0000, 1.0000],
+            [1.0000, 1.0000, 1.0000]]],
+
+            [[[1.0000, 1.0000, 1.0000],
+            [1.0000, 1.0000, 1.0000],
+            [1.0000, 1.0000, 1.0000]]],
+
+            [[[1.0000, 1.0000, 1.0000],
+            [1.0000, 1.0000, 1.0000],
+            [1.0000, 1.0000, 1.0000]]],
+
+            [[[1.0000, 1.0000, 1.0000],
+            [1.0000, 1.0000, 1.0000],
+            [1.0000, 1.0000, 1.0000]]]])
+
+        conv(x)
+
+        >>> tensor([[[
+            [[18.0000, 18.0000, 18.0000],
+            [18.0000, 18.0000, 18.0000],
+            [18.0000, 18.0000, 18.0000]],
+
+            [[ 4.5000,  4.5000,  4.5000],
+            [ 4.5000,  4.5000,  4.5000],
+            [ 4.5000,  4.5000,  4.5000]],
+
+            [[18.0000, 18.0000, 18.0000],
+            [18.0000, 18.0000, 18.0000],
+            [18.0000, 18.0000, 18.0000]],
+
+            [[18.0000, 18.0000, 18.0000],
+            [18.0000, 18.0000, 18.0000],
+            [18.0000, 18.0000, 18.0000]],
+
+            [[27.0000, 27.0000, 27.0000],
+            [27.0000, 27.0000, 27.0000],
+            [27.0000, 27.0000, 27.0000]],
+
+            [[27.0000, 27.0000, 27.0000],
+            [27.0000, 27.0000, 27.0000],
+            [27.0000, 27.0000, 27.0000]],
+
+            [[36.0000, 36.0000, 36.0000],
+            [36.0000, 36.0000, 36.0000],
+            [36.0000, 36.0000, 36.0000]],
+
+            [[36.0000, 36.0000, 36.0000],
+            [36.0000, 36.0000, 36.0000],
+            [36.0000, 36.0000, 36.0000]]]])
+    """
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        mid_channels: int,
+        spatial_in_shape: Tuple[int, int, int],
+        temporal_in_shape: int,
+        spatial_kernel: int = 3,
+        spatial_stride: int = 1,
+        spatial_dilation: int = 1,
+        temporal_kernel: int = 5,
+        temporal_stride: int = 1,
+        temporal_dilation: int = 1,
+        spatial_padding: Padding = "same",
+        temporal_padding: Padding = "same",
+    ):
+        super().__init__()
+        self.in_channels: int = in_channels
+        self.out_channels: int = out_channels
+        self.mid_channels: int = mid_channels
+        self.spatial_in_shape: Tuple[int, int, int] = spatial_in_shape
+        self.spatial_kernel: int = spatial_kernel
+        self.spatial_stride: int = spatial_stride
+        self.spatial_dilation: int = spatial_dilation
+        self.temporal_in_shape: int = temporal_in_shape
+        self.temporal_kernel: int = temporal_kernel
+        self.temporal_stride: int = temporal_stride
+        self.temporal_dilation: int = temporal_dilation
+        self.spatial_padding: Padding = spatial_padding
+        self.temporal_padding: Padding = temporal_padding
+        self.s_padding, self.t_padding = self.init_paddings()
+
+        self.separable = Conv3d(
+            self.in_channels,
+            self.in_channels,
+            kernel_size=self.spatial_kernel,
+            stride=self.spatial_stride,
+            padding=self.s_padding,
+            bias=False,
+            groups=self.in_channels,
+        )
+        self.pointwise = Conv3d(
+            in_channels=self.in_channels,
+            out_channels=self.mid_channels,
+            kernel_size=1,
+            stride=1,
+            bias=False,
+        )
+        self.norm = BatchNorm3d(self.mid_channels)
+        self.relu = ReLU(inplace=True)
+        self.flatten = Flatten(start_dim=2, end_dim=-1)
+        self.temporal = Conv1d(
+            self.mid_channels,
+            self.out_channels,
+            kernel_size=self.temporal_kernel,
+            stride=self.temporal_stride,
+            padding=self.t_padding,
+            bias=False,
+        )
+        self.unflatten = SpatialUnflatten(self.spatial_outshape())
+
+    def forward(self, x: Tensor) -> Tensor:
+        x = self.separable(x)
+        x = self.pointwise(x)
+        x = self.norm(x)
+        x = self.relu(x)
+        x = self.flatten(x)
+        x = self.temporal(x)
+        x = self.unflatten(x)
+        return x
+
+    def spatial_outshape(self) -> Tuple[int, int, int]:
+        if self.spatial_padding == "same":
+            return self.spatial_in_shape
+        return tuple(  # type: ignore
+            [
+                outsize_3d(
+                    s,
+                    self.spatial_kernel,
+                    self.spatial_dilation,
+                    self.spatial_stride,
+                    self.spatial_padding,
+                )
+                for s in self.spatial_in_shape
+            ]
+        )
+
+    def temporal_outshape(self) -> int:
+        if self.temporal_padding == "same":
+            return self.temporal_in_shape
+        return outsize_3d(  # type: ignore
+            self.temporal_in_shape,
+            self.temporal_kernel,
+            self.temporal_dilation,
+            self.temporal_stride,
+            self.temporal_padding,
+        )
+
+    def outshape(self) -> Tuple[int, int, int, int]:
+        t = self.temporal_outshape()
+        spatial = self.spatial_outshape()
+        return (t, *spatial)
+
+    def init_paddings(self) -> Tuple[int, int]:
+        s_padding: int = -1
+        t_padding: int = -1
+        if self.spatial_padding == "same":
+            if self.spatial_stride > 1:
+                raise NotImplementedError(
+                    "Currently padding only available for symmetric stride of 1"
+                )
+            s_padding = padding_same(
+                self.spatial_in_shape, self.spatial_kernel, self.spatial_dilation
+            )
+        else:
+            self.s_padding = int(self.spatial_padding)
+        if self.temporal_padding == "same":
+            if self.temporal_stride > 1:
+                raise NotImplementedError(
+                    "Currently padding only available for symmetric stride of 1"
+                )
+            t_padding = padding_same(
+                (self.temporal_in_shape,), self.temporal_kernel, self.temporal_dilation
+            )
+        else:
+            t_padding = int(self.temporal_padding)
+        return s_padding, t_padding
 
 
 class Conv3dSame(Module):
