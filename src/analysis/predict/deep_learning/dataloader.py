@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # fmt: off
 import sys  # isort:skip
 from pathlib import Path  # isort:skip
@@ -25,7 +27,13 @@ from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 
 from src.analysis.predict.deep_learning.constants import INPUT_SHAPE
-from src.analysis.predict.deep_learning.prepare_data import prepare_data_files
+from src.analysis.predict.deep_learning.prepare_data import (
+    CC_CLUSTER,
+    FULL_PREPROC_EIG,
+    FULL_PREPROC_FMRI,
+    prepare_data_files,
+    prepare_full_data,
+)
 from src.analysis.predict.reducers import subject_labels
 
 FmriSlice = Tuple[int, int, int, int]  # just a convencience type to save space
@@ -39,6 +47,7 @@ DEEP_EIGIMG = DEEP / "eigimg"
 PREPROC_EIG = sorted(DEEP_EIGIMG.rglob("*.npy"))
 PREPROC_FMRI = [DEEP_FMRI / str(p.name).replace("_eigimg", "") for p in PREPROC_EIG]
 LABELS: List[int] = subject_labels(PREPROC_EIG)
+FULL_LABELS: List[int] = subject_labels(FULL_PREPROC_FMRI)
 SHAPE = (47, 59, 42, 175)
 
 
@@ -46,6 +55,7 @@ SHAPE = (47, 59, 42, 175)
 class PreloadArgs:
     img: Path
     slicer: slice
+    full: bool = True
 
 
 class RandomFmriPatchDataset(Dataset):
@@ -234,10 +244,11 @@ def plot_patch(size: Tuple[int, int, int, int] = (32, 32, 32, 12)) -> None:
 def preload(args: PreloadArgs) -> np.ndarray:
     # need channels_first, but is currently channels last
     img, slicer = args.img, args.slicer
-    x = np.load(img)
+    x = nib.load(str(img)).get_fdata() if args.full else np.load(img)
     x = np.transpose(x, (3, 0, 1, 2))
     x -= np.mean(x)
     x /= np.std(x, ddof=1)
+    x = x.astype(np.float16)
     return x[slicer]
 
 
@@ -262,15 +273,22 @@ class FmriDataset(Dataset):
         self,
         args: Namespace,
         transform: Optional[Callable] = None,
+        full: bool = True,
     ) -> None:
         # self.mask = nib.load(MASK).get_fdata().astype(bool)  # more efficient to load just once
         self.preload = bool(args.preload)
-        self.img_paths = prepare_data_files(args.is_eigimg)
+        self.img_paths = (
+            prepare_full_data(args.is_eigimg) if full else prepare_data_files(args.is_eigimg)
+        )
         self.transform = transform
         self.time_slice = args.slicer
+        self.full = full
         self.imgs = []
         if self.preload:
-            pargs = [PreloadArgs(img=img, slicer=self.time_slice) for img in self.img_paths]
+            pargs = [
+                PreloadArgs(img=img, slicer=self.time_slice, full=self.full)
+                for img in self.img_paths
+            ]
             self.imgs = process_map(
                 preload, pargs, total=len(pargs), desc="Preloading all images..."
             )
@@ -279,20 +297,28 @@ class FmriDataset(Dataset):
         return len(self.img_paths)
 
     def __getitem__(self, i: int) -> Tuple[Tensor, Tensor]:
-        y = int(LABELS[i])
+        y = int(FULL_LABELS[i]) if self.full else int(LABELS[i])
         if self.preload:
             x = self.imgs[i]
+            if self.full:
+                x = x.astype(np.float32)
             return Tensor(x), Tensor([y])
         # need channels_first, but is currently channels last
-        x = np.load(self.img_paths[i])
+        x = (
+            nib.load(str(self.img_paths[i])).get_fdata()
+            if self.full
+            else np.load(self.img_paths[i])
+        )
         x = np.transpose(x, (3, 0, 1, 2))
+        if self.full:
+            x = x.astype(np.float32)
         x -= np.mean(x)
         x /= np.std(x, ddof=1)
         x = x[self.time_slice]
         return Tensor(x), Tensor([y])
 
     def train_val_split(self, args: Namespace) -> Tuple[Subset, Subset]:
-        test_length = 40 if len(self.img_paths) == 100 else 100
+        test_length = 50 if CC_CLUSTER is None else 100
         train_length = len(self.img_paths) - test_length
         train, val = random_split(self, (train_length, test_length), generator=None)
         val_aut = torch.cat(list(zip(*list(val)))[1]).sum().int().item()  # type: ignore

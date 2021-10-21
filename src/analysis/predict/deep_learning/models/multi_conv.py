@@ -98,6 +98,7 @@ class MultiNet(LightningModule):
         lin_ch = in_ch * t_in * prod(s_in)
         self.layers.append(Flatten())
         self.layers.append(Linear(lin_ch, 1, bias=True))
+        print(self)
 
     @no_type_check
     def forward(self, x: Tensor) -> Tensor:
@@ -173,6 +174,5 @@ def train_model(
 
 
 if __name__ == "__main__":
-    print(MultiNet(DEFAULTS))
     seed_everything(333, workers=True)
     train_model(MultiNet)
