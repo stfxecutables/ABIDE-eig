@@ -23,7 +23,7 @@
         "--preload",
         // "--slice_start=100",
         // "--slice_end=170",
-        "--batch_size=4",
+        "--batch_size=2",
         "--check_val_every_n_epoch=1"
       ]
     }

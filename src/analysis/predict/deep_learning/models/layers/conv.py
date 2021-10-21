@@ -145,7 +145,7 @@ class MultiConv4D(Sequential):
         self.norms = ModuleList(
             [BatchNorm3d(self.temporal_in_shape) for _ in range(self.in_channels)]
         )
-        self.relu = ReLU(inplace=True)
+        self.relu = ReLU(inplace=False)
         self.flatten = TemporalFlatten()
         spatial_out = self.spatial_outshape()
         in_ch = self.in_channels * prod(spatial_out)
