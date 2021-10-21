@@ -46,17 +46,22 @@ DEFAULTS = Namespace(
     **dict(
         num_layers=4,
         channel_expansion=2,
-        channel_exp_start=2,
+        channel_exp_start=4,
         spatial_kernel=3,
-        spatial_stride=1,
-        spatial_dilation=1,
-        temporal_kernel=5,
+        spatial_stride=2,
+        spatial_dilation=2,
+        temporal_kernel=2,
         temporal_stride=2,
         temporal_dilation=1,
-        spatial_padding="same",
+        spatial_padding=2,
         temporal_padding=0,
     )
 )
+"""
+INCREASE THE SPATIAL STRIDE SO THAT WE GET DOWNSAMPLING, AND SEE THE MEMORY
+COSTS THEN!
+
+"""
 
 
 class MultiNet(LightningModule):
@@ -82,6 +87,11 @@ class MultiNet(LightningModule):
             )
             s_in = conv.spatial_outshape()
             t_in = conv.temporal_outshape()
+            for s in s_in:
+                if s <= 0:
+                    raise ValueError(
+                        f"Spatial feature map size has shrunk to zero after layer {i}."
+                    )
             in_ch *= exp
             exp = self.hparams.channel_expansion  # no longer use starting expansion
             self.layers.append(conv)
@@ -124,6 +134,12 @@ class MultiNet(LightningModule):
         self.log(f"{phase}_acc", acc, prog_bar=True)
         return acc, loss
 
+    def __str__(self) -> str:
+        lines = []
+        for layer in self.layers:
+            lines.append(str(layer))
+        return "\n".join(lines)
+
 
 def train_model(
     model_class: Type,
@@ -156,5 +172,6 @@ def train_model(
 
 
 if __name__ == "__main__":
+    print(MultiNet(DEFAULTS))
     seed_everything(333, workers=True)
     train_model(MultiNet)

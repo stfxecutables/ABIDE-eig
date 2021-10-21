@@ -129,6 +129,7 @@ class MultiConv4D(Sequential):
                     kernel_size=self.spatial_kernel,
                     stride=self.spatial_stride,
                     padding=self.s_padding,
+                    dilation=self.spatial_dilation,
                     bias=False,
                     groups=self.temporal_in_shape,
                 )
@@ -156,6 +157,7 @@ class MultiConv4D(Sequential):
             kernel_size=self.temporal_kernel,
             stride=self.temporal_stride,
             padding=self.t_padding,
+            dilation=self.temporal_dilation,
             groups=in_ch,
             bias=False,
         )
@@ -241,7 +243,7 @@ class MultiConv4D(Sequential):
                 ::2
             ]  # odd kernel means we only need 3 padding values
         else:
-            self.s_padding = int(self.spatial_padding)
+            s_padding = int(self.spatial_padding)
         if self.temporal_padding == "same":
             if self.temporal_stride > 1:
                 raise NotImplementedError(
@@ -257,6 +259,37 @@ class MultiConv4D(Sequential):
         else:
             t_padding = int(self.temporal_padding)
         return s_padding, t_padding
+
+    def __str__(self) -> str:
+        layers = [
+            f"input shape: (C, T, *SPATIAL)",
+            f"{len(self.separables)} x {str(self.separables[0])}",
+            f"{len(self.norms)} x {str(self.norms[0])}",
+            f"1 x {str(self.relu)}",
+            f"1 x {str(self.flatten)}",
+            f"1 x {str(self.temporal)}",
+            f"1 x {str(self.unflatten)}",
+            f"{len(self.final_norms)} x {str(self.final_norms[0])}",
+        ]
+        spatial = self.spatial_outshape()
+        inshape = (self.in_channels, self.temporal_in_shape, *self.spatial_in_shape)
+        conv = (self.in_channels, self.temporal_in_shape, *spatial)
+        shapes = [
+            inshape,
+            conv,
+            conv,
+            conv,
+            (self.in_channels * prod(spatial), self.temporal_in_shape),
+            (self.in_channels * self.channel_expansion * prod(spatial), self.temporal_outshape()),
+            (self.in_channels * self.channel_expansion, self.temporal_outshape(), *spatial),
+            (self.in_channels * self.channel_expansion, self.temporal_outshape(), *spatial),
+        ]
+        fmt_length = max([len(str(s)) for s in shapes]) + 4
+        lines = [
+            "{:>{width}}: {layer}".format(str(shape), layer=layer, width=fmt_length)
+            for layer, shape in zip(layers, shapes)
+        ]
+        return "\n".join(lines)
 
 
 class Conv3dSame(Module):

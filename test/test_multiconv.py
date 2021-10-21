@@ -25,6 +25,22 @@ def test_shape() -> None:
     assert res.shape == x.shape
 
 
+def test_print(capsys: Any) -> None:
+    with capsys.disabled():
+        conv = MultiConv4D(
+            in_channels=1,
+            channel_expansion=2,
+            spatial_in_shape=(16, 32, 32),
+            temporal_in_shape=120,
+            spatial_kernel=3,
+            spatial_dilation=1,
+            temporal_kernel=5,
+            temporal_dilation=1,
+        )
+        print()
+        print(conv)
+
+
 def test_memory(capsys: Any) -> None:
     defaults = dict(
         spatial_kernel=3,
