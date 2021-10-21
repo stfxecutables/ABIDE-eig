@@ -44,7 +44,7 @@ from src.analysis.predict.deep_learning.tables import tableify_logs
 
 DEFAULTS = Namespace(
     **dict(
-        num_layers=4,
+        num_layers=5,
         channel_expansion=2,
         channel_exp_start=4,
         spatial_kernel=3,
@@ -130,7 +130,8 @@ class MultiNet(LightningModule):
         criterion = BCEWithLogitsLoss()
         loss = criterion(preds.squeeze(), target.squeeze())
         acc = accuracy(preds, target.int())
-        self.log(f"{phase}_loss", loss, prog_bar=True)
+        if phase != "train":
+            self.log(f"{phase}_loss", loss, prog_bar=True)
         self.log(f"{phase}_acc", acc, prog_bar=True)
         return acc, loss
 
