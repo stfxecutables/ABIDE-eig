@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__ import annotations  # noqa
 
 # fmt: off
 from pathlib import Path  # isort:skip
@@ -45,7 +45,7 @@ class MultiNetConfig:
     spatial_padding: int = 2
     temporal_padding: int = 0
     lr: float = 1e-4
-    weight_decay: float = 1e-5
+    l2: float = 1e-5
 
     @property
     def namespace(self) -> Namespace:
@@ -59,7 +59,7 @@ class MultiNetConfig:
         d.pop("channel_exp_start")
         d.pop("channel_expansion")
         d.pop("lr")
-        d.pop("weight_decay")
+        d.pop("l2")
         return d
 
     @staticmethod
@@ -85,7 +85,7 @@ class MultiNet(LightningModule):
         s_in = PADDED_SHAPE[1:]
         t_in = PADDED_SHAPE[0]
         in_ch, exp = 1, self.config.channel_exp_start
-        for i in range(self.hparams.num_layers):
+        for i in range(self.config.num_layers):
             conv = MultiConv4D(
                 in_channels=in_ch,
                 channel_expansion=exp,
@@ -101,7 +101,7 @@ class MultiNet(LightningModule):
                         f"Spatial feature map size has shrunk to zero after layer {i}."
                     )
             in_ch *= exp
-            exp = self.hparams.channel_expansion  # no longer use starting expansion
+            exp = self.config.channel_expansion  # no longer use starting expansion
             self.layers.append(conv)
         lin_ch = in_ch * t_in * prod(s_in)
         self.layers.append(Flatten())
