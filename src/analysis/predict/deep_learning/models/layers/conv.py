@@ -23,6 +23,7 @@ from torch.nn import (
     Sequential,
 )
 from torch.nn.modules.pooling import MaxPool3d
+from tqdm import tqdm
 from typing_extensions import Literal
 
 from src.analysis.predict.deep_learning.constants import INPUT_SHAPE
@@ -67,7 +68,7 @@ class TemporalUnflatten(Module):
 
 
 # see https://github.com/pytorch/vision/blob/9e474c3c46c0871838c021093c67a9c7eb1863ea/torchvision/models/video/resnet.py#L36
-class Conv3Plus1D(Sequential):
+class MultiConv4D(Sequential):
     """Expects inputs of shape (B, C, T, *SPATIAL)
 
     Notes 2
@@ -155,11 +156,16 @@ class Conv3Plus1D(Sequential):
             kernel_size=self.temporal_kernel,
             stride=self.temporal_stride,
             padding=self.t_padding,
-            groups=self.channel_expansion,
+            groups=in_ch,
             bias=False,
         )
-        self.unflatten = TemporalUnflatten(out_ch // prod(spatial_out), spatial_out)
-        self.final_norms = ModuleList([BatchNorm3d(self.temporal_in_shape) for _ in range(out_ch)])
+        self.unflatten = TemporalUnflatten(self.channel_expansion * self.in_channels, spatial_out)
+        self.final_norms = ModuleList(
+            [
+                BatchNorm3d(self.temporal_outshape())
+                for _ in range(self.in_channels * self.channel_expansion)
+            ]
+        )
 
     def forward(self, x: Tensor) -> Tensor:
         """x.shape == (B, C, T, *SPATIAL)"""
@@ -171,8 +177,9 @@ class Conv3Plus1D(Sequential):
             cout = cout.unsqueeze(1)  # add back channel dim
             out.append(cout)  # add back channel dim
         x = torch.cat(out, dim=1)  # type: ignore # along channel dim
-        for i in range(len(out)):
-            del out[i]
+        del out
+        # for i in range(len(out)):
+        #     del out[i]
         del cout
         # x = self.separable(x)
         # x = self.pointwise(x)
