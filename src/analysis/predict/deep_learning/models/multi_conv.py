@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # fmt: off
 from pathlib import Path  # isort:skip
 import sys  # isort:skip
@@ -9,54 +11,62 @@ sys.path.append(str(ROOT))
 
 from argparse import Namespace
 from copy import deepcopy
+from dataclasses import dataclass
 from math import prod
 from typing import Any, Dict, Tuple, Type, no_type_check
 
-import numpy as np
-import torch
 from pytorch_lightning import LightningModule, Trainer, seed_everything
 from torch import Tensor
-from torch.nn import (
-    AdaptiveMaxPool3d,
-    BCEWithLogitsLoss,
-    Conv3d,
-    Flatten,
-    InstanceNorm3d,
-    Linear,
-    Module,
-    ModuleList,
-    PReLU,
-    Sequential,
-)
+from torch.nn import BCEWithLogitsLoss, Flatten, Linear, ModuleList
 from torch.nn.modules.padding import ConstantPad3d
 from torch.optim.adam import Adam
 from torch.utils.data import DataLoader
 from torchmetrics.functional import accuracy
 
 from src.analysis.predict.deep_learning.arguments import get_args
-from src.analysis.predict.deep_learning.callbacks import callbacks
-from src.analysis.predict.deep_learning.constants import INPUT_SHAPE, PADDED_SHAPE
+from src.analysis.predict.deep_learning.constants import PADDED_SHAPE
 from src.analysis.predict.deep_learning.dataloader import FmriDataset
 from src.analysis.predict.deep_learning.models.layers.conv import MultiConv4D
-from src.analysis.predict.deep_learning.models.layers.reduce import GlobalAveragePooling
 from src.analysis.predict.deep_learning.models.layers.utils import EVEN_PAD
 from src.analysis.predict.deep_learning.tables import tableify_logs
 
-DEFAULTS = Namespace(
-    **dict(
-        num_layers=5,
-        channel_expansion=2,
-        channel_exp_start=4,
-        spatial_kernel=3,
-        spatial_stride=2,
-        spatial_dilation=2,
-        temporal_kernel=2,
-        temporal_stride=2,
-        temporal_dilation=1,
-        spatial_padding=2,
-        temporal_padding=0,
-    )
-)
+
+@dataclass
+class MultiNetConfig:
+    num_layers: int = 5
+    channel_expansion: int = 2
+    channel_exp_start: int = 4
+    spatial_kernel: int = 3
+    spatial_stride: int = 2
+    spatial_dilation: int = 2
+    temporal_kernel: int = 2
+    temporal_stride: int = 2
+    temporal_dilation: int = 1
+    spatial_padding: int = 2
+    temporal_padding: int = 0
+    lr: float = 1e-4
+    weight_decay: float = 1e-5
+
+    @property
+    def namespace(self) -> Namespace:
+        return Namespace(**self.__dict__)
+
+    @property
+    def kwargs(self) -> Dict[str, Any]:
+        """Just get kwargs for MultiNet"""
+        d = deepcopy(self.__dict__)  # copy
+        d.pop("num_layers")
+        d.pop("channel_exp_start")
+        d.pop("channel_expansion")
+        d.pop("lr")
+        d.pop("weight_decay")
+        return d
+
+    @staticmethod
+    def default() -> MultiNetConfig:
+        return MultiNetConfig()
+
+
 """
 INCREASE THE SPATIAL STRIDE SO THAT WE GET DOWNSAMPLING, AND SEE THE MEMORY
 COSTS THEN!
@@ -65,25 +75,23 @@ COSTS THEN!
 
 
 class MultiNet(LightningModule):
-    def __init__(self, config: Namespace = DEFAULTS) -> None:
+    def __init__(self, config: MultiNetConfig = MultiNetConfig.default()) -> None:
         super().__init__()
-        self.save_hyperparameters(config)
+        self.save_hyperparameters(config.namespace)
         self.config = deepcopy(config)
-        self.config.__dict__.pop("num_layers")
-        self.config.__dict__.pop("channel_expansion")
         # for i in range(self.hparams.num_layers):
 
         self.layers = ModuleList([ConstantPad3d(EVEN_PAD, 0)])
         s_in = PADDED_SHAPE[1:]
         t_in = PADDED_SHAPE[0]
-        in_ch, exp = 1, self.config.__dict__.pop("channel_exp_start")
+        in_ch, exp = 1, self.config.channel_exp_start
         for i in range(self.hparams.num_layers):
             conv = MultiConv4D(
                 in_channels=in_ch,
                 channel_expansion=exp,
                 spatial_in_shape=s_in,
                 temporal_in_shape=t_in,
-                **self.config.__dict__,
+                **self.config.kwargs,
             )
             s_in = conv.spatial_outshape()
             t_in = conv.temporal_outshape()
@@ -120,8 +128,8 @@ class MultiNet(LightningModule):
         self.shared_step(batch, "test")
 
     def configure_optimizers(self) -> Any:
-        # lr, wd = self.hparams.lr, self.hparams.l2  # type: ignore
-        return Adam(self.parameters(), lr=1e-4, weight_decay=1e-5)
+        lr, wd = self.config.lr, self.config.l2
+        return Adam(self.parameters(), lr=lr, weight_decay=wd)
 
     def shared_step(self, batch: Tuple[Tensor, Tensor], phase: str) -> Tuple[Tensor, Tensor]:
         loss: Tensor
@@ -148,13 +156,13 @@ def train_model(
 ) -> None:
     args = get_args(model_class)
     # config = model_class.config(args)
-    config = DEFAULTS
+    config = MultiNetConfig.default()
     data = FmriDataset(args)
     train, val = data.train_val_split(args)
     model = model_class(config)
     # trainer = Trainer.from_argparse_args(args, callbacks=callbacks(config))
     trainer = Trainer.from_argparse_args(args)
-    trainer.logger.log_hyperparams(config)
+    trainer.logger.log_hyperparams(config.namespace)
     train_loader = DataLoader(
         train,
         batch_size=args.batch_size,
