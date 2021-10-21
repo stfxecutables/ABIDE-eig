@@ -1,5 +1,5 @@
-from math import floor
-from typing import Dict, Tuple, Union, cast
+from math import floor, prod
+from typing import Dict, List, Tuple, Union, cast
 
 import torch
 from torch import Tensor
@@ -17,11 +17,11 @@ from torch.nn import (
     Linear,
     MaxPool3d,
     Module,
+    ModuleList,
     PReLU,
     ReLU,
     Sequential,
 )
-from torch.nn.modules import padding
 from torch.nn.modules.pooling import MaxPool3d
 from typing_extensions import Literal
 
@@ -37,18 +37,45 @@ from src.analysis.predict.deep_learning.models.layers.utils import (
 Padding = Union[Literal["same"], int]
 
 
-class SpatialUnflatten(Module):
-    def __init__(self, spatial_shape: Tuple[int, ...]) -> None:
+class TemporalFlatten(Module):
+    """Convert all spatial dimensions to channels, i.e. a shape (B, C_new, T) so that Conv1d
+    is happy"""
+
+    def __init__(self) -> None:
         super().__init__()
-        self.spatial_shape = spatial_shape
 
     def forward(self, x: Tensor) -> Tensor:
-        return torch.reshape(x, [*x.shape[:2], *self.spatial_shape])
+        """x.shape = (B, C, T, *SPATIAL)"""
+        B, C, T, H, W, D = x.shape
+        spatial = (H, W, D)
+        x = x.permute([0, 2, 3, 4, 5, 1])
+        x = x.reshape([B, C * prod(spatial), T])
+        return x
+
+
+class TemporalUnflatten(Module):
+    def __init__(self, out_channels: int, spatial_shape: Tuple[int, ...]) -> None:
+        super().__init__()
+        self.spatial_shape = spatial_shape
+        self.out_channels = out_channels
+
+    def forward(self, x: Tensor) -> Tensor:
+        B, N, T = x.shape
+        x = x.reshape([B, self.out_channels, *self.spatial_shape, T])
+        x = x.permute([0, 1, 5, 2, 3, 4])  # put T back in place
+        return x
 
 
 # see https://github.com/pytorch/vision/blob/9e474c3c46c0871838c021093c67a9c7eb1863ea/torchvision/models/video/resnet.py#L36
 class Conv3Plus1D(Sequential):
     """Expects inputs of shape (B, C, T, *SPATIAL)
+
+    Notes 2
+    -------
+    Conv(3+1)D won't really work, in that it won't allow channel expansions. So we do something
+    similar in spirit, where multiple depthwise separable Conv3D layers are used to mimic the multiple channels,
+    i.e. the depthwise separability leaves timepoints un-perturbed, and multiple such conv layers can be concatenated
+    back together to duplicate the actual channels. Then one gigantic pointwise conv1d handles the channel expansion.
 
     Notes
     -----
@@ -61,117 +88,12 @@ class Conv3Plus1D(Sequential):
     Since out inputs have shape (B, C, T, *SPATIAL), after the first spatial conv they have shape
     (B, mid_channels, T, *SPATIAL_R), where *SPATIAL_R depends on padding, stride, dilation, etc.
 
-    Here is the way it all works:
-
-    x = torch.ones([1, 4, 5, 5])  # 4-channel image 5x5 pixes, batch size is 1
-    for i in range(x.shape[1]):
-        x[0, i] = i + 1
-    x
-    >>> tensor([[[
-            [1., 1., 1., 1., 1.],
-            [1., 1., 1., 1., 1.],
-            [1., 1., 1., 1., 1.],
-            [1., 1., 1., 1., 1.],
-            [1., 1., 1., 1., 1.]],
-
-            [[2., 2., 2., 2., 2.],
-            [2., 2., 2., 2., 2.],
-            [2., 2., 2., 2., 2.],
-            [2., 2., 2., 2., 2.],
-            [2., 2., 2., 2., 2.]],
-
-            [[3., 3., 3., 3., 3.],
-            [3., 3., 3., 3., 3.],
-            [3., 3., 3., 3., 3.],
-            [3., 3., 3., 3., 3.],
-            [3., 3., 3., 3., 3.]],
-
-            [[4., 4., 4., 4., 4.],
-            [4., 4., 4., 4., 4.],
-            [4., 4., 4., 4., 4.],
-            [4., 4., 4., 4., 4.],
-            [4., 4., 4., 4., 4.]]]])
-
-    conv = torch.nn.Conv2d(in_channels=4, out_channels=4*2, kernel_size=3, groups=4, bias=False)
-    print(conv.weight.shape)  # [8, 1, 3, 3]
-    conv.weight = 1  # set all weights to 1 for easy visualization
-    conv.weight[0] = 2
-    conv.weight[1] = 0.5
-    conv.weight
-    >>> tensor([[[
-            [2.0000, 2.0000, 2.0000],
-            [2.0000, 2.0000, 2.0000],
-            [2.0000, 2.0000, 2.0000]]],
-
-            [[[0.5000, 0.5000, 0.5000],
-            [0.5000, 0.5000, 0.5000],
-            [0.5000, 0.5000, 0.5000]]],
-
-            [[[1.0000, 1.0000, 1.0000],
-            [1.0000, 1.0000, 1.0000],
-            [1.0000, 1.0000, 1.0000]]],
-
-            [[[1.0000, 1.0000, 1.0000],
-            [1.0000, 1.0000, 1.0000],
-            [1.0000, 1.0000, 1.0000]]],
-
-            [[[1.0000, 1.0000, 1.0000],
-            [1.0000, 1.0000, 1.0000],
-            [1.0000, 1.0000, 1.0000]]],
-
-            [[[1.0000, 1.0000, 1.0000],
-            [1.0000, 1.0000, 1.0000],
-            [1.0000, 1.0000, 1.0000]]],
-
-            [[[1.0000, 1.0000, 1.0000],
-            [1.0000, 1.0000, 1.0000],
-            [1.0000, 1.0000, 1.0000]]],
-
-            [[[1.0000, 1.0000, 1.0000],
-            [1.0000, 1.0000, 1.0000],
-            [1.0000, 1.0000, 1.0000]]]])
-
-        conv(x)
-
-        >>> tensor([[[
-            [[18.0000, 18.0000, 18.0000],
-            [18.0000, 18.0000, 18.0000],
-            [18.0000, 18.0000, 18.0000]],
-
-            [[ 4.5000,  4.5000,  4.5000],
-            [ 4.5000,  4.5000,  4.5000],
-            [ 4.5000,  4.5000,  4.5000]],
-
-            [[18.0000, 18.0000, 18.0000],
-            [18.0000, 18.0000, 18.0000],
-            [18.0000, 18.0000, 18.0000]],
-
-            [[18.0000, 18.0000, 18.0000],
-            [18.0000, 18.0000, 18.0000],
-            [18.0000, 18.0000, 18.0000]],
-
-            [[27.0000, 27.0000, 27.0000],
-            [27.0000, 27.0000, 27.0000],
-            [27.0000, 27.0000, 27.0000]],
-
-            [[27.0000, 27.0000, 27.0000],
-            [27.0000, 27.0000, 27.0000],
-            [27.0000, 27.0000, 27.0000]],
-
-            [[36.0000, 36.0000, 36.0000],
-            [36.0000, 36.0000, 36.0000],
-            [36.0000, 36.0000, 36.0000]],
-
-            [[36.0000, 36.0000, 36.0000],
-            [36.0000, 36.0000, 36.0000],
-            [36.0000, 36.0000, 36.0000]]]])
     """
 
     def __init__(
         self,
         in_channels: int,
-        out_channels: int,
-        mid_channels: int,
+        channel_expansion: int,
         spatial_in_shape: Tuple[int, int, int],
         temporal_in_shape: int,
         spatial_kernel: int = 3,
@@ -185,8 +107,7 @@ class Conv3Plus1D(Sequential):
     ):
         super().__init__()
         self.in_channels: int = in_channels
-        self.out_channels: int = out_channels
-        self.mid_channels: int = mid_channels
+        self.channel_expansion: int = channel_expansion
         self.spatial_in_shape: Tuple[int, int, int] = spatial_in_shape
         self.spatial_kernel: int = spatial_kernel
         self.spatial_stride: int = spatial_stride
@@ -199,43 +120,70 @@ class Conv3Plus1D(Sequential):
         self.temporal_padding: Padding = temporal_padding
         self.s_padding, self.t_padding = self.init_paddings()
 
-        self.separable = Conv3d(
-            self.in_channels,
-            self.in_channels,
-            kernel_size=self.spatial_kernel,
-            stride=self.spatial_stride,
-            padding=self.s_padding,
-            bias=False,
-            groups=self.in_channels,
+        self.separables = ModuleList(
+            [
+                Conv3d(
+                    self.temporal_in_shape,
+                    self.temporal_in_shape,
+                    kernel_size=self.spatial_kernel,
+                    stride=self.spatial_stride,
+                    padding=self.s_padding,
+                    bias=False,
+                    groups=self.temporal_in_shape,
+                )
+                for _ in range(self.in_channels)
+            ]
         )
-        self.pointwise = Conv3d(
-            in_channels=self.in_channels,
-            out_channels=self.mid_channels,
-            kernel_size=1,
-            stride=1,
-            bias=False,
+        # self.pointwise = Conv3d(
+        #     in_channels=self.in_channels,
+        #     out_channels=self.mid_channels,
+        #     kernel_size=1,
+        #     stride=1,
+        #     bias=False,
+        # )
+        self.norms = ModuleList(
+            [BatchNorm3d(self.temporal_in_shape) for _ in range(self.in_channels)]
         )
-        self.norm = BatchNorm3d(self.mid_channels)
         self.relu = ReLU(inplace=True)
-        self.flatten = Flatten(start_dim=2, end_dim=-1)
+        self.flatten = TemporalFlatten()
+        spatial_out = self.spatial_outshape()
+        in_ch = self.in_channels * prod(spatial_out)
+        out_ch = self.channel_expansion * in_ch
         self.temporal = Conv1d(
-            self.mid_channels,
-            self.out_channels,
+            in_channels=in_ch,
+            out_channels=out_ch,
             kernel_size=self.temporal_kernel,
             stride=self.temporal_stride,
             padding=self.t_padding,
+            groups=self.channel_expansion,
             bias=False,
         )
-        self.unflatten = SpatialUnflatten(self.spatial_outshape())
+        self.unflatten = TemporalUnflatten(out_ch // prod(spatial_out), spatial_out)
+        self.final_norms = ModuleList([BatchNorm3d(self.temporal_in_shape) for _ in range(out_ch)])
 
     def forward(self, x: Tensor) -> Tensor:
-        x = self.separable(x)
-        x = self.pointwise(x)
-        x = self.norm(x)
-        x = self.relu(x)
+        """x.shape == (B, C, T, *SPATIAL)"""
+        out: List[Tensor] = []
+        for i in range(x.shape[1]):
+            cout = self.separables[i](x[:, i])  # conv out
+            cout = self.relu(cout)
+            cout = self.norms[i](cout)
+            cout = cout.unsqueeze(1)  # add back channel dim
+            out.append(cout)  # add back channel dim
+        x = torch.cat(out, dim=1)  # type: ignore # along channel dim
+        for i in range(len(out)):
+            del out[i]
+        del cout
+        # x = self.separable(x)
+        # x = self.pointwise(x)
+        # x = self.norm(x)
+        # x = self.relu(x)
         x = self.flatten(x)
         x = self.temporal(x)
         x = self.unflatten(x)
+        x = self.relu(x)
+        for i in range(x.shape[1]):
+            x[:, i] = self.final_norms[i](x[:, i])
         return x
 
     def spatial_outshape(self) -> Tuple[int, int, int]:
@@ -278,9 +226,13 @@ class Conv3Plus1D(Sequential):
                 raise NotImplementedError(
                     "Currently padding only available for symmetric stride of 1"
                 )
+            if self.spatial_kernel // 2 == 0:
+                raise ValueError("Even kernels require asymmetric padding")
             s_padding = padding_same(
                 self.spatial_in_shape, self.spatial_kernel, self.spatial_dilation
-            )
+            )[
+                ::2
+            ]  # odd kernel means we only need 3 padding values
         else:
             self.s_padding = int(self.spatial_padding)
         if self.temporal_padding == "same":
@@ -288,9 +240,13 @@ class Conv3Plus1D(Sequential):
                 raise NotImplementedError(
                     "Currently padding only available for symmetric stride of 1"
                 )
+            if self.temporal_kernel // 2 == 0:
+                raise ValueError("Even kernels require asymmetric padding")
             t_padding = padding_same(
                 (self.temporal_in_shape,), self.temporal_kernel, self.temporal_dilation
-            )
+            )[
+                ::2
+            ]  # odd kernel means we only need 3 padding values
         else:
             t_padding = int(self.temporal_padding)
         return s_padding, t_padding

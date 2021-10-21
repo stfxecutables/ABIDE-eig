@@ -25,7 +25,10 @@ def outsize_3d(s: int, kernel: int, dilation: int, stride: int, padding: int) ->
 def padding_same(
     input_shape: Tuple[int, ...], kernel: int, dilation: int
 ) -> Tuple[int, int, int, int, int, int]:
-    """Assumes symmetric (e.g. `(n, n, n)`) kernels, dilations, and stride=1"""
+    """Assumes symmetric (e.g. `(n, n, n)`) kernels, dilations, and stride=1
+
+    Note that even kernels cause chaos since asymmetric padding is required.
+    """
 
     def pad(k: int) -> Tuple[int, int]:
         p = max(k - 1, 0)
