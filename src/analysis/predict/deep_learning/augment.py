@@ -7,45 +7,15 @@ sys.path.append(str(ROOT))
 # setup_environment()
 # fmt: on
 
-from argparse import ArgumentParser, Namespace
-from logging import warn
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union, cast, no_type_check
+from typing import Any, Callable, List, Tuple, Union
 
 import matplotlib.pyplot as plt
 import nibabel as nib
 import numpy as np
-import pandas as pd
-import pytest
-import seaborn as sbn
-import torch
 from numpy import ndarray
-from pandas import DataFrame, Series
-from pytorch_lightning import LightningModule, Trainer, seed_everything
-from pytorch_lightning.profiler import AdvancedProfiler
 from scipy.ndimage import gaussian_filter, median_filter
-from torch import Tensor
-from torch.nn import (
-    AdaptiveMaxPool3d,
-    BCEWithLogitsLoss,
-    Conv3d,
-    InstanceNorm3d,
-    Linear,
-    ModuleList,
-    PReLU,
-)
-from torch.nn.modules.padding import ConstantPad3d
-from torch.optim.adam import Adam
-from torch.utils.data import DataLoader, random_split
-from torchmetrics.functional import accuracy
-from typing_extensions import Literal
 
-from src.analysis.predict.deep_learning.constants import INPUT_SHAPE, PADDED_SHAPE
-from src.analysis.predict.deep_learning.dataloader import FmriDataset
-from src.analysis.predict.deep_learning.models.layers.conv import ResBlock3d
-from src.analysis.predict.deep_learning.models.layers.lstm import ConvLSTM3d
-from src.analysis.predict.deep_learning.models.layers.reduce import GlobalAveragePooling
-from src.analysis.predict.deep_learning.models.layers.utils import EVEN_PAD
 from src.analysis.predict.deep_learning.preprocess import MASK, get_mask_bounds
 
 
@@ -182,5 +152,5 @@ if __name__ == "__main__":
             Remask(),
         ]
         for i, transform in enumerate(transforms):
-            aug = transform(orig) if i == 0 else transform(aug)
+            aug = transform(orig) if i == 0 else transform(aug)  # type: ignore
         _plot_augment(orig, aug, f"sigma={SIGMA}, size={SIZE}")

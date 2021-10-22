@@ -6,32 +6,14 @@ sys.path.append(str(ROOT))
 # from src.run.cc_setup import setup_environment  # isort:skip
 # setup_environment()
 # fmt: on
-import os
 import uuid
 from argparse import ArgumentParser, Namespace
-from typing import Dict, Type
+from typing import Type
 
 from pytorch_lightning import Trainer
 from pytorch_lightning.profiler import AdvancedProfiler
 
-DEFAULTS = Namespace(
-    **dict(
-        batch_size=4,
-        val_batch_size=4,
-        num_workers=8,
-    )
-)
-OVERRIDE_DEFAULTS: Dict = (
-    dict(
-        # https://pytorch-lightning.readthedocs.io/en/stable/extensions/logging.html?highlight=logging#logging-frequency
-        log_every_n_steps=5,
-        # flush_logs_every_n_steps=20,
-        max_time={"hours": 2},
-    )
-    if os.environ.get("CC_CLUSTER") is None
-    else dict(max_time={"hours": 2})
-)
-PBAR = 0 if os.environ.get("CC_CLUSTER") is not None else 1
+from src.constants.arguments import ARG_DEFAULTS, OVERRIDE_DEFAULTS, PBAR
 
 
 def update_args(args: Namespace, model_class: Type) -> Namespace:
@@ -70,9 +52,9 @@ def update_test_args(args: Namespace, model_class: Type) -> Namespace:
 
 def get_args(model_class: Type) -> Namespace:
     parser = ArgumentParser()
-    parser.add_argument("--batch_size", default=DEFAULTS.batch_size, type=int)
-    parser.add_argument("--val_batch_size", default=DEFAULTS.val_batch_size, type=int)
-    parser.add_argument("--num_workers", default=DEFAULTS.num_workers, type=int)
+    parser.add_argument("--batch_size", default=ARG_DEFAULTS.batch_size, type=int)
+    parser.add_argument("--val_batch_size", default=ARG_DEFAULTS.val_batch_size, type=int)
+    parser.add_argument("--num_workers", default=ARG_DEFAULTS.num_workers, type=int)
     parser.add_argument("--is_eigimg", action="store_true")
     parser.add_argument("--preload", action="store_true")
     parser.add_argument("--profile", action="store_true")
@@ -88,9 +70,9 @@ def get_conv3d_to_lstm3d_config() -> Namespace:
     from src.analysis.predict.deep_learning.models.conv_lstm import Conv3dToConvLstm3d
 
     parser = ArgumentParser()
-    parser.add_argument("--batch_size", default=DEFAULTS.batch_size, type=int)
-    parser.add_argument("--val_batch_size", default=DEFAULTS.val_batch_size, type=int)
-    parser.add_argument("--num_workers", default=DEFAULTS.num_workers, type=int)
+    parser.add_argument("--batch_size", default=ARG_DEFAULTS.batch_size, type=int)
+    parser.add_argument("--val_batch_size", default=ARG_DEFAULTS.val_batch_size, type=int)
+    parser.add_argument("--num_workers", default=ARG_DEFAULTS.num_workers, type=int)
     parser.add_argument("--is_eigimg", action="store_true")
     parser.add_argument("--preload", action="store_true")
     parser.add_argument("--profile", action="store_true")

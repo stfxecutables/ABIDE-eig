@@ -14,7 +14,7 @@ import traceback
 import uuid
 from argparse import Namespace
 from copy import deepcopy
-from typing import Any, Dict, Tuple, Type, no_type_check
+from typing import Type
 from warnings import warn
 
 import optuna
@@ -27,10 +27,10 @@ from torch.utils.data import DataLoader
 
 from src.analysis.predict.deep_learning.arguments import get_args
 from src.analysis.predict.deep_learning.callbacks import callbacks
-from src.analysis.predict.deep_learning.constants import INPUT_SHAPE
 from src.analysis.predict.deep_learning.dataloader import FmriDataset
 from src.analysis.predict.deep_learning.models.conv_lstm import Conv3dToConvLstm3d
 from src.analysis.predict.deep_learning.tables import tableify_logs
+from src.constants.shapes import FMRI_INPUT_SHAPE
 
 """
 Notes
@@ -77,7 +77,7 @@ def print_htune_table(df: DataFrame) -> None:
 
 
 def conv3d_to_lstm32_config(args: Namespace, trial: Trial) -> Namespace:
-    T = INPUT_SHAPE[0]
+    T = FMRI_INPUT_SHAPE[0]
     idx = list(range(T))
     if args.slicer is None:
         raise RuntimeError("Optuna config can be build only on updated `args` object.")

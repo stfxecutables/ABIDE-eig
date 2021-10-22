@@ -11,16 +11,9 @@ sys.path.append(str(ROOT))
 from argparse import ArgumentParser
 from logging import warn
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union, cast, no_type_check
+from typing import Any, Dict, Tuple, no_type_check
 
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-import pytest
-import seaborn as sbn
 import torch
-from numpy import ndarray
-from pandas import DataFrame, Series
 from pytorch_lightning import LightningModule, Trainer, seed_everything
 from torch import Tensor
 from torch.nn import (
@@ -29,18 +22,15 @@ from torch.nn import (
     BCEWithLogitsLoss,
     Conv3d,
     Linear,
-    LSTMCell,
     Module,
     PReLU,
-    ReLU,
 )
 from torch.utils.data import DataLoader, Dataset, random_split
 from torchmetrics.functional import accuracy
-from typing_extensions import Literal
 
-from src.analysis.predict.deep_learning.constants import INPUT_SHAPE
 from src.analysis.predict.deep_learning.dataloader import FmriDataset
-from src.analysis.predict.deep_learning.layers import GlobalAveragePooling
+from src.analysis.predict.deep_learning.models.layers.reduce import GlobalAveragePooling
+from src.constants.shapes import FMRI_INPUT_SHAPE
 
 BATCH_SIZE = 10
 
@@ -67,7 +57,7 @@ class Downsample(Module):
 class ResBlock(Module):
     def __init__(self) -> None:
         super().__init__()
-        ch = INPUT_SHAPE[0]
+        ch = FMRI_INPUT_SHAPE[0]
         KERNEL = 3
         STRIDE = 2
         DILATION = 3
@@ -114,9 +104,9 @@ class ConvToLSTM(Module):
     conv4: (175, 1, 2, 1)
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
-        ch = INPUT_SHAPE[0]
+        ch = FMRI_INPUT_SHAPE[0]
         conv_args: Dict = dict(in_channels=ch, out_channels=ch, kernel_size=2, stride=2, bias=False)
         self.conv1 = Conv3d(**conv_args)
         self.conv2 = Conv3d(**conv_args)
@@ -132,7 +122,7 @@ class MemTestCNN(LightningModule):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         # self.save_hyperparameters()
-        ch = INPUT_SHAPE[0]
+        ch = FMRI_INPUT_SHAPE[0]
         KERNEL = 3
         STRIDE = 2
         DILATION = 3
@@ -145,7 +135,8 @@ class MemTestCNN(LightningModule):
             bias=False,
             groups=ch,
         )
-        # BNorm  after PReLU, see https://github.com/ducha-aiki/caffenet-benchmark/blob/master/batchnorm.md
+        # BNorm  after PReLU,
+        # see https://github.com/ducha-aiki/caffenet-benchmark/blob/master/batchnorm.md
         self.conv1 = Conv3d(in_channels=ch, out_channels=ch, **conv_args)
         self.relu1 = PReLU()
         self.norm1 = BatchNorm3d(ch)
@@ -235,17 +226,17 @@ def random_data() -> Tuple[Tensor, Tensor, Tensor, Tensor]:
     # if our model is flexible enough we should be  able to overfit random data
     # we can!
     print("Generating class 1 training data")
-    x1_train = torch.rand([20, *INPUT_SHAPE])
+    x1_train = torch.rand([20, *FMRI_INPUT_SHAPE])
     print("Generating class 2 training data")
-    x2_train = torch.rand([20, *INPUT_SHAPE])
+    x2_train = torch.rand([20, *FMRI_INPUT_SHAPE])
     x_train = torch.cat([x1_train, x2_train])
     print("Normalizing")
     x_train -= torch.mean(x_train)
     y_train = torch.cat([torch.zeros(20), torch.ones(20)])
     print("Generating class 1 validation data")
-    x1_val = torch.rand([5, *INPUT_SHAPE])
+    x1_val = torch.rand([5, *FMRI_INPUT_SHAPE])
     print("Generating class 2 validation data")
-    x2_val = torch.rand([5, *INPUT_SHAPE])
+    x2_val = torch.rand([5, *FMRI_INPUT_SHAPE])
     x_val = torch.cat([x1_val, x2_val])
     print("Normalizing")
     x_val -= torch.mean(x_val)
@@ -260,8 +251,8 @@ class RandomSeparated(Dataset):
 
     def __getitem__(self, index: int) -> Tuple[Tensor, Tensor]:
         if index < self.size // 2:
-            return torch.rand(INPUT_SHAPE) - 0.5, Tensor([0])
-        return torch.rand(INPUT_SHAPE), Tensor([1])
+            return torch.rand(FMRI_INPUT_SHAPE) - 0.5, Tensor([0])
+        return torch.rand(FMRI_INPUT_SHAPE), Tensor([1])
 
     def __len__(self) -> int:
         return self.size
@@ -293,8 +284,8 @@ def test_overfit_fmri_subset(is_eigimg: bool = False, preload: bool = False) -> 
     test_length = 40 if len(data) == 100 else 100
     train_length = len(data) - test_length
     train, val = random_split(data, (train_length, test_length), generator=None)
-    val_aut = torch.cat(list(zip(*list(val)))[1]).sum().int().item()
-    train_aut = torch.cat(list(zip(*list(train)))[1]).sum().int().item()
+    val_aut = torch.cat(list(zip(*list(val)))[1]).sum().int().item()  # type: ignore
+    train_aut = torch.cat(list(zip(*list(train)))[1]).sum().int().item()  # type: ignore
     print("For quick testing, subset sizes will be:")
     print(f"train: {len(train)} (Autism={train_aut}, Control={len(train) - train_aut})")
     print(f"val:   {len(val)} (Autism={val_aut}, Control={len(val) - val_aut})")

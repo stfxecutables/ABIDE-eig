@@ -13,7 +13,7 @@ from pathlib import Path
 import nibabel as nib
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from src.constants import NII_PATH
+from src.constants.paths import NIIS
 from src.eigenimage.compute import find_optimal_chunksize
 
 if __name__ == "__main__":
@@ -21,7 +21,7 @@ if __name__ == "__main__":
     parser.add_argument("--chunk-size", type=int, default=32)
     parser.add_argument("--voxels", type=int, default=3000)
     args = parser.parse_args()
-    nii = sorted(NII_PATH.rglob("*.nii.gz"))[0]
+    nii = sorted(NIIS.rglob("*.nii.gz"))[0]
     img = nib.load(str(nii)).get_fdata()
     df = find_optimal_chunksize(img, covariance=True, n_voxels=args.voxels)
     outfile = Path(__file__).resolve().parent.parent.parent / "chunsize_times.json"

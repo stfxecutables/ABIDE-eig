@@ -10,7 +10,7 @@ sys.path.append(str(ROOT))  # isort:skip
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
-from scipy.ndimage import median_filter, uniform_filter1d
+from scipy.ndimage import uniform_filter1d
 from scipy.stats import linregress
 
 from src.analysis.predict.deep_learning.tables import get_hparam_info
@@ -29,7 +29,7 @@ if __name__ == "__main__":
             continue
         pairs.append((acc, hp, trend))
 
-    best = sorted(pairs, key=lambda p: p[0].max(), reverse=True)[:20]
+    best = sorted(pairs, key=lambda p: p[0].max(), reverse=True)[:20]  # type: ignore
     summaries = []
     for accs, hps, trend in best:
         summary = DataFrame()

@@ -30,13 +30,12 @@ from torchmetrics.functional import accuracy
 
 from src.analysis.predict.deep_learning.arguments import get_args
 from src.analysis.predict.deep_learning.callbacks import callbacks
-from src.analysis.predict.deep_learning.constants import INPUT_SHAPE, PADDED_SHAPE
 from src.analysis.predict.deep_learning.dataloader import FmriDataset
 from src.analysis.predict.deep_learning.models.layers.conv import ResBlock3d
 from src.analysis.predict.deep_learning.models.layers.lstm import ConvLSTM3d
 from src.analysis.predict.deep_learning.models.layers.reduce import GlobalAveragePooling
-from src.analysis.predict.deep_learning.models.layers.utils import EVEN_PAD
 from src.analysis.predict.deep_learning.tables import tableify_logs
+from src.constants.shapes import EVEN_PAD, FMRI_INPUT_SHAPE, FMRI_PADDED_SHAPE
 
 """
 Notes from https://ieeexplore.ieee.org/document/8363798
@@ -168,7 +167,7 @@ class Conv3dToConvLstm3d(LightningModule):
         self.padder = ConstantPad3d(EVEN_PAD, 0)
         self.convs = ModuleList([ResBlock3d(**res_block_args) for _ in range(self.conv_num_layers)])
 
-        spatial_out = PADDED_SHAPE[1:]
+        spatial_out = FMRI_PADDED_SHAPE[1:]
         for conv in self.convs:
             spatial_out = conv.output_shape(spatial_out)
         self.spatial_out = spatial_out
@@ -235,7 +234,7 @@ class Conv3dToConvLstm3d(LightningModule):
 
     @staticmethod
     def config(args: Namespace) -> Namespace:
-        T = INPUT_SHAPE[0]
+        T = FMRI_INPUT_SHAPE[0]
         idx = list(range(T))
         if args.slicer is None:
             raise RuntimeError(

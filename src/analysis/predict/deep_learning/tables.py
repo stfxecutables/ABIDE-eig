@@ -4,7 +4,6 @@ from typing import no_type_check
 
 import numpy as np
 import pandas as pd
-import yaml
 from pandas import DataFrame
 from pytorch_lightning import LightningDataModule, LightningModule, Trainer
 from pytorch_lightning.core.saving import load_hparams_from_yaml
@@ -103,12 +102,12 @@ def get_hparam_info(root: Path) -> DataFrame:
             if "epoch" in metric:
                 continue
             if "train" in metric:
-                train_metrics[f"wtime"] = walltimes
-                train_metrics[f"step"] = steps
+                train_metrics["wtime"] = walltimes
+                train_metrics["step"] = steps
                 train_metrics[metric] = values
             elif "val" in metric:
-                metrics[f"wtime"] = walltimes
-                metrics[f"step"] = steps
+                metrics["wtime"] = walltimes
+                metrics["step"] = steps
                 metrics[metric] = values
         dfs.append(metrics)
         train_dfs.append(train_metrics)

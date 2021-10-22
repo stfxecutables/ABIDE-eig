@@ -7,19 +7,17 @@ sys.path.append(str(ROOT))
 # setup_environment()
 # fmt: on
 
-import os
 import sys
 from pathlib import Path
 from typing import List
+
+from src.constants.environment import CC_CLUSTER
+from src.constants.paths import SCRIPT_OUTDIR
 
 EIGIMG = "$PROJECT/data/deep/eigimg"
 FMRI = "$PROJECT/data/deep/fmri"
 
 RUNTIME = "24:00:00"
-SCRIPT_OUTDIR = ROOT / "job_scripts"
-if not SCRIPT_OUTDIR.exists():
-    os.makedirs(SCRIPT_OUTDIR, exist_ok=True)
-CC_CLUSTER = os.environ.get("CC_CLUSTER")
 
 HEADER_COMMON = """#!/bin/bash
 #SBATCH --account=def-jlevman

@@ -104,7 +104,9 @@ def features_sanity_test(features: List[Feature], classifier: Classifier) -> Non
     print(df.sort_values(by="acc", ascending=False))
 
 
-def resnet_sanity_test(features: List[Feature], slice_min=0.0, slice_max=1.0) -> None:
+def resnet_sanity_test(
+    features: List[Feature], slice_min: float = 0.0, slice_max: float = 1.0
+) -> None:
     for f in features:
         # norm = NormMethod.F_STD
         norm = NormMethod.S_MINMAX
@@ -139,7 +141,8 @@ def resnet_sanity_test(features: List[Feature], slice_min=0.0, slice_max=1.0) ->
         atlas = f.atlas.name if f.atlas is not None else ""
         print("=" * 120)
         print(
-            f"Beginning training for {f.name} ({atlas}) sliced to [{smin}:{smax}) normalization {norm.value}"
+            f"Beginning training for {f.name} ({atlas}) "
+            f"sliced to [{smin}:{smax}) normalization {norm.value}"
         )
         print(f)
         print("=" * 120)

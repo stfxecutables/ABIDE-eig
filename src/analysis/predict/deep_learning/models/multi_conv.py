@@ -24,11 +24,10 @@ from torch.utils.data import DataLoader
 from torchmetrics.functional import accuracy
 
 from src.analysis.predict.deep_learning.arguments import get_args
-from src.analysis.predict.deep_learning.constants import PADDED_SHAPE
 from src.analysis.predict.deep_learning.dataloader import FmriDataset
 from src.analysis.predict.deep_learning.models.layers.conv import MultiConv4D
-from src.analysis.predict.deep_learning.models.layers.utils import EVEN_PAD
 from src.analysis.predict.deep_learning.tables import tableify_logs
+from src.constants.shapes import EVEN_PAD, FMRI_PADDED_SHAPE
 
 
 @dataclass
@@ -82,8 +81,8 @@ class MultiNet(LightningModule):
         # for i in range(self.hparams.num_layers):
 
         self.layers = ModuleList([ConstantPad3d(EVEN_PAD, 0)])
-        s_in = PADDED_SHAPE[1:]
-        t_in = PADDED_SHAPE[0]
+        s_in = FMRI_PADDED_SHAPE[1:]
+        t_in = FMRI_PADDED_SHAPE[0]
         in_ch, exp = 1, self.config.channel_exp_start
         for i in range(self.config.num_layers):
             conv = MultiConv4D(

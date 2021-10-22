@@ -10,7 +10,7 @@ sys.path.append(str(ROOT))  # isort:skip
 import os
 import shutil
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Tuple, cast
 
 import numpy as np
 import pandas as pd
@@ -19,22 +19,9 @@ from sklearn.model_selection import StratifiedShuffleSplit
 from tqdm.contrib.concurrent import process_map
 
 from src.analysis.predict.reducers import subject_labels
+from src.constants.environment import CC_CLUSTER
+from src.constants.paths import DEEP, FULL_PREPROC_EIG, FULL_PREPROC_FMRI, PREPROC_EIG, PREPROC_FMRI
 
-CC_CLUSTER = os.environ.get("CC_CLUSTER")
-
-DATA = ROOT / "data"
-DEEP = DATA / "deep"  # for DL preprocessed fMRI data
-DEEP_FMRI = DEEP / "fmri"
-DEEP_EIGIMG = DEEP / "eigimg"
-FULL_DEEP_FMRI = DATA / ("nii_cpac" if CC_CLUSTER is not None else "nii_cpac_f16_subsample")
-FULL_DEEP_EIGIMG = DEEP / "nii_cpac_eigimg"
-# Not all images convert to eigenimg of same dims, so we only use fMRI
-# images that we could compute comparable eigimgs for.
-PREPROC_EIG = sorted(DEEP_EIGIMG.rglob("*.npy"))
-PREPROC_FMRI = [DEEP_FMRI / str(p.name).replace("_eigimg", "") for p in PREPROC_EIG]
-FULL_PREPROC_EIG = sorted(FULL_DEEP_EIGIMG.rglob("*.npy"))
-# FULL_PREPROC_FMRI = [FULL_DEEP_FMRI / str(p.name).replace("_eigimg", "") for p in FULL_PREPROC_EIG]
-FULL_PREPROC_FMRI = sorted(FULL_DEEP_FMRI.rglob("*.nii.gz"))
 LABELS: List[int] = subject_labels(PREPROC_EIG)
 FULL_LABELS: List[int] = subject_labels(FULL_PREPROC_FMRI)
 SHAPE = (47, 59, 42, 175)
@@ -59,7 +46,7 @@ def prepare_full_data(is_eigimg: bool = False) -> List[Path]:
     imgs = FULL_PREPROC_EIG if is_eigimg else FULL_PREPROC_FMRI
     slurm_tmpdir = os.environ.get("SLURM_TMPDIR")
     if slurm_tmpdir is None:  # nothing to do locally
-        return imgs
+        return cast(List[Path], imgs)
 
     # do not copy again
     data = Path(slurm_tmpdir).resolve() / "data"
@@ -82,7 +69,7 @@ def prepare_data_files(is_eigimg: bool = False) -> List[Path]:
     imgs = PREPROC_EIG if is_eigimg else PREPROC_FMRI
     slurm_tmpdir = os.environ.get("SLURM_TMPDIR")
     if slurm_tmpdir is None:  # nothing to do locally
-        return imgs
+        return cast(List[Path], imgs)
 
     # do not copy again
     data = Path(slurm_tmpdir).resolve() / "data"
@@ -135,7 +122,7 @@ def verify_matching() -> None:
 
 def get_testing_subsample() -> None:
     info = DataFrame(
-        {"img": map(lambda p: p.name, PREPROC_EIG), "label": LABELS}, index=list(range(len(LABELS)))
+        {"img": map(lambda p: p.name, PREPROC_EIG), "label": LABELS}, index=list(range(len(LABELS)))  # type: ignore # noqa
     )
     ctrl = info.loc[info["label"] == 0, :]
     auts = info.loc[info["label"] == 1, :]

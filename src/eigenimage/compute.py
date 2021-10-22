@@ -20,7 +20,7 @@ from pandas import DataFrame
 from tqdm import tqdm
 from typing_extensions import Literal
 
-from src.constants import CKPT_PATH
+from src.constants.paths import CKPT_PATH
 
 MASK = Path(__file__).resolve().parent.parent.parent / "data/atlases/MASK.nii.gz"
 SHM_FLAT_NAME = "flat_nii_array"

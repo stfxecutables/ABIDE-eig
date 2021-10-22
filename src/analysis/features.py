@@ -33,7 +33,7 @@ if os.environ.get("CC_CLUSTER") is None:
 from data.download_cpac_1035 import download_csv
 
 from src.analysis.preprocess.atlas import Atlas
-from src.analysis.preprocess.constants import ATLASES, FEATURES_DIR, T_CROP
+from src.constants.preprocess import ATLASES, FEATURES_DIR, T_CROP
 
 f64Array = NDArray[f64]
 i64Array = NDArray[np.int64]

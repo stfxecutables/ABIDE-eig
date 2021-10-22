@@ -1,6 +1,5 @@
 import os
 from dataclasses import dataclass, field
-from functools import partialmethod
 from pprint import pprint
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 from warnings import filterwarnings
@@ -43,10 +42,10 @@ VAL_SIZE = 0.2
 
 RF_BASE_ARGS = dict(n_jobs=-1, n_estimators=1000, bootstrap=True, max_depth=None)
 SVM_BASE_ARGS = dict(cache_size=500)
-DTREE_BASE_ARGS = dict()
-MLP_BASE_ARGS = dict()
-LDA_BASE_ARGS = dict()
-XGB_BASE_ARGS = dict(
+DTREE_BASE_ARGS: Dict = dict()
+MLP_BASE_ARGS: Dict = dict()
+LDA_BASE_ARGS: Dict = dict()
+XGB_BASE_ARGS: Dict = dict(
     use_label_encoder=False, tree_method="hist", objective="binary:logistic", n_jobs=-1
 )
 BASE_ARGS: Dict[Classifier, Dict] = {
@@ -85,7 +84,7 @@ class XGB(XGBClassifier):
         feature_weights: Optional[Any] = None,
         callbacks: Optional[List[Any]] = None,
     ) -> "XGBClassifier":
-        return super().fit(
+        return super().fit(  # type: ignore
             X,
             y,
             sample_weight=sample_weight,
@@ -367,7 +366,7 @@ def mlp_objective(
         l4 = trial.suggest_categorical("l4", choices=MLP_LAYER_SIZES)
         l5 = trial.suggest_categorical("l5", choices=MLP_LAYER_SIZES)
         args: Dict = dict(
-            hidden_layer_sizes=mlp_layers(l1, l2, l3, l4, l5),
+            hidden_layer_sizes=mlp_layers(l1, l2, l3, l4, l5),  # type: ignore
             activation=trial.suggest_categorical("activation", ["relu"]),
             solver=trial.suggest_categorical("solver", ["adam"]),
             # alpha=trial.suggest_loguniform("alpha", 1e-8, 1e-1),

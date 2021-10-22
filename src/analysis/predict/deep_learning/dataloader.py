@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__ import annotations  # noqa
 
 # fmt: off
 import sys  # isort:skip
@@ -12,7 +12,7 @@ sys.path.append(str(ROOT))  # isort:skip
 from argparse import ArgumentParser, Namespace
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Tuple, Type
+from typing import Callable, Dict, List, Optional, Tuple, Type, cast
 from warnings import warn
 
 import matplotlib.pyplot as plt
@@ -26,15 +26,14 @@ from torch.utils.data.dataset import Subset, random_split
 from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 
-from src.analysis.predict.deep_learning.constants import INPUT_SHAPE
 from src.analysis.predict.deep_learning.prepare_data import (
     CC_CLUSTER,
-    FULL_PREPROC_EIG,
     FULL_PREPROC_FMRI,
     prepare_data_files,
     prepare_full_data,
 )
 from src.analysis.predict.reducers import subject_labels
+from src.constants.shapes import FMRI_INPUT_SHAPE
 
 FmriSlice = Tuple[int, int, int, int]  # just a convencience type to save space
 
@@ -84,7 +83,7 @@ class RandomFmriPatchDataset(Dataset):
         transform: Optional[Callable] = None,
     ) -> None:
         self.annotations = LABELS
-        self.img_paths = PREPROC_EIG
+        self.img_paths: List[Path] = PREPROC_EIG
         self.labels: List[int] = subject_labels(self.img_paths)
 
         self.standardize = standardize
@@ -105,7 +104,7 @@ class RandomFmriPatchDataset(Dataset):
         return len(LABELS)
 
     def __getitem__(self, index: int) -> Tensor:
-        img = np.load(np.random.choice(self.img_paths))
+        img = np.load(np.random.choice(self.img_paths))  # type: ignore
         # going larger than max_idx will put us past the end of the array
         max_idx = np.array(img.shape) - np.array(self.patch_shape) + 1
 
@@ -188,7 +187,7 @@ class FmriPatchDataset(Dataset):
         count = 0
         (H, W, D, T) = self.patch_shape
         (H_s, W_s, D_s, T_s) = self.strides
-        for path, label in tqdm(zip(self.img_paths, self.labels), total=len(self.shapes)):
+        for path, label in tqdm(zip(self.img_paths, self.labels), total=len(self.shapes)):  # type: ignore # noqa
             for m in range(0, SHAPE[3] - T + 1, T_s):
                 for k in range(0, SHAPE[2] - D + 1, D_s):
                     for j in range(0, SHAPE[1] - W + 1, W_s):
@@ -249,7 +248,7 @@ def preload(args: PreloadArgs) -> np.ndarray:
     x -= np.mean(x)
     x /= np.std(x, ddof=1)
     x = x.astype(np.float16)
-    return x[slicer]
+    return cast(np.ndarray, x[slicer])
 
 
 class FmriDataset(Dataset):
@@ -339,17 +338,17 @@ def random_data() -> Tuple[Tensor, Tensor, Tensor, Tensor]:
     # if our model is flexible enough we should be  able to overfit random data
     # we can!
     print("Generating class 1 training data")
-    x1_train = torch.rand([20, *INPUT_SHAPE])
+    x1_train = torch.rand([20, *FMRI_INPUT_SHAPE])
     print("Generating class 2 training data")
-    x2_train = torch.rand([20, *INPUT_SHAPE])
+    x2_train = torch.rand([20, *FMRI_INPUT_SHAPE])
     x_train = torch.cat([x1_train, x2_train])
     print("Normalizing")
     x_train -= torch.mean(x_train)
     y_train = torch.cat([torch.zeros(20), torch.ones(20)])
     print("Generating class 1 validation data")
-    x1_val = torch.rand([5, *INPUT_SHAPE])
+    x1_val = torch.rand([5, *FMRI_INPUT_SHAPE])
     print("Generating class 2 validation data")
-    x2_val = torch.rand([5, *INPUT_SHAPE])
+    x2_val = torch.rand([5, *FMRI_INPUT_SHAPE])
     x_val = torch.cat([x1_val, x2_val])
     print("Normalizing")
     x_val -= torch.mean(x_val)
@@ -364,8 +363,8 @@ class RandomSeparated(Dataset):
 
     def __getitem__(self, index: int) -> Tuple[Tensor, Tensor]:
         if index < self.size // 2:
-            return torch.rand(INPUT_SHAPE) - 0.5, Tensor([0])
-        return torch.rand(INPUT_SHAPE), Tensor([1])
+            return torch.rand(FMRI_INPUT_SHAPE) - 0.5, Tensor([0])
+        return torch.rand(FMRI_INPUT_SHAPE), Tensor([1])
 
     def __len__(self) -> int:
         return self.size

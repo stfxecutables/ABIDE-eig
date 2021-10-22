@@ -1,37 +1,20 @@
-import os
 import sys
 from argparse import ArgumentParser
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union, cast, no_type_check
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
-import pytest
-import seaborn as sbn
 from ants import image_read
-from numpy import ndarray
-from pandas import DataFrame, Series
-from typing_extensions import Literal
 
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
-from src.eigenimage.compute_batch import T_LENGTH
+from src.constants.paths import DATA, EIGS
 
-DATA = Path(__file__).resolve().parent.parent.parent / "data"
-ROIS = DATA / "rois"
-if not ROIS.exists():
-    os.makedirs(ROIS, exist_ok=True)
-    os.makedirs(ROIS / "ctrl", exist_ok=True)
-    os.makedirs(ROIS / "autism", exist_ok=True)
-EIGS = DATA / "eigs"  # for normalizing
-SUBJ_DATA = DATA / "Phenotypic_V1_0b_preprocessed1.csv"
-EIGIMGS = DATA / "eigimgs"
 ATLAS_DIR = DATA / "atlases"
 ATLAS = ATLAS_DIR / "cc400_roi_atlas_ALIGNED.nii.gz"
 LEGEND = ATLAS_DIR / "CC400_ROI_labels.csv"
 
 
-def plot4d(nii: Path, vmin: int = 5, vmax: int = 95, norm="diff") -> None:
+def plot4d(nii: Path, vmin: int = 5, vmax: int = 95, norm: str = "diff") -> None:
     img = image_read(str(nii)).numpy()
     extensions = "".join(nii.suffixes)
     eigs = np.load(EIGS / nii.name.replace(extensions, ".npy").replace("_eigimg", ""))

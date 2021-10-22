@@ -18,6 +18,9 @@ import numpy as np
 from numpy import ndarray
 from tqdm.contrib.concurrent import process_map
 
+from src.constants.environment import SLURM_TMPDIR
+from src.constants.paths import DEEP, EIGIMGS, EIGS, MASK, NIIS
+
 """We need to use fMRI (non-eigimg) files only for subjects where we could
 compute the eigenimage of the same shapes. For efficiency, we also need to
 trim these fMRI files to the last 175 timepoints, and apply the mask, and
@@ -27,22 +30,12 @@ zero-masking to further simplify file sizes and produce even shapes with
 more reliable behaviour.
 """
 
-DATA = ROOT / "data"
-EIGS = DATA / "eigs"  # for normalizing
-NIIS = DATA / "niis"  # raw nii data
-DEEP = DATA / "deep"  # for DL preprocessed fMRI data
-SLURM_TMPDIR = os.environ.get("SLURM_TMPDIR")
 PREPROCESSED = SLURM_TMPDIR / "data" if SLURM_TMPDIR is not None else None
 DEEP_FMRI = DEEP / "fmri"
 DEEP_EIGIMG = DEEP / "eigimg"
 for dir in [DEEP_FMRI, DEEP_EIGIMG]:
     if not dir.exists():
         os.makedirs(dir, exist_ok=True)
-EIGIMGS = DATA / "eigimgs"  # raw eigenimages
-SUBJ_DATA = DATA / "Phenotypic_V1_0b_preprocessed1.csv"
-
-ATLAS_DIR = DATA / "atlases"
-MASK = ATLAS_DIR / "MASK.nii.gz"  # perhaps only want loss on a mask
 
 T = 175
 EIGIMG_SHAPE = (61, 73, 61, T)
@@ -100,7 +93,7 @@ def normalize(src: Path, cropped: ndarray) -> ndarray:
 def save(args: PreprocArgs, img: ndarray) -> Path:
     src = args.nii
     norm = "_norm" if args.normalize else ""
-    outdir = DEEP_EIGIMG if "eigimg" in src.name else DEEP_FMRI
+    outdir: Path = DEEP_EIGIMG if "eigimg" in src.name else DEEP_FMRI
     outfile = outdir / src.name.replace(".nii.gz", f"_cropped{norm}.npy")
     np.save(outfile, img.astype(np.float32), allow_pickle=False)
     return outfile
@@ -138,5 +131,8 @@ if __name__ == "__main__":
     for SRC_DIR in [EIGIMGS, NIIS]:
         print(f"Preprocessing images in {SRC_DIR}")
         niis = sorted(SRC_DIR.rglob("*.nii.gz"))
-        args = [PreprocArgs(nii=nii, mask=mask, cropper=cropper, normalize=True) for nii in niis]
+        args = [
+            PreprocArgs(nii=nii, mask=mask, cropper=cropper, normalize=True, transforms=[])
+            for nii in niis
+        ]
         process_map(preprocess_image, args)

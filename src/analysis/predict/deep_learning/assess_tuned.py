@@ -15,7 +15,6 @@ from torch.utils.data import DataLoader
 
 from src.analysis.predict.deep_learning.arguments import get_conv3d_to_lstm3d_config
 from src.analysis.predict.deep_learning.callbacks import callbacks
-from src.analysis.predict.deep_learning.constants import INPUT_SHAPE
 from src.analysis.predict.deep_learning.dataloader import FmriDataset
 from src.analysis.predict.deep_learning.models.conv_lstm import Conv3dToConvLstm3d
 from src.analysis.predict.deep_learning.tables import tableify_logs
@@ -46,6 +45,6 @@ if __name__ == "__main__":
     try:
         df = tableify_logs(trainer)
         print(df)
-    except:
+    except Exception:
         traceback.print_exc()
         warn("No data logged to dataframes")

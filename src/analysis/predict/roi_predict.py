@@ -25,17 +25,13 @@ from tqdm import tqdm
 from typing_extensions import Literal
 
 from src.analysis.predict.hypertune import HtuneResult, hypertune_classifier
-from src.analysis.rois import identity, max, roi_dataframes
+from src.analysis.predict.roi_predict import identity, max, roi_dataframes
+from src.constants.paths import DATA, ROIS
 
-DATA = Path(__file__).resolve().parent.parent.parent / "data"
-NIIS = DATA / "niis"
-ROIS = DATA / "rois"
 if not ROIS.exists():
     os.makedirs(ROIS, exist_ok=True)
     os.makedirs(ROIS / "ctrl", exist_ok=True)
     os.makedirs(ROIS / "autism", exist_ok=True)
-EIGS = DATA / "eigs"  # for normalizing
-SUBJ_DATA = DATA / "Phenotypic_V1_0b_preprocessed1.csv"
 EIGIMGS = DATA / "eigimgs"
 ATLAS_DIR = DATA / "atlases"
 ATLAS = ATLAS_DIR / "cc400_roi_atlas_ALIGNED.nii.gz"

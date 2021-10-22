@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
-from src.constants import NII_PATH  # noqa
+from src.constants.paths import NIIS  # noqa
 from src.eigenimage.compute_batch import BATCH_SIZE, MAX_JOB_TIME, get_files
 
 RUNTIME = f"{MAX_JOB_TIME}:00:00"
@@ -62,7 +62,7 @@ def uncomputed(nii: Path) -> bool:
 
 
 def images_to_compute() -> int:
-    return len(list(filter(uncomputed, NII_PATH.rglob("*minimal.nii.gz"))))
+    return len(list(filter(uncomputed, NIIS.rglob("*minimal.nii.gz"))))
 
 
 def compute_job_array_end_mixed() -> int:
@@ -86,7 +86,7 @@ def compute_job_array_end_mixed() -> int:
         else:
             return 1.35
 
-    shapes = pd.read_json(NII_PATH / "shapes.json").drop(columns=["H", "W", "D"])
+    shapes = pd.read_json(NIIS / "shapes.json").drop(columns=["H", "W", "D"])
     shapes.sort_values(by="T", ascending=False, inplace=True)  # do largest first
     hs = shapes["T"].apply(hours)
     batches, batch, lengths = [], [], []

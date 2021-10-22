@@ -1,38 +1,36 @@
-from __future__ import annotations
+from __future__ import annotations  # noqa
 
-from argparse import Namespace
 from copy import deepcopy
 from datetime import timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 import numpy as np
 from optuna import Trial, TrialPruned
 from optuna.integration.pytorch_lightning import PyTorchLightningPruningCallback
-from pl_bolts.callbacks import TrainingDataMonitor
 from pytorch_lightning import LightningModule, Trainer
-from pytorch_lightning.callbacks import Callback, GPUStatsMonitor, ModelCheckpoint
+from pytorch_lightning.callbacks import Callback, ModelCheckpoint
 
 
 # see https://forums.pytorchlightning.ai/t/how-to-access-the-logged-results-such-as-losses/155/8
 class OptunaHelper(Callback):
     def __init__(self, trial: Trial, pruning_metric: str = "val_loss", smooth: int = 3) -> None:
         super().__init__()
-        self.metrics = {}
+        self.metrics: Dict[str, List[float]] = {}
         self.trial = trial
         self.val_step = -1
         self.pruning_metric = pruning_metric
         self.smooth = smooth
 
-    def on_train_batch_start(
+    def on_train_batch_start(  # type: ignore
         self,
         trainer: Trainer,
         pl_module: LightningModule,
         batch: Any,
         batch_idx: int,
         dataloader_idx: int,
-    ) -> None:
+    ) -> Optional[int]:
         if self.pruning_metric not in self.metrics:  # e.g. val sanity check
-            return
+            return None
         # get last `smooth` metric values
         smoothed_metric = np.mean(self.metrics[self.pruning_metric][-self.smooth :])
         if smoothed_metric < 0.5 and self.val_step > 20:
@@ -40,6 +38,7 @@ class OptunaHelper(Callback):
             self.trial.report(smoothed_metric, self.val_step)
             trainer.logger.experiment.flush()
             return -1
+        return None
 
     def on_validation_epoch_end(self, trainer: Trainer, pl_module: LightningModule) -> None:
         self.val_step += 1
@@ -68,6 +67,8 @@ def callbacks(trial: Trial = None, include_optuna: bool = True) -> List[Callback
         save_weights_only=False,
         train_time_interval=timedelta(minutes=5),
     )
+    if include_optuna and trial is None:
+        raise ValueError("Must specify `trial` when `include_optuna=True`")
     cbs = [
         # LearningRateMonitor(logging_interval="epoch") if config["lr_schedule"] else None,
         # EarlyStopping("val_acc", min_delta=0.001, patience=100, mode="max"),
@@ -92,6 +93,6 @@ def callbacks(trial: Trial = None, include_optuna: bool = True) -> List[Callback
         #     temperature=False,
         # ),
         # OptunaHelper(trial) if include_optuna else None,
-        PyTorchLightningPruningCallback(trial, "val_acc") if include_optuna else None,
+        PyTorchLightningPruningCallback(cast(Trial, trial), "val_acc") if include_optuna else None,
     ]
     return list(filter(lambda c: c is not None, cbs))  # type: ignore

@@ -33,19 +33,13 @@ from src.analysis.predict.reducers import (
     subject_labels,
     trim,
 )
+from src.constants.paths import DATA, EIGIMGS, MASK, NIIS, SEQS
 
-DATA = ROOT / "data"
-NIIS = DATA / "niis"
-SEQS = DATA / "seqs"
 if not SEQS.exists():
     os.makedirs(SEQS, exist_ok=True)
     os.makedirs(SEQS / "ctrl", exist_ok=True)
     os.makedirs(SEQS / "autism", exist_ok=True)
-EIGS = DATA / "eigs"  # for normalizing
-SUBJ_DATA = DATA / "Phenotypic_V1_0b_preprocessed1.csv"
-EIGIMGS = DATA / "eigimgs"
 ATLAS_DIR = DATA / "atlases"
-MASK = ATLAS_DIR / "MASK.nii.gz"
 ATLAS = ATLAS_DIR / "cc400_roi_atlas_ALIGNED.nii.gz"
 LEGEND = ATLAS_DIR / "CC400_ROI_labels.csv"
 LOG = os.environ.get("CC_CLUSTER") is None

@@ -13,10 +13,10 @@ from typing import List
 import pandas as pd
 
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
-from src.constants import NII_PATH
+from src.constants.paths import NIIS
 from src.eigenimage.compute import compute_eigenimage
 
-SHAPES = NII_PATH / "shapes.json"
+SHAPES = NIIS / "shapes.json"
 
 # we'll be cutting the timepoints to the last 176, which means computations
 # take very close to 2 hours each time, so 11 computations per 24h window,
@@ -39,7 +39,7 @@ def get_batch_idx() -> int:
 def get_files() -> List[Path]:
     df = pd.read_json(SHAPES)
     tr_2 = df.loc[df.dt == 2.0, :].sort_index()
-    files = [NII_PATH / file for file in tr_2.index.to_list()]
+    files = [NIIS / file for file in tr_2.index.to_list()]
     return files
 
 

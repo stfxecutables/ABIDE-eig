@@ -14,13 +14,13 @@ import sys
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from src.constants import NII_PATH
+from src.constants.paths import NIIS
 from src.eigenimage.compute import compute_eigenimage
 
 TEST_NIIS = [
-    NII_PATH / "NYU_0051015_func_minimal.nii.gz",  # T = 176
-    NII_PATH / "CMU_a_0050642_func_minimal.nii.gz",  # T = 236
-    NII_PATH / "CMU_b_0050643_func_minimal.nii.gz",  # T = 316
+    NIIS / "NYU_0051015_func_minimal.nii.gz",  # T = 176
+    NIIS / "CMU_a_0050642_func_minimal.nii.gz",  # T = 236
+    NIIS / "CMU_b_0050643_func_minimal.nii.gz",  # T = 316
 ]
 
 if __name__ == "__main__":

@@ -4,25 +4,15 @@ https://github.com/pytorch/vision/blob/7d955df73fe0e9b47f7d6c77c699324b256fc41f/
 to use Linear layers
 """
 
-from functools import partialmethod
-from typing import Any, Callable, Dict, List, Optional, Tuple, no_type_check
+from typing import List, Tuple, no_type_check
 
 import torch
 import torch.nn as nn
 from pytorch_lightning import LightningModule
 from torch import Tensor
-from torch.nn import (
-    GELU,
-    AdaptiveAvgPool1d,
-    BatchNorm1d,
-    BCEWithLogitsLoss,
-    Conv1d,
-    Dropout,
-    Linear,
-    Sequential,
-)
+from torch.nn import GELU, BatchNorm1d, BCEWithLogitsLoss, Conv1d, Dropout, Linear, Sequential
 from torch.optim import Adam
-from torch.optim.lr_scheduler import CosineAnnealingLR, MultiStepLR, StepLR
+from torch.optim.lr_scheduler import MultiStepLR
 from torchmetrics.functional import accuracy, auroc
 from torchmetrics.functional import f1 as f1score
 from torchmetrics.functional import precision_recall
@@ -87,7 +77,6 @@ class TabWideResNet(nn.Module):
         dropout: float = 0.0,
     ) -> None:
         super().__init__()
-        exp = 2
         self.width = width
         self.input = TabInput(in_features, width)
         layers: List[nn.Module] = []
@@ -190,6 +179,6 @@ class TabLightningNet(LightningModule):
 
 if __name__ == "__main__":
     x = torch.rand([2, 175], device="cuda")
-    model = TabWideResNet(in_features=175).to(device="cuda")
+    model = TabWideResNet(in_features=175).to("cuda")
     out = model(x)
     print(out.shape)

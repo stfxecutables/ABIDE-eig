@@ -24,9 +24,9 @@ if os.environ.get("CC_CLUSTER") is None:
 
 from data.download_cpac_1035 import download_csv
 
+from src.analysis.features import FEATURES, Feature
 from src.analysis.preprocess.atlas import Atlas
 from src.analysis.preprocess.constants import ATLASES, FEATURES_DIR, T_CROP
-from src.analysis.features import Feature, FEATURES
 
 f64Array = NDArray[f64]
 Arrays = List[f64Array]
@@ -44,3 +44,4 @@ Must implement:
 """
 
 if __name__ == "__main__":
+    pass

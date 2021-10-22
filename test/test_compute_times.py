@@ -15,19 +15,19 @@ from argparse import ArgumentParser
 from pandas import DataFrame
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from src.constants import NII_PATH
+from src.constants.paths import NIIS
 from src.eigenimage.compute import estimate_computation_time
 
 TEST_NIIS = [
-    NII_PATH / "UCLA_1_0051201_func_minimal.nii.gz",  # 116
-    NII_PATH / "Trinity_0050232_func_minimal.nii.gz",  # 146
-    NII_PATH / "NYU_0050952_func_minimal.nii.gz",  # 176
-    NII_PATH / "Pitt_0050003_func_minimal.nii.gz",  # 196
-    NII_PATH / "CMU_a_0050647_func_minimal.nii.gz",  # 202
-    NII_PATH / "CMU_a_0050642_func_minimal.nii.gz",  # 236
-    NII_PATH / "Leuven_1_0050682_func_minimal.nii.gz",  # 246
-    NII_PATH / "UM_1_0050272_func_minimal.nii.gz",  # 296
-    NII_PATH / "CMU_b_0050643_func_minimal.nii.gz",  # 316
+    NIIS / "UCLA_1_0051201_func_minimal.nii.gz",  # 116
+    NIIS / "Trinity_0050232_func_minimal.nii.gz",  # 146
+    NIIS / "NYU_0050952_func_minimal.nii.gz",  # 176
+    NIIS / "Pitt_0050003_func_minimal.nii.gz",  # 196
+    NIIS / "CMU_a_0050647_func_minimal.nii.gz",  # 202
+    NIIS / "CMU_a_0050642_func_minimal.nii.gz",  # 236
+    NIIS / "Leuven_1_0050682_func_minimal.nii.gz",  # 246
+    NIIS / "UM_1_0050272_func_minimal.nii.gz",  # 296
+    NIIS / "CMU_b_0050643_func_minimal.nii.gz",  # 316
 ]
 
 """
