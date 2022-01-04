@@ -1,35 +1,29 @@
-**Main Problem**: There are really 2-3 papers here:
+# Main Problems: Too many Goals for One Paper
 
-1. Exploring efficient Deep Learning architectures for fMRI
-2. fMRI feature extraction (selection?) and validation
-   - this would also include justifying eigenvalue-based features
-3. ABIDE / ADHD-200 and generally small-data heterogeneity issues in DL
+There are really 2-3 separable papers / goals here re: the eigenvalues and ABIDE /
+ADHD-200 data:
 
-# What we Want to Do
+1. exploring eigenvalue-based features (eigenfeatures)
+   - for both prediction and description
+   - includes whole-brain, ROI-based, and perturbation-based eigenfeatures
+2. Exploring efficient deep learning architectures for fMRI
+3. Solving various serious general issues for both DL and classical ML with tiny, extremely
+   heterogeneous data of ABIDE / ADHD-200
 
-Our goal for a paper is basically:
-
-1. extract various features from fMRI (1D, 2D, 3D, 4D)
-   - some are from other papers, some are eigenvalue-based
-2. compare predictive models using these features
-3. argue that eigenvalue features have some advantages
+# Problem / Paper #1: Eigenfeatures from fMRI
 
 
 
+## Main Issue: Eigenvalues *a priori* Cannot be (and Empirically are not) Very Predictively-Useful for fMRI
 
-# Heterogeneity
+This is something I have now seen multiple times empirically on a wide variety of datasets (most too
+small to matter, but still). Cross-validated or holdout prediction accuracies are usually about 2-3%
+better than guessing, maybe 5-7% if you "hypertune" by testing millions of combinations (i.e. just
+overfit, perhaps). This has been the case even when I have tried different normalization strategies,
+preprocessing strategies, etc., and at least for the ABIDE data, this means you are looking at validation
+prediction accuracies of under 60% (compared to dubious literature reported ~71% best).
 
-# Complexity of Different Tests
-
-# Biased Feature Selection in Published Papers
-
-- this is a problem because if we extract any novel features or compare to previous
-  papers, ours will appear worse without selection, unless we replicate the biased
-  feature selection procedure
-- a better paper would investigate the consequences of these biased feature-selection
-  methods and propose solutions to avoid them
-
-# Eigenvalues Are Bad Features
+### Why?
 
 Two matrices $A$ and $B$ are similar if there exists an invertible matrix $M$ such that
 $A = M^{-1} B M$, and we can write $A \sim B$. Similar matrices have identical eigenvalues,
@@ -42,7 +36,7 @@ permutation of those $n$ features. In addition, we can only deal with sorted eig
 no "natural" ordering of eigenvalues since this would require a natural ordering for eigenvectors,
 which are `n_features`-dimensional).
 
-In particular, when the features are ROIs (a voxel can be considered a degenerate
+When the features are correlations of fMRI ROIs (a voxel can be considered a degenerate
 ROI), this means two things:
 
 1. Eigenvalues at eigenindex $i$ from one subject will not generally correspond to the same
@@ -51,7 +45,8 @@ ROI), this means two things:
    - e.g. two diagonal correlation matrices $C_1 = diag(1, ..., 1, 0, ..., 0)$,
      $C_2 = diag(0, ..., 0, 1, ..., 1)$ have identical eigenvalues
 
-## A Worked Example
+
+#### A Simple Failure Case
 
 Point (2) is the most concerning for doing classification from fMRI.
 
@@ -82,15 +77,44 @@ M = \begin{pmatrix}
 \end{pmatrix}
 $$
 
-Then in this case the eigenvalues of the full system $M$ are the eigenvalues of $C$, $\lambda_1, ..., \lambda_n$, plus the eigenvalues
-of $M^{\prime}$, $\xi_{n+1}, ..., \xi_{N}$.
+Then in this case the eigenvalues of the full system $M$ are the eigenvalues of $C$ plus the
+eigenvalues of $M^{\prime}$, .  When these eigenvalues are computed, they will be sorted ascending
+all together, ***and it will now be impossible to know which eigenvalues correspond to $C$ and which
+to $M^{\prime}$***. This means that when fed into an algorithm as a list of features, **the meaning
+of feature (eigenvalue) $i$ can and often *will* be different for every subject**.
 
-When these eigenvalues are computed, ***they will be sorted ascending, and it will now be impossible to know
-which eigenvalues correspond to $C$ and which to $M^{\prime}$***.
+In reality, also not every subject would have the same $C$, but more like some correlation matrix
+$C + \Sigma$, where $\Sigma$ is specific to that subject. The eigenvalues of this perturbed matrix can
+also unfortunately be shuffled about (https://mathoverflow.net/a/4255) so that *even if we somehow
+already knew how to just identify the features that contribute to $C$, we still couldn't be sure the
+first eigenvalue of $C + \Sigma$ returned by the algorithm corresponds to the first eigenvalue of
+$C$*, and we still have the problem of features having different interpretations from subject to
+subject.
 
-In addition, in actual fact not every subject would have the same $C$, but more like $C + \Sigma$. The eigenvalues
-of this can also unfortunately be shuffled about (https://mathoverflow.net/a/4255) so that we can't be sure the
-first eigenvalue returned by the algorithm corresponds to the "same" eigenvector.
+This means eigenvalues are useful as features only insofar as
+
+1. the eigenvalues clustered around eigenindex $i$, that is, the eigenvalues in eigenindices $[i -
+   \delta, i + \delta]$ correspond roughly to "similar" eigenvalues across subjects, and
+2. the algorithm is flexible enough to learn how to combine / summarize / find such clusters
+
+However, it is not reasonable to assume that all clusters are the same size, e.g. that $\delta$ is
+independent of $i$. The largest eigenvalues (small $i$) (corresponding to the largest principle
+components) possibly have a similar source within some small $\delta$, whereas for the smallest
+eigenvalues (large $i$), which correspond largely to noise components, it is possible that only the
+general trend of these eigenvalues has information. E.g. perhaps the smallest 50 eigenvalues can be
+summarized with a single "noise" value, but perhaps the largest 20 eigenvalues are more like 5-10
+clusters. But then again, perhaps not. This is all hard to justify.
+
+Thus using fixed windows on the eigenvalues will be suboptimal (e.g. Conv1D). Methods that use the
+entire spectrum unprocessed (e.g. MLP, RandomForest, LSTM), *might* be able to learn / find combinations
+that work well for prediction, except...
+
+### Eigenvalues are Especially bad for Heterogeneous Data (e.g. ABIDE, fMRI, MRI generally)
+
+***ABIDE is heterogenous, and the spectra across sites are clearly, obviously dramatically visually
+different, and the clusters are also clearly, obviously different***. Thus, even if some clustering is
+predictively useful for site A, it will be likely suboptimal (or even entirely useless) for site B.
+
 
 Even if one tries to order the eigenvalues by the eigenvectors, we deal with the same problem. The
 only way to order the eigenvectors would be
@@ -99,23 +123,41 @@ but this is just the same problem, since at any eigenvector index $i$ there is "
 ordering is noisy too.
 
 
-Re point (1) however, it is probably reasonable to assume that the eigenvalues "around" eigenindex
-$i$, that is, the eigenvalues in eigenindices $[i - \delta, i + \delta]$ correspond roughly to
-"similar" eigenvalues across subjects. However, it is not reasonable to assume that $\delta$ is
-independent of $i$, e.g. the largest eigenvalues (small $i$) (corresponding to the largest principle
-components) likely have a similar source within some small $\delta$, whereas for the smallest
-eigenvalues (large $i$), which correspond largely to noise componenents, it is possible that only
-the general trend of these eigenvalues has information.
+# What we Want to Do
+
+Our goal for a paper is basically:
+
+1. extract various features from fMRI (1D, 2D, 3D, 4D)
+   - some are from other papers, some are eigenvalue-based
+2. compare predictive models using these features
+3. argue that eigenvalue features have some advantages
+
+
+
+
+# Heterogeneity
+
+# Time Complexity of Different Tests
+
+# Biased Feature Selection in Published Papers
+
+- this is a problem because if we extract any novel features or compare to previous
+  papers, ours will appear worse without selection, unless we replicate the biased
+  feature selection procedure
+- a better paper would investigate the consequences of these biased feature-selection
+  methods and propose solutions to avoid them
+
+
+
+# Summary
 
 This means for fMRI, computing the this means the ordering of voxels is irrelevant, and thus if
-there is a difference between individuals that is identifiable only due to a *specific location*,
-then this is not detectable via eigenvalues. E.g. if ADHD subjects have increased signal
-correlations in voxels 1 through 100 inclusive, but non-ADH have the same increased signal
-correlations in voxels 100 through 200 inclusive, these correlation matrices look identical in terms
-of eigenvalues. So global eigenvalues are insensitive to spatial differences in the functional
-connectivity.
+there is a difference between individuals that is identifiable only due to a *specific set of
+locations*, then this is *probably* not detectable via eigenvalues. So global eigenvalues are
+insensitive to spatial differences in the functional connectivity.
 
-Eigenperturbation images do not have this problem, but instead suffer from a different problem, namely,
-that the deletion of a single voxel (i.e. row/column pair of a correlation matrix)
+Eigenperturbation images inherit all these problems. Namely, the eigenindex dimension is plagued by
+the ordering issues discussed above, e.g. eigenimage "channels" mean different things from subject
+to subject, which makes learning very difficult.
 
 
