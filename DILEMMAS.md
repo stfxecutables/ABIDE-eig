@@ -3,18 +3,79 @@
 There are really 2-3 separable papers / goals here re: the eigenvalues and ABIDE /
 ADHD-200 data:
 
-1. exploring eigenvalue-based features (eigenfeatures)
+1. exploring eigenvalue-based features (eigenfeatures) is doomed to fail
    - for both prediction and description
    - includes whole-brain, ROI-based, and perturbation-based eigenfeatures
 2. Exploring efficient deep learning architectures for fMRI
 3. Solving various serious general issues for both DL and classical ML with tiny, extremely
    heterogeneous data of ABIDE / ADHD-200
 
-# Problem / Paper #1: Eigenfeatures from fMRI
+# Problem / Paper #1: Eigenfeatures are Bad / Limited Features
+
+## Primary Issue: Eigenvalue Extraction is Worse than Linear
+
+Given a correlation matrix $\mathbf{M}$ of size $n \times n$, then since $\mathbf{M}$ is symmetric, it is diagonalizable,
+and thus we can eigendecompose $\mathbf{M}$ to
+
+$$
+\mathbf{M} = \mathbf{Q} \mathbf{\Lambda} \mathbf{Q}^{-1}
+$$
+
+where $\mathbf{Q}$ is the eigenvectors of $\mathbf{M}$, and $\mathbf{\Lambda}$ is diagonal with
+the diagonal entries being the $n - 1$ non-zero eigenvalues of $\mathbf{M}$. That is, we can write:
+
+$$
+\begin{aligned}
+
+
+\mathbf{Q} \mathbf{\Lambda} \mathbf{Q}^{-1} &= \mathbf{M} \\
+\mathbf{Q}^{-1} \mathbf{Q} \mathbf{\Lambda} \mathbf{Q}^{-1} &= \mathbf{Q}^{-1} \mathbf{M} \\
+\mathbf{\Lambda} \mathbf{Q}^{-1} &= \mathbf{Q}^{-1} \mathbf{M} \\
+\mathbf{\Lambda} \mathbf{Q}^{-1} \mathbf{Q} &= \mathbf{Q}^{-1} \mathbf{M} \mathbf{Q} \\
+\mathbf{\Lambda}  &= \mathbf{Q}^{-1} \mathbf{M} \mathbf{Q} & \qquad (1)\\
+\end{aligned}
+$$
+
+which, for illustration, might be better illustrated as
+
+$$
+\begin{aligned}
+eigs(\mathbf{M})  &= \mathbf{\Lambda}^\intercal  = (\mathbf{Q}^{-1} \mathbf{M} \mathbf{Q})^\intercal \\
+&=  (\mathbf{Q}^{-1} \mathbf{M} \mathbf{Q})^\intercal \\
+&=  \mathbf{Q}^\intercal (\mathbf{Q}^{-1} \mathbf{M})^\intercal & \qquad (2) \\
+&=  \texttt{Linear}_{\mathbf{Q}}((\texttt{Linear}_{\mathbf{Q}^{-1}}(\mathbf{M}))^\intercal) \\
+&=  (\texttt{Linear}_{\mathbf{Q}} \circ transpose \circ \texttt{Linear}_{\mathbf{Q}^{-1}})(\mathbf{M})
+\end{aligned}
+$$
+
+i.e., the function which implements eigenvalue extraction of $\mathbf{M}$ can be implemented as two
+matrix multiplications (e.g. linear operations) parameterized by the weights of $\mathbf{Q}$, with an
+intermediate transposition. Transposition is linear and so can itself be re-written as a ($n^2 \times n^2$) matrix multiplication of a
+particular kind, (e.g. https://math.stackexchange.com/a/1143642), and this matrix-representation of the
+transpose is the same for any choice of matrix in $\mathbf{\mathbb{R}}^{n \times n}$, so we might
+rewrite the above as:
+
+$$
+\begin{aligned}
+eigs(\mathbf{M}) &=  (\texttt{Linear}_{\mathbf{Q}} \circ transpose \circ \texttt{Linear}_{\mathbf{Q}^{-1}})(\mathbf{M}) \\
+&= \mathbf{A}_{\mathbf{Q}} \mathbf{M}
+\end{aligned}
+$$
+
+For some matrix $\mathbf{A}_{\mathbf{Q}} \in \mathbb{R}^{n \times n}$.  In the more general case, a
+nearly identical argument to above can be given by rewriting $\mathbf{M}$ with the singular value
+decomposition:
+
+$$
+\mathbf{M}  = \mathbf{U} \mathbf{\Sigma} \mathbf{V}^*.
+$$
+
+And noting that the complex conjugation operation is also linear. ***This means that each eigenvalue is ultimately
+some <u>linear</u> combination of the values of $\mathbf{M}$***.
 
 
 
-## Main Issue: Eigenvalues *a priori* Cannot be (and Empirically are not) Very Predictively-Useful for fMRI
+## Second Issue: Eigenvalues *a priori* Cannot be (and Empirically are not) Very Predictively-Useful for fMRI
 
 This is something I have now seen multiple times empirically on a wide variety of datasets (most too
 small to matter, but still). Cross-validated or holdout prediction accuracies are usually about 2-3%
