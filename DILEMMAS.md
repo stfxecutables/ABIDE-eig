@@ -17,36 +17,28 @@ ADHD-200 data:
 Given a correlation matrix $\mathbf{M}$ of size $n \times n$, then since $\mathbf{M}$ is symmetric, it is diagonalizable,
 and thus we can eigendecompose $\mathbf{M}$ to
 
-$$
-\mathbf{M} = \mathbf{Q} \mathbf{\Lambda} \mathbf{Q}^{-1}
-$$
+$$ \mathbf{M} = \mathbf{Q} \mathbf{\Lambda} \mathbf{Q}^{-1} $$
 
 where $\mathbf{Q}$ is the eigenvectors of $\mathbf{M}$, and $\mathbf{\Lambda}$ is diagonal with
 the diagonal entries being the $n - 1$ non-zero eigenvalues of $\mathbf{M}$. That is, we can write:
 
-$$
-\begin{aligned}
-
-
+$$\begin{aligned}
 \mathbf{Q} \mathbf{\Lambda} \mathbf{Q}^{-1} &= \mathbf{M} \\
 \mathbf{Q}^{-1} \mathbf{Q} \mathbf{\Lambda} \mathbf{Q}^{-1} &= \mathbf{Q}^{-1} \mathbf{M} \\
 \mathbf{\Lambda} \mathbf{Q}^{-1} &= \mathbf{Q}^{-1} \mathbf{M} \\
 \mathbf{\Lambda} \mathbf{Q}^{-1} \mathbf{Q} &= \mathbf{Q}^{-1} \mathbf{M} \mathbf{Q} \\
 \mathbf{\Lambda}  &= \mathbf{Q}^{-1} \mathbf{M} \mathbf{Q} & \qquad (1)\\
-\end{aligned}
-$$
+\end{aligned}$$
 
 which, for illustration, might be better illustrated as
 
-$$
-\begin{aligned}
+$$\begin{aligned}
 eigs(\mathbf{M})  &= \mathbf{\Lambda}^\intercal  = (\mathbf{Q}^{-1} \mathbf{M} \mathbf{Q})^\intercal \\
 &=  (\mathbf{Q}^{-1} \mathbf{M} \mathbf{Q})^\intercal \\
 &=  \mathbf{Q}^\intercal (\mathbf{Q}^{-1} \mathbf{M})^\intercal & \qquad (2) \\
 &=  \texttt{Linear}_{\mathbf{Q}}((\texttt{Linear}_{\mathbf{Q}^{-1}}(\mathbf{M}))^\intercal) \\
 &=  (\texttt{Linear}_{\mathbf{Q}} \circ transpose \circ \texttt{Linear}_{\mathbf{Q}^{-1}})(\mathbf{M})
-\end{aligned}
-$$
+\end{aligned}$$
 
 i.e., the function which implements eigenvalue extraction of $\mathbf{M}$ can be implemented as two
 matrix multiplications (e.g. linear operations) parameterized by the weights of $\mathbf{Q}$, with an
@@ -55,23 +47,25 @@ particular kind, (e.g. https://math.stackexchange.com/a/1143642), and this matri
 transpose is the same for any choice of matrix in $\mathbf{\mathbb{R}}^{n \times n}$, so we might
 rewrite the above as:
 
-$$
-\begin{aligned}
+$$\begin{aligned}
 eigs(\mathbf{M}) &=  (\texttt{Linear}_{\mathbf{Q}} \circ transpose \circ \texttt{Linear}_{\mathbf{Q}^{-1}})(\mathbf{M}) \\
-&= \mathbf{A}_{\mathbf{Q}} \mathbf{M}
-\end{aligned}
-$$
+&= \mathbf{A}_{\mathbf{M}} \mathbf{M}
+\end{aligned}$$
 
-For some matrix $\mathbf{A}_{\mathbf{Q}} \in \mathbb{R}^{n \times n}$.  In the more general case, a
+For some matrix $\mathbf{A}_{\mathbf{M}} \in \mathbb{R}^{n \times n}$.  In the more general case, a
 nearly identical argument to above can be given by rewriting $\mathbf{M}$ with the singular value
 decomposition:
 
-$$
-\mathbf{M}  = \mathbf{U} \mathbf{\Sigma} \mathbf{V}^*.
-$$
+
+
+$$ \mathbf{M}  = \mathbf{U} \mathbf{\Sigma} \mathbf{V}^*. $$
 
 And noting that the complex conjugation operation is also linear. ***This means that each eigenvalue is ultimately
 some <u>linear</u> combination of the values of $\mathbf{M}$***.
+
+
+Granted, the $eigs$ operator itself is highly non-linear (almost nothing in general can be said
+about $eigs(\mathbf{A} + \mathbf{B})$), and so
 
 
 
