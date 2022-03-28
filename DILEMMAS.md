@@ -12,7 +12,7 @@ ADHD-200 data:
 
 # Problem / Paper #1: Eigenfeatures are Bad / Limited Features
 
-## Primary Issue: Eigenvalue Extraction is Worse than Linear
+## Primary Issue: Eigenvalue Extraction is "Quasi-Linear"
 
 Given a correlation matrix $\mathbf{M}$ of size $n \times n$, then since $\mathbf{M}$ is symmetric, it is diagonalizable,
 and thus we can eigendecompose $\mathbf{M}$ to
@@ -52,22 +52,88 @@ eigs(\mathbf{M}) &=  (\texttt{Linear}_{\mathbf{Q}} \circ transpose \circ \texttt
 &= \mathbf{A}_{\mathbf{M}} \mathbf{M}
 \end{aligned}$$
 
-For some matrix $\mathbf{A}_{\mathbf{M}} \in \mathbb{R}^{n \times n}$.  In the more general case, a
+For some matrix $\mathbf{A}_{\mathbf{M}} \in \mathbb{R}^{n \times n}$. Alternately, we might note that it is ultimately
+arbitrary whether we decide to write linear transformations using left vs. right multiplications, so if we define
+
+$$ f(\mathbf{A}) = \mathbf{Q}^{-1}\mathbf{A}; \quad g(\mathbf{A}) = \mathbf{A}\mathbf{Q}$$
+
+then $f$ and $g$ are still linear functions, and $\mathbf{\Lambda} = (f \circ g)(\mathbf{M})$, and
+so this linear transformation $f \circ g$ also has a matrix representation (and it is in fact
+$\mathbf{A}_{\mathbf{M}}$).  ***This means that each eigenvalue of $\mathbf{M}$ is ultimately some
+<u>linear</u> combination of $n$ the values of $\mathbf{M}$***^[In the more general case, a
 similar argument to above can be given by rewriting $\mathbf{M}$ with the singular value
 decomposition, albeit with the domain being the complex numbers, and noting that the complex
-conjugation operation is also linear.
-
-***This means that each eigenvalue of $\mathbf{M}$ is ultimately some <u>linear</u> combination of $n$ the values of
-$\mathbf{M}$***. That is,
+conjugation operation is also linear.]. That is,
 
 $$ \lambda_{i} = \sum_{i=1}^n a_{ij}m_{ji}$$
 
 Granted, the $eigs$ operator itself is highly non-linear (almost nothing in general can be said
 about $eigs(\mathbf{A} + \mathbf{B})$), and so the values $a_{ij}$ of course depend heavily on
-$\mathbf{M}$, but this is just a sketch of the basic intuition that eigenvalues are tools that arise
-from *linear* equations and, and so eigenvalues are in some sense "fundamentally linear". Most
-importantly, ***when eigenvalues are used to summarize that system, they produce a linear summary of
-that system***.
+$\mathbf{M}$ in a non-linear way, but this is just a sketch of the basic intuition that eigenvalues
+are tools that arise from *linear* equations and, and so the *eigenvalues* are in some sense
+"fundamentally linear". Most importantly, ***when eigenvalues are used to summarize that system,
+they produce a linear summary of that system***.
+
+Another way to illustrate this might be from the basic equation of an eigenvalue/eigenvector pair,
+$\mathbf{A}\mathbf{v} = \lambda \mathbf{v}$, where $\mathbf{A} \in \mathbb{R}^{n \times n}$. We can
+write:
+
+$$\begin{aligned}
+\mathbf{A}\mathbf{v} &= \lambda \mathbf{v} \\
+\mathbf{v}^{\intercal} \mathbf{A}^{\intercal} = (\mathbf{A}\mathbf{v})^{\intercal} &= (\lambda \mathbf{v})^{\intercal} = \lambda \mathbf{v}^{\intercal} \\
+\mathbf{v}^{\intercal} \mathbf{A}^{\intercal} \mathbf{v} &= \lambda \mathbf{v}^{\intercal} \mathbf{v}\\
+\mathbf{v}^{\intercal} \mathbf{A}^{\intercal} \mathbf{v} &= \lambda \Vert\mathbf{v}\Vert^2 \\
+\mathbf{v}^{\intercal} \mathbf{A}^{\intercal} \mathbf{v} &= \lambda \quad \text{since we usually require } \Vert\mathbf{v}\Vert = 1 \\
+\mathbf{v} \mathbf{A} \mathbf{v}^{\intercal} &= \lambda \quad \text{after transposing again} \\
+\end{aligned}$$
+
+So $\lambda$ is clearly a big long *linear* combination of $v_i$s and $a_{ij}$s.
+
+### The Quasi-Linear Extraction is Overly-Inclusive and Too Simple for MRI/fMRI
+
+For fMRI, the above properties have some unfortunate consequences. In fMRI, we start with a matrix
+$\mathbf{M}$ with shape `(N, T)`, where `N` is the number of voxels or ROIs under consideration
+(e.g. after brain masking), and `T` is the number of timepoints. If using some ROI reductions, each
+ROI time-series is summarized by some kind of pooling / aggregating function (e.g. mean, median,
+max). Typically, $\texttt{T} \in [80, 300]$, $\texttt{N} \le 200$ if using anatomical ROIs, and `N`
+is quite large, on the order of $64^3$ to $128^3$ or so, if using voxels. We are interested in the
+eigenvalues of the correlation (or covariance) matrix of $\mathbf{M}$, which we can represent with
+$\mathbf{C} \in \mathbb{R}^{\texttt{N} \times \texttt{T}}$.
+
+In the full-voxel case, $\texttt{N} \gg \texttt{T}$ and so we must / do use $\mathbf{C}^\intercal$
+to compute the eigenvalues in an efficient manner. However, this means we deal with the $\texttt{T}
+\times \texttt{T}$ matrix $\mathbf{R} = \mathbf{C}^{\intercal} \mathbf{C}$. Already, we can see that
+when `N` is large, most elements of $\mathbf{R}$ will be a linear combination of most elements of
+$\mathbf{C}$, which are in turn summaries *across all ROIs*. That is, $\mathbf{C}^{\intercal}_{ij}$
+is a linear combination of *all* ROIs values at time $i$ with *all* ROIs values at time $j$.
+
+Per the arguments in the section above, the eigenvalues of $\mathbf{R}$ will again each be linear
+combinations of elements of $\mathbf{R}$, which are again linear combinations of the elements of
+the original fMRI $\mathbf{M}$. (Already the problem should be imminent).
+
+Now, most correlations will not be zero, as that is extremely unlikely simply due to noise /
+numerical imprecision alone, and because we are dealing with time series (which almost always show
+some non-zero correlation) and because we know in general fMRI tends to have global patterns (e.g. a
+global mean signal, frequency components related to noise, breathing, heartrate, etc). So
+$\mathbf{R}$ will have $q = \min(\texttt{N}, \texttt{T}) - 1$ nonzero (and effectively distinct)
+eigenvalues, i.e. $\mathbf{R}$ has rank $q$, i.e. is "almost" invertible. However, if we don't get
+this distinctness (basically impossible) it would be because some time series are an exact linear
+combination of some other ROIs' timeseries, and we could simply reduce $\mathbf{M}$ to the linearly
+independent timeseries, and still be in this same case. Likewise, if we did not subtract the means
+and dealt with the [autocorrelation matrix](https://en.wikipedia.org/wiki/Autocorrelation#Matrix),
+the rank would just be $q$.
+
+So $\mathbf{R}$ will be full-rank, or nearly-full-rank, and so, since it is also symmetric,
+the eigenvectors $\mathbf{Q}$ will be either full-rank and orthogonal such that
+$\mathbf{Q}^\intercal = \mathbf{Q}^{-1}$, or will "nearly" have this property (e.g. the size $q - 1$
+block matrix / reduction will have this property). Thus intuitively, there is a hard limit on the
+amount of "zeros" or "near-zero" values in $\mathbf{Q}$.  In fact, we can prove this more precisely by noting $\mathbf{R}$ is symmetric / Hermitian,
+and using the [eigenvector-eigenvalue identity](https://arxiv.org/abs/1908.03795).
+
+The argument I am trying to make here, with a lot of handwaving, is that virtually no elements of
+the eigenvectors $\mathbf{Q}$ will have magnitude zero, and so **_each_ eigenvalue of $\mathbf{R}$
+effectively contains information from _every single voxel / ROI of the fMRI matrix_ $\mathbf{M}$**.
+I would argue this is ***very bad*** for prediction.
 
 
 
