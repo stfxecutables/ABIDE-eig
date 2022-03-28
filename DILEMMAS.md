@@ -53,19 +53,26 @@ eigs(\mathbf{M}) &=  (\texttt{Linear}_{\mathbf{Q}} \circ transpose \circ \texttt
 \end{aligned}$$
 
 For some matrix $\mathbf{A}_{\mathbf{M}} \in \mathbb{R}^{n \times n}$.  In the more general case, a
-nearly identical argument to above can be given by rewriting $\mathbf{M}$ with the singular value
-decomposition:
+similar argument to above can be given by rewriting $\mathbf{M}$ with the singular value
+decomposition, albeit with the domain being the complex numbers, and noting that the complex
+conjugation operation is also linear.
 
+***This means that each eigenvalue of $\mathbf{M}$ is ultimately some <u>linear</u> combination of $n$ the values of
+$\mathbf{M}$***. That is,
 
-
-$$ \mathbf{M}  = \mathbf{U} \mathbf{\Sigma} \mathbf{V}^*. $$
-
-And noting that the complex conjugation operation is also linear. ***This means that each eigenvalue is ultimately
-some <u>linear</u> combination of the values of $\mathbf{M}$***.
-
+$$ \lambda_{i} = \sum_{i=1}^n a_{ij}m_{ji}$$
 
 Granted, the $eigs$ operator itself is highly non-linear (almost nothing in general can be said
-about $eigs(\mathbf{A} + \mathbf{B})$), and so
+about $eigs(\mathbf{A} + \mathbf{B})$), and so the values $a_{ij}$ of course depend heavily on
+$\mathbf{M}$, but this is just a sketch of the basic intuition that eigenvalues are tools that arise
+from *linear* equations and, and so eigenvalues are in some sense "fundamentally linear". Most
+importantly, ***when eigenvalues are used to summarize that system, they produce a linear summary of
+that system***.
+
+
+
+
+
 
 
 
