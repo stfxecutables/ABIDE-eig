@@ -3,14 +3,18 @@
 There are really 2-3 separable papers / goals here re: the eigenvalues and ABIDE /
 ADHD-200 data:
 
-1. exploring eigenvalue-based features (eigenfeatures) is doomed to fail
-   - for both prediction and description
-   - includes whole-brain, ROI-based, and perturbation-based eigenfeatures
+1. eigenvalue-based features (eigenfeatures), which:
+   - must necessarily be poor for both prediction and description
+   - will be poor features whether extracted from the whole-brain or ROIs
+   - will not be salvageable with perturbation-based methods
 2. Exploring efficient deep learning architectures for fMRI
 3. Solving various serious general issues for both DL and classical ML with tiny, extremely
-   heterogeneous data of ABIDE / ADHD-200
+   **heterogeneous data** (e.g. ABIDE / ADHD-200, other medical or subject-level / panel data)
 
-# Problem / Paper #1: Eigenfeatures are Bad / Limited Features
+# Problem / Paper #1: Eigenvalues are Bad / Limited Features
+
+Broadly, the problem here is that eigenvalues have a number of properties that render them undesirable for
+prediction and/or explanation.
 
 ## Primary Issue: Eigenvalue Extraction is "Quasi-Linear"
 
@@ -132,8 +136,21 @@ and using the [eigenvector-eigenvalue identity](https://arxiv.org/abs/1908.03795
 
 The argument I am trying to make here, with a lot of handwaving, is that virtually no elements of
 the eigenvectors $\mathbf{Q}$ will have magnitude zero, and so **_each_ eigenvalue of $\mathbf{R}$
-effectively contains information from _every single voxel / ROI of the fMRI matrix_ $\mathbf{M}$**.
-I would argue this is ***very bad*** for prediction.
+is an enormous weighted sum of _every single voxel / ROI of the fMRI matrix_ $\mathbf{M}$**.
+I would argue this means the vector of eigenvalues $\mathbf{\Lambda}$ is a ***very bad*** feature for prediction, because:
+
+1. $\mathbf{\Lambda}$ contains *only global information* from the image, and ***local information / features
+   cannot be constructed / reverse-engineered from $\mathbf{\Lambda}$***
+2. Given two matrices / fMRI scans with eigenvalues $\mathbf{\Lambda}$ and
+   $\mathbf{\Lambda}^{\prime}$, because the eigenvectors are different in each case, then the
+   distribution of the ROI contributions to e.g. $\lambda_i$ will in general be quite different from
+   the distribution of ROI contributions to $\lambda_i^{\prime}$, that is, **the components of
+   $\mathbf{\Lambda}$ do not have a consistent meaning from subject to subject**
+   - E.g. we might hope that $\mathbf{\Lambda}$ is like a `T`-dimensional embedding of the fMRI, such
+     that if $\vert \mathbf{\Lambda}^\prime - \mathbf{\Lambda} \vert$ is small, then $\mathbf{M}$ is
+     in some sense similar to $\mathbf{M}^{\prime}$. But this is not the case.
+   - this is further confounded by eigenvalue sorting
+
 
 
 
