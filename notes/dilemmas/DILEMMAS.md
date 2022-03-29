@@ -263,7 +263,10 @@ preprocessing strategies, etc., and at least for the ABIDE data, this means you 
 prediction accuracies of under 60% (compared to dubious literature reported ~71% best).
 
 ***ABIDE is heterogenous, and the spectra across sites are clearly, obviously dramatically visually
-different, and the clusters are also clearly, obviously different***. Thus, even if some clustering is
+different, and the clusters are also clearly, obviously different***. This is largely due differences
+in the underlying sampling resolutions (spatial and temporal) and sampling durations.
+
+Thus, even if some clustering is
 predictively useful for site A, it will be likely suboptimal (or even entirely useless) for site B.
 
 
