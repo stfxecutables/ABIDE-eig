@@ -13,8 +13,9 @@ ADHD-200 data:
 
 # Problem / Paper #1: Eigenvalues are Bad / Limited Features
 
-Broadly, the problem here is that eigenvalues have a number of properties that render them undesirable for
-prediction and/or explanation.
+Broadly, the problem here is that eigenvalues have a number of properties that render them
+undesirable for prediction. The main problems are their quasi-linearity, non-locality, and
+permutation insensitivity at multiple levels.
 
 ## Primary Issue: Eigenvalue Extraction is "Quasi-Linear"
 
@@ -24,30 +25,30 @@ and thus we can eigendecompose $\mathbf{M}$ to
 $$ \mathbf{M} = \mathbf{Q} \mathbf{\Lambda} \mathbf{Q}^{-1} $$
 
 where $\mathbf{Q}$ is the eigenvectors of $\mathbf{M}$, and $\mathbf{\Lambda}$ is diagonal with
-the diagonal entries being the $n - 1$ non-zero eigenvalues of $\mathbf{M}$. That is, we can write:
+$n - 1$ or fewer non-zero eigenvalues of $\mathbf{M}$. That is, we can write
 
-$$\begin{aligned}
-\mathbf{Q} \mathbf{\Lambda} \mathbf{Q}^{-1} &= \mathbf{M} \\
-\mathbf{Q}^{-1} \mathbf{Q} \mathbf{\Lambda} \mathbf{Q}^{-1} &= \mathbf{Q}^{-1} \mathbf{M} \\
-\mathbf{\Lambda} \mathbf{Q}^{-1} &= \mathbf{Q}^{-1} \mathbf{M} \\
-\mathbf{\Lambda} \mathbf{Q}^{-1} \mathbf{Q} &= \mathbf{Q}^{-1} \mathbf{M} \mathbf{Q} \\
-\mathbf{\Lambda}  &= \mathbf{Q}^{-1} \mathbf{M} \mathbf{Q} & \qquad (1)\\
-\end{aligned}$$
+
+$$ \mathbf{M} = \mathbf{Q} \mathbf{\Lambda} \mathbf{Q}^{-1}  $$
+
+or equivalently
+
+$$ \mathbf{\Lambda}  = \mathbf{Q}^{-1} \mathbf{M} \mathbf{Q} $$
 
 which, for illustration, might be better illustrated as
 
 $$\begin{aligned}
-eigs(\mathbf{M})  &= \mathbf{\Lambda}^\intercal  = (\mathbf{Q}^{-1} \mathbf{M} \mathbf{Q})^\intercal \\
+eigs(\mathbf{M}) = eigs(\mathbf{M^{\intercal}})  &= \mathbf{\Lambda}^\intercal \\
+&= (\mathbf{Q}^{-1} \mathbf{M} \mathbf{Q})^\intercal \\
 &=  (\mathbf{Q}^{-1} \mathbf{M} \mathbf{Q})^\intercal \\
 &=  \mathbf{Q}^\intercal (\mathbf{Q}^{-1} \mathbf{M})^\intercal & \qquad (2) \\
 &=  \texttt{Linear}_{\mathbf{Q}}((\texttt{Linear}_{\mathbf{Q}^{-1}}(\mathbf{M}))^\intercal) \\
 &=  (\texttt{Linear}_{\mathbf{Q}} \circ transpose \circ \texttt{Linear}_{\mathbf{Q}^{-1}})(\mathbf{M})
 \end{aligned}$$
 
-i.e., the function which implements eigenvalue extraction of $\mathbf{M}$ can be implemented as two
+i.e., the function which implements eigenvalue extraction of $\mathbf{M}$ can be seen as two
 matrix multiplications (e.g. linear operations) parameterized by the weights of $\mathbf{Q}$, with an
 intermediate transposition. Transposition is linear and so can itself be re-written as a ($n^2 \times n^2$) matrix multiplication of a
-particular kind, (e.g. https://math.stackexchange.com/a/1143642), and this matrix-representation of the
+[particular kind](https://math.stackexchange.com/a/1143642), and this matrix-representation of the
 transpose is the same for any choice of matrix in $\mathbf{\mathbb{R}}^{n \times n}$, so we might
 rewrite the above as:
 
@@ -93,7 +94,7 @@ $$\begin{aligned}
 
 So $\lambda$ is clearly a big long *linear* combination of $v_i$s and $a_{ij}$s.
 
-### The Quasi-Linear Extraction is Overly-Inclusive and Too Simple for MRI/fMRI
+### The Quasi-Linear Extraction is *too* Global for MRI/fMRI (Human brain)
 
 For fMRI, the above properties have some unfortunate consequences. In fMRI, we start with a matrix
 $\mathbf{M}$ with shape `(N, T)`, where `N` is the number of voxels or ROIs under consideration
@@ -102,25 +103,27 @@ ROI time-series is summarized by some kind of pooling / aggregating function (e.
 max). Typically, $\texttt{T} \in [80, 300]$, $\texttt{N} \le 200$ if using anatomical ROIs, and `N`
 is quite large, on the order of $64^3$ to $128^3$ or so, if using voxels. We are interested in the
 eigenvalues of the correlation (or covariance) matrix of $\mathbf{M}$, which we can represent with
-$\mathbf{C} \in \mathbb{R}^{\texttt{N} \times \texttt{T}}$.
+$\mathbf{R}$ (or $\mathbf{C}$)^[The correlation matrix $\mathbf{R}$ is just the covariance matrix
+of $\mathbf{\tilde{M}}$, where $\mathbf{\tilde{M}}$ has been feature-wise standardized].
 
-In the full-voxel case, $\texttt{N} \gg \texttt{T}$ and so we must / do use $\mathbf{C}^\intercal$
+In the full-voxel case, $\texttt{N} \gg \texttt{T}$ and so we must / do use $\mathbf{M}^\intercal$
 to compute the eigenvalues in an efficient manner. However, this means we deal with the $\texttt{T}
-\times \texttt{T}$ matrix $\mathbf{R} = \mathbf{C}^{\intercal} \mathbf{C}$. Already, we can see that
+\times \texttt{T}$ matrix $\mathbf{R} = \mathbf{M}^{\intercal} \mathbf{M}$. Already, we can see that
 when `N` is large, most elements of $\mathbf{R}$ will be a linear combination of most elements of
-$\mathbf{C}$, which are in turn summaries *across all ROIs*. That is, $\mathbf{C}^{\intercal}_{ij}$
-is a linear combination of *all* ROIs values at time $i$ with *all* ROIs values at time $j$.
+$\mathbf{M}$. That is, $\mathbf{R}^{\intercal}_{ij}$ is a linear combination of *all* voxel values
+at time $i$ with *all* voxel values at time $j$.
 
-Per the arguments in the section above, the eigenvalues of $\mathbf{R}$ will again each be linear
-combinations of elements of $\mathbf{R}$, which are again linear combinations of the elements of
-the original fMRI $\mathbf{M}$. (Already the problem should be imminent).
+Per the arguments in the section above, the *eigenvalues* of $\mathbf{R}$ will again each be linear
+combinations of elements of $\mathbf{R}$, which are again linear combinations of the elements of the
+original fMRI $\mathbf{M}$. (Already one  should be getting a feel for the problem here - we are
+summing too many things).
 
 Now, most correlations will not be zero, as that is extremely unlikely simply due to noise /
 numerical imprecision alone, and because we are dealing with time series (which almost always show
 some non-zero correlation) and because we know in general fMRI tends to have global patterns (e.g. a
 global mean signal, frequency components related to noise, breathing, heartrate, etc). So
 $\mathbf{R}$ will have $q = \min(\texttt{N}, \texttt{T}) - 1$ nonzero (and effectively distinct)
-eigenvalues, i.e. $\mathbf{R}$ has rank $q$, i.e. is "almost" invertible. However, if we don't get
+eigenvalues, i.e. $\mathbf{R}$ has rank $q$, i.e. is "almost" orthogonal. However, if we don't get
 this distinctness (basically impossible) it would be because some time series are an exact linear
 combination of some other ROIs' timeseries, and we could simply reduce $\mathbf{M}$ to the linearly
 independent timeseries, and still be in this same case. Likewise, if we did not subtract the means
@@ -137,124 +140,127 @@ and using the [eigenvector-eigenvalue identity](https://arxiv.org/abs/1908.03795
 The argument I am trying to make here, with a lot of handwaving, is that virtually no elements of
 the eigenvectors $\mathbf{Q}$ will have magnitude zero, and so **_each_ eigenvalue of $\mathbf{R}$
 is an enormous weighted sum of _every single voxel / ROI of the fMRI matrix_ $\mathbf{M}$**.
-I would argue this means the vector of eigenvalues $\mathbf{\Lambda}$ is a ***very bad*** feature for prediction, because:
+I argue this means the vector of eigenvalues $\mathbf{\Lambda}$ is a ***very bad*** feature for
+prediction, because $\mathbf{\Lambda}$ contains *only global information* from the image, and
+***local information / features cannot be constructed / reverse-engineered from $\mathbf{\Lambda}$***.
 
-1. $\mathbf{\Lambda}$ contains *only global information* from the image, and ***local information / features
-   cannot be constructed / reverse-engineered from $\mathbf{\Lambda}$***
-2. Given two matrices / fMRI scans with eigenvalues $\mathbf{\Lambda}$ and
-   $\mathbf{\Lambda}^{\prime}$, because the eigenvectors are different in each case, then the
-   distribution of the ROI contributions to e.g. $\lambda_i$ will in general be quite different from
-   the distribution of ROI contributions to $\lambda_i^{\prime}$, that is, **the components of
-   $\mathbf{\Lambda}$ do not have a consistent meaning from subject to subject**
-   - E.g. we might hope that $\mathbf{\Lambda}$ is like a `T`-dimensional embedding of the fMRI, such
-     that if $\vert \mathbf{\Lambda}^\prime - \mathbf{\Lambda} \vert$ is small, then $\mathbf{M}$ is
-     in some sense similar to $\mathbf{M}^{\prime}$. But this is not the case.
-   - this is further confounded by eigenvalue sorting
+The only way to preserve local information is if the brain is partitioned into ROIs, and then the
+eigenvalues of the correlation matrices of each of those ROIs are computed, so that `N` above is
+the count of ROIs. However, as we see below, this also has problems.
+
+## Second Issue: Eigenvalues Are too Permutation-Insensitive
+
+### Eigenvalue Indices do not Have the Same Meaning Across Matrices
+
+Given two matrices / fMRI scans with eigenvalues $\mathbf{\Lambda}$ and $\mathbf{\Lambda}^{\prime}$,
+because the eigenvectors are different in each case, then the distribution of the contributions to
+e.g. $\lambda_i$ will in general be quite different from the distribution of the contributions to
+$\lambda_i^{\prime}$, so that the **components of $\mathbf{\Lambda}$ do not have a consistent
+meaning from subject to subject**^[If this is not clear, consider eigenvalue extraction to be like
+PCA which is done per-subject. Of each principal component will have a different meaning in each
+subject.]
+
+E.g. we might hope that $\mathbf{\Lambda}$ is like a `T`-dimensional embedding of the fMRI, such
+that if $\vert \mathbf{\Lambda}^\prime - \mathbf{\Lambda} \vert$ is small, then $\mathbf{M}$ is in
+some sense similar to $\mathbf{M}^{\prime}$. But this is not the case. This is further confounded by
+eigenvalue sorting (algorithms return eigenvalues sorted by eigenvalue magnitude, because there is
+no "natural" ordering possible here).
+
+At best, we can hope that the largest eigenvalue(s) corresponds to something like a global / mean
+signal shared across most signals of an fMRI, that the smallest eigenvalues correspond to noise, and
+that intermediate eigenvalues capture some other phenomena. Roughly, we can only sort of *hope* that
+the meaning of $\lambda_i$ is similar to the meaning of $\lambda_j^{\prime}$ only in some region
+$\delta_{\min} < \vert i - j \vert < \delta_{\max}$.
+
+In fact, I saw this empirically: permutation-invariant networks cannot overfit the voxel
+eigenvalues at all, linear models gradually / steadily show decreasing loss approaching zero, and
+convolutional models (which have a bias toward detecting local features) most rapidly overfit. There
+is also weak evidence from my experiments that a larger kernel (7 vs 3) perform better, suggesting
+that the useful features in the eigenvalues are local, but not too local, i.e. $\delta_{\min} > 3$.
+
+However, it is not reasonable to assume that that $\delta_\min$ and $\delta_\max$ are fixed /
+independent of the eiegenindex $i$. The largest eigenvalues (small $i$) (corresponding to the
+largest principle components) possibly have a similar source within some small $\delta_\min$, whereas for
+the smallest eigenvalues (large $i$), which correspond largely to noise components, it is possible
+that only the general trend of these eigenvalues has information. E.g. perhaps the smallest 50
+eigenvalues can be summarized with a single "noise" value, but perhaps the largest 20 eigenvalues
+need more like 5-10 values to be summarized. But then again, perhaps not. This is all hard to justify.
 
 
+### Eigenvalues Are Fundamentally Permutation-Invariant
 
+Two matrices $A$ and $B$ are similar if there exists an invertible matrix $M$ such that $A = M^{-1}
+B M$, and we can write $A \sim B$. Similar matrices have identical eigenvalues, but not identical
+eigenvectors. *Permutation matrices* (which permute rows / columns of a matrix) are invertible, and
+so do not change the eigenvalues of a matrix.  Thus the `(n_features, n_features)` correlation
+matrix $C$ from the timeseries of data with `(n_features, n_timepoints)`, yields identical
+eigenvalues to *any* permutation of those $n$ features.
 
+Unfortunately, this means radically-different systems of correlations can produce identical eigenvalues.
 
-
-
-
-
-## Second Issue: Eigenvalues *a priori* Cannot be (and Empirically are not) Very Predictively-Useful for fMRI
-
-This is something I have now seen multiple times empirically on a wide variety of datasets (most too
-small to matter, but still). Cross-validated or holdout prediction accuracies are usually about 2-3%
-better than guessing, maybe 5-7% if you "hypertune" by testing millions of combinations (i.e. just
-overfit, perhaps). This has been the case even when I have tried different normalization strategies,
-preprocessing strategies, etc., and at least for the ABIDE data, this means you are looking at validation
-prediction accuracies of under 60% (compared to dubious literature reported ~71% best).
-
-### Why?
-
-Two matrices $A$ and $B$ are similar if there exists an invertible matrix $M$ such that
-$A = M^{-1} B M$, and we can write $A \sim B$. Similar matrices have identical eigenvalues,
-but not identical eigenvectors.
-
-Permutation matrices (which permute rows / columns of a matrix) are invertible, and so do not change
-the eigenvalues of a matrix. Thus the `(n_features, n_features)` correlation matrix $C$ from the
-timeseries of data with `(n_features, n_timepoints)`, yields identical eigenvalues to any
-permutation of those $n$ features. In addition, we can only deal with sorted eigenvalues (there is
-no "natural" ordering of eigenvalues since this would require a natural ordering for eigenvectors,
-which are `n_features`-dimensional).
-
-When the features are correlations of fMRI ROIs (a voxel can be considered a degenerate
-ROI), this means two things:
-
-1. Eigenvalues at eigenindex $i$ from one subject will not generally correspond to the same
-   eigenvector from another subject
-2. Eigenvalues will be identical for radically-different systems of correlations
-   - e.g. two diagonal correlation matrices $C_1 = diag(1, ..., 1, 0, ..., 0)$,
-     $C_2 = diag(0, ..., 0, 1, ..., 1)$ have identical eigenvalues
 
 
 #### A Simple Failure Case
 
-Point (2) is the most concerning for doing classification from fMRI.
+A simple, but empirically-unlikely failure case are the two diagonal correlation matrices
 
-Suppose that autism is characterized by some distinct pattern of correlations on some set of $n$
-ROIs. We might represent this pattern of correlations as a submatrix $C$ of size $n \times n$, and
-say that we generally observe the $n$ ROIs have a correlation matrix "close" to $C$, whereas
-controls tend to be "farther" from C. Suppose also that these ROIs are relatively uncorrelated with
-other ROIs, so that we can represent the full $N \times N$ correlation matrix $M$ across all ROIs as a block matrix
-containing $C$
+$$ C_1 = diag(\lambda_1, \dots, \lambda_n, 0, ..., 0), C_2 = diag(0, ..., 0, \lambda_1, \dots,  \lambda_n) $$
 
-$$
-M = \begin{pmatrix}
-  C & \vert & \mathbf{\Sigma} \\
-\hline
-  \mathbf{\Sigma}^{\top} & \vert & M^{\prime}
-\end{pmatrix}
-$$
+that are completely different but have identical eigenvalues. But this can be generalized to cases that
+*a priori*, are very likely theoretically, and less simplistic.
 
-The matrix $\Sigma$ will be a random matrix with relatively small values, and probably have eigenvalues
-similar to the GOE. For now, let us just pretend $\Sigma = \mathbf{0}$ to show what would happen in
-this even simpler case, e.g. pretend we have something like
+Suppose for example that autism is characterized by some distinct pattern of correlations on some
+subset of ROIs, where the number of those ROIs is $n$. We might represent this pattern of
+correlations as a submatrix $A$ of size $n \times n$, and say that we generally observe the $n$ ROIs
+have a correlation matrix "close" to $A$, whereas controls tend to be "farther" from $A$. Suppose also
+that these ROIs are relatively uncorrelated with other ROIs, so that we can represent the full $N
+\times N$ correlation matrix $M$ across all ROIs as a block matrix containing $A$ as
 
 $$
 M = \begin{pmatrix}
-  C & \vert & \mathbf{0} \\
+  A & \vert & \mathbf{\Sigma} \\
 \hline
-  \mathbf{0}^{\top} & \vert & M^{\prime}
+  \mathbf{\Sigma}^{\top} & \vert & C
 \end{pmatrix}
 $$
 
-Then in this case the eigenvalues of the full system $M$ are the eigenvalues of $C$ plus the
-eigenvalues of $M^{\prime}$, .  When these eigenvalues are computed, they will be sorted ascending
-all together, ***and it will now be impossible to know which eigenvalues correspond to $C$ and which
-to $M^{\prime}$***. This means that when fed into an algorithm as a list of features, **the meaning
-of feature (eigenvalue) $i$ can and often *will* be different for every subject**.
+where $\Sigma$ will be a random matrix with relatively small values (likely with eigenvalues similar
+to the GOE), and where $C$ is a pattern of correlations common to controls and autistic individuals
+both. For now, let us just pretend $\Sigma = \mathbf{0}$ to show what would happen in this even
+simpler case, e.g. pretend we have something like
 
-In reality, also not every subject would have the same $C$, but more like some correlation matrix
-$C + \Sigma$, where $\Sigma$ is specific to that subject. The eigenvalues of this perturbed matrix can
-also unfortunately be shuffled about (https://mathoverflow.net/a/4255) so that *even if we somehow
-already knew how to just identify the features that contribute to $C$, we still couldn't be sure the
-first eigenvalue of $C + \Sigma$ returned by the algorithm corresponds to the first eigenvalue of
-$C$*, and we still have the problem of features having different interpretations from subject to
-subject.
+$$
+M = \begin{pmatrix}
+  A & \vert & \mathbf{0} \\
+\hline
+  \mathbf{0}^{\top} & \vert & C
+\end{pmatrix}
+$$
 
-This means eigenvalues are useful as features only insofar as
+Then in this case the eigenvalues of the full system $M$ are the eigenvalues of $A$ plus the
+eigenvalues of $C$.  When these eigenvalues are computed, they will be sorted ascending
+all together, ***and it will now be impossible to know which eigenvalues correspond to $A$ and which
+to $C$*** (they will be interleaved in unpredictable ways depending on noise).
 
-1. the eigenvalues clustered around eigenindex $i$, that is, the eigenvalues in eigenindices $[i -
-   \delta, i + \delta]$ correspond roughly to "similar" eigenvalues across subjects, and
-2. the algorithm is flexible enough to learn how to combine / summarize / find such clusters
+Worse, if some collection of ROIs $A$ produces a particular distribution of eigenvalues only in e.g.
+autistic subjects, but some *other* collection of ROIs $C$ has a similar distribution of
+eigenvalues, then these again get mixed together in a much worse way. The only way that eigenvalues
+can clearly identify a difference is if there large-scale, global differences in the correlation
+patterns, but as per above, other methods (e.g. deep learning with the fMRI directly) are *much*
+more likely to be able to find such patterns reliably.
 
-However, it is not reasonable to assume that all clusters are the same size, e.g. that $\delta$ is
-independent of $i$. The largest eigenvalues (small $i$) (corresponding to the largest principle
-components) possibly have a similar source within some small $\delta$, whereas for the smallest
-eigenvalues (large $i$), which correspond largely to noise components, it is possible that only the
-general trend of these eigenvalues has information. E.g. perhaps the smallest 50 eigenvalues can be
-summarized with a single "noise" value, but perhaps the largest 20 eigenvalues are more like 5-10
-clusters. But then again, perhaps not. This is all hard to justify.
+Essentially, if something like "in subgroup 1, region A is strongly correlated with region B, and
+weakly with region C, whereas in subgroup 2, the AB and AC correlation strengths are reversed" is
+true, eigenvalues cannot see this.
 
-Thus using fixed windows on the eigenvalues will be suboptimal (e.g. Conv1D). Methods that use the
-entire spectrum unprocessed (e.g. MLP, RandomForest, LSTM), *might* be able to learn / find combinations
-that work well for prediction, except...
 
 ### Eigenvalues are Especially bad for Heterogeneous Data (e.g. ABIDE, fMRI, MRI generally)
+
+Cross-validated or holdout prediction accuracies using eigenvalue features are usually about 2-3%
+better than guessing, maybe 5-7% if you "hypertune" by testing millions of combinations (i.e. just
+overfit, perhaps). This has been the case even when I have tried different normalization strategies,
+preprocessing strategies, etc., and at least for the ABIDE data, this means you are looking at validation
+prediction accuracies of under 60% (compared to dubious literature reported ~71% best).
 
 ***ABIDE is heterogenous, and the spectra across sites are clearly, obviously dramatically visually
 different, and the clusters are also clearly, obviously different***. Thus, even if some clustering is
