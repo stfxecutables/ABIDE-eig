@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace
 from dataclasses import dataclass
 from enum import Enum
@@ -34,8 +35,10 @@ from sklearn.model_selection import StratifiedShuffleSplit
 from torch import Tensor
 from torch.nn import (
     AvgPool1d,
+    AvgPool2d,
     BatchNorm1d,
     Conv1d,
+    Flatten,
     LeakyReLU,
     Linear,
     MaxPool1d,
@@ -47,9 +50,12 @@ from torch.optim import Adam
 from torch.optim.lr_scheduler import StepLR
 from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader, TensorDataset
-from torchmetrics.functional import accuracy, precision
+from torchmetrics.functional import accuracy, f1, precision
 from tqdm.contrib.concurrent import process_map
 from typing_extensions import Literal
+
+ROOT = Path(__file__).resolve().parent
+LOGS = ROOT / "lightning_logs"
 
 
 def get_labels_sites(imgs: List[Path], subj_data: Path) -> Tuple[List[int], List[str]]:
@@ -105,31 +111,43 @@ class PointLinear(Module):
         return x
 
 
-class TestModel(LightningModule):
-    def __init__(
-        self,
-        init_ch: int = 16,
-        depth: int = 4,
-        lr=1e-3,
-        weight_decay=0.0,
-        max_depth: int = 512,
-        point: bool = False,
-        *args: Any,
-        **kwargs: Any,
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        self.lr = lr
-        self.weight_decay = weight_decay
-        layers: List[Module] = [Lin(LEN, init_ch)] if not point else [PointLinear(init_ch)]
-        ch = init_ch
-        out = ch
-        for _ in range(depth - 1):
-            out = min(max_depth, out * 2)
-            layers.append(Lin(ch, out))
-            ch = out
+class Conv(Module):
+    def __init__(self, in_channels: int, out_channels: int, kernel_size: int = 3) -> None:
+        super().__init__()
+        self.model = Sequential(
+            Conv1d(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                kernel_size=kernel_size,
+                # padding="same",
+                padding=0,
+                bias=True,
+            ),
+            LeakyReLU(),
+            BatchNorm1d(out_channels),
+        )
 
-        layers.append(Linear(out, 1, bias=True))
-        self.model = Sequential(*layers)
+    def forward(self, x: Tensor) -> Tensor:
+        # needs x.shape == (B, C, seq_length)
+        if x.ndim == 2:
+            x = x.unsqueeze(1)
+        x = self.model(x)
+        return x
+
+
+class GlobalAveragePool1D(Module):
+    def __init__(self) -> None:
+        super().__init__()
+
+    def forward(self, x: Tensor) -> Tensor:
+        # x.shape == (B, C, len)
+        return torch.mean(x, dim=-1)
+
+
+class TrainingMixin(LightningModule, ABC):
+    @abstractmethod
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__()
 
     def training_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int, *args, **kwargs) -> Any:
         return self.shared_step(batch, "train")
@@ -157,13 +175,92 @@ class TestModel(LightningModule):
         preds = self.model(x)
         loss = binary_cross_entropy_with_logits(preds.squeeze(), target.float())
         acc = accuracy(preds, target) - GUESS
-        prec = precision(preds, target)
+        f1_score = f1(preds, target)
         self.log(f"{phase}/loss", loss)
         self.log(f"{phase}/acc+", acc, prog_bar=True)
-        self.log(f"{phase}/prec", prec, prog_bar=True)
+        # self.log(f"{phase}/prec", prec, prog_bar=True)
+        self.log(f"{phase}/f1", f1_score, prog_bar=True)
         if phase == "val":
             self.log(f"{phase}/acc", acc + GUESS, prog_bar=True)
         return loss
+
+
+class LinearModel(TrainingMixin):
+    def __init__(
+        self,
+        init_ch: int = 16,
+        depth: int = 4,
+        lr: float = 1e-3,
+        weight_decay: float = 0.0,
+        max_depth: int = 512,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self.lr = lr
+        self.weight_decay = weight_decay
+        layers: List[Module] = [Lin(LEN, init_ch)]
+        ch = init_ch
+        out = ch
+        for _ in range(depth - 1):
+            out = min(max_depth, out * 2)
+            layers.append(Lin(ch, out))
+            ch = out
+        layers.append(Linear(out, 1, bias=True))
+        self.model = Sequential(*layers)
+
+
+class PointModel(TrainingMixin):
+    def __init__(
+        self,
+        init_ch: int = 16,
+        depth: int = 4,
+        lr: float = 1e-3,
+        weight_decay: float = 0.0,
+        max_depth: int = 512,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self.lr = lr
+        self.weight_decay = weight_decay
+        layers: List[Module] = [PointLinear(init_ch)]
+        ch = init_ch
+        out = ch
+        for _ in range(depth - 1):
+            out = min(max_depth, out * 2)
+            layers.append(Lin(ch, out))
+            ch = out
+        layers.append(Linear(out, 1, bias=True))
+        self.model = Sequential(*layers)
+
+
+class ConvModel(TrainingMixin):
+    def __init__(
+        self,
+        init_ch: int = 16,
+        depth: int = 4,
+        kernel_size: int = 3,
+        lr: float = 1e-3,
+        weight_decay: float = 0.0,
+        max_depth: int = 512,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self.lr = lr
+        self.weight_decay = weight_decay
+        layers: List[Module] = [Conv(in_channels=1, out_channels=init_ch, kernel_size=kernel_size)]
+        ch = init_ch
+        out = ch
+        for _ in range(depth - 1):
+            out = min(max_depth, out * 2)
+            layers.append(Conv(ch, out, kernel_size=kernel_size))
+            ch = out
+        # will have shape (B, out, LEN)
+        layers.append(GlobalAveragePool1D())
+        layers.append(Linear(out, 1, bias=True))
+        self.model = Sequential(*layers)
 
 
 if __name__ == "__main__":
@@ -202,13 +299,20 @@ if __name__ == "__main__":
     parser = Trainer.add_argparse_args(parser)
     train_args = parser.parse_known_args()[0]
     cbs = [LearningRateMonitor()]
+
+    shared_args: Dict[str, Any] = dict(init_ch=32, depth=4, weight_decay=1e-5, max_depth=512)
+    model: LightningModule
+    # model = LinearModel(**shared_args)
+    # model = PointModel(lr=1e-3, **shared_args)
+    model = ConvModel(kernel_size=7, **shared_args)
+
     trainer: Trainer = Trainer.from_argparse_args(
         train_args,
         callbacks=cbs,
         max_epochs=1000,
         gpus=1,
+        default_root_dir=LOGS / model.__class__.__name__,
     )
-    model = TestModel(point=True, init_ch=32, depth=8, weight_decay=1e-5, max_depth=512)
     print(model)
     trainer.fit(model, train_loader, val_loader)
 
