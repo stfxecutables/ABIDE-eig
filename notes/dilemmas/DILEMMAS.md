@@ -253,6 +253,23 @@ Essentially, if something like "in subgroup 1, region A is strongly correlated w
 weakly with region C, whereas in subgroup 2, the AB and AC correlation strengths are reversed" is
 true, eigenvalues cannot see this.
 
+### Third Issue: Eigenvalues are Insensitive to Signal
+
+I actually discovered [this
+post](https://blog.kxy.ai/5-reasons-you-should-never-use-pca-for-feature-selection/) *after* writing
+the above, but it makes a lot of the same arguments as above, plus another argument regarding signal
+/ noise. Essentially, it argues that PCA aims to maximally preserve "energy". In less obscurantist
+terms, this means the overall expected magnitude of the data matrix, or equivalently, if the
+features are standardized, the sum of covariances i.e. total amount of correlations between
+features.
+
+However, these totals / sums are a combination of the signal and noise in the data. When the
+signal-to-noise-ratio is quite low, most of the overall energy/magnitude is due to noise, so PCA
+mostly preserves noise, and can (will) even actually destroy signal in the data.
+
+Ultimately, the reason for this destruction is the orthogonality requirement above, and the
+summation, which means useless features can't really be "excluded" in PCA, and so very likely
+contaminate nearly all the PCA-reduced features in some unknown way.
 
 ### Eigenvalues are Especially bad for Heterogeneous Data (e.g. ABIDE, fMRI, MRI generally)
 
