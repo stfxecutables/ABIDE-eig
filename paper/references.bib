@@ -6,7 +6,7 @@
 }
 
 @article{abrahamDerivingReproducibleBiomarkers2017,
-  title = {Deriving Reproducible Biomarkers from Multi-Site Resting-State Data: An {{Autism}}-Based Example},
+  title = {Deriving Reproducible Biomarkers from Multi-Site Resting-State Data: {{An Autism-based}} Example},
   shorttitle = {Deriving Reproducible Biomarkers from Multi-Site Resting-State Data},
   author = {Abraham, Alexandre and Milham, Michael P. and Di Martino, Adriana and Craddock, R. Cameron and Samaras, Dimitris and Thirion, Bertrand and Varoquaux, Gael},
   year = {2017},
@@ -23,8 +23,8 @@
 }
 
 @article{almuqhimASDSAENetSparseAutoencoder2021,
-  title = {{{ASD}}-{{SAENet}}: A {{Sparse Autoencoder}}, and {{Deep}}-{{Neural Network Model}} for {{Detecting Autism Spectrum Disorder}} ({{ASD}}) {{Using fMRI Data}}},
-  shorttitle = {{{ASD}}-{{SAENet}}},
+  title = {{{ASD-SAENet}}: {{A Sparse Autoencoder}}, and {{Deep-Neural Network Model}} for {{Detecting Autism Spectrum Disorder}} ({{ASD}}) {{Using fMRI Data}}},
+  shorttitle = {{{ASD-SAENet}}},
   author = {Almuqhim, Fahad and Saeed, Fahad},
   year = {2021},
   journal = {Frontiers in Computational Neuroscience},
@@ -52,7 +52,7 @@
 }
 
 @article{bellecNeuroBureauADHD2002017,
-  title = {The {{Neuro Bureau ADHD}}-200 {{Preprocessed}} Repository},
+  title = {The {{Neuro Bureau ADHD-200 Preprocessed}} Repository},
   author = {Bellec, Pierre and Chu, Carlton and {Chouinard-Decorte}, Fran{\c c}ois and Benhajali, Yassine and Margulies, Daniel S. and Craddock, R. Cameron},
   year = {2017},
   month = jan,
@@ -69,7 +69,7 @@
 }
 
 @inproceedings{byeonArtificialNeuralNetwork2020,
-  title = {Artificial {{Neural Network Inspired}} by {{Neuroimaging Connectivity}}: Application in {{Autism Spectrum Disorder}}},
+  title = {Artificial {{Neural Network Inspired}} by {{Neuroimaging Connectivity}}: {{Application}} in {{Autism Spectrum Disorder}}},
   shorttitle = {Artificial {{Neural Network Inspired}} by {{Neuroimaging Connectivity}}},
   booktitle = {2020 {{IEEE International Conference}} on {{Big Data}} and {{Smart Computing}} ({{BigComp}})},
   author = {Byeon, Kyoungseob and Kwon, Junmo and Hong, Jisu and Park, Hyunjin},
@@ -84,7 +84,7 @@
 }
 
 @article{cameronAutomatedAnalysisConnectomes2013,
-  title = {Towards {{Automated Analysis}} of {{Connectomes}}: The {{Configurable Pipeline}} for the {{Analysis}} of {{Connectomes}} ({{C}}-{{PAC}})},
+  title = {Towards {{Automated Analysis}} of {{Connectomes}}: {{The Configurable Pipeline}} for the {{Analysis}} of {{Connectomes}} ({{C-PAC}})},
   shorttitle = {Towards {{Automated Analysis}} of {{Connectomes}}},
   author = {Cameron, Craddock and Sharad, Sikka and Brian, Cheung and Ranjeet, Khanuja and Satrajit, Ghosh and Chaogan, Yan and Qingyang, Li and Daniel, Lurie and Joshua, Vogelstein and Randal, Burns and Stanley, Colcombe and Maarten, Mennes and Clare, Kelly and Adriana, Di Martino and Francisco, Castellanos and Michael, Milham},
   year = {2013},
@@ -92,6 +92,32 @@
   volume = {7},
   issn = {1662-5196},
   doi = {10.3389/conf.fninf.2013.09.00042}
+}
+
+@article{cawleyOverfittingModelSelection2010,
+  title = {On {{Over-fitting}} in {{Model Selection}} and {{Subsequent Selection Bias}} in {{Performance Evaluation}}},
+  author = {Cawley, Gavin C. and Talbot, Nicola L. C.},
+  year = {2010},
+  journal = {Journal of Machine Learning Research},
+  volume = {11},
+  number = {70},
+  pages = {2079--2107},
+  issn = {1533-7928},
+  abstract = {Model selection strategies for machine learning algorithms typically involve the numerical optimisation of an appropriate model selection criterion, often based on an estimator of generalisation performance, such as k-fold cross-validation. The error of such an estimator can be broken down into bias and variance components. While unbiasedness is often cited as a beneficial quality of a model selection criterion, we demonstrate that a low variance is at least as important, as a non-negligible variance introduces the potential for over-fitting in model selection as well as in training the model. While this observation is in hindsight perhaps rather obvious, the degradation in performance due to over-fitting the model selection criterion can be surprisingly large, an observation that appears to have received little attention in the machine learning literature to date. In this paper, we show that the effects of this form of over-fitting are often of comparable magnitude to differences in performance between learning algorithms, and thus cannot be ignored in empirical evaluation. Furthermore, we show that some common performance evaluation practices are susceptible to a form of selection bias as a result of this form of over-fitting and hence are unreliable. We discuss methods to avoid over-fitting in model selection and subsequent selection bias in performance evaluation, which we hope will be incorporated into best practice. While this study concentrates on cross-validation based model selection, the findings are quite general and apply to any model selection practice involving the optimisation of a model selection criterion evaluated over a finite sample of data, including maximisation of the Bayesian evidence and optimisation of performance bounds.},
+  file = {/home/derek/Zotero/storage/K4YYNRM3/Cawley and Talbot - 2010 - On Over-fitting in Model Selection and Subsequent .pdf}
+}
+
+@article{cawleyPreventingOverFittingModel2007,
+  title = {Preventing {{Over-Fitting}} during {{Model Selection}} via {{Bayesian Regularisation}} of the {{Hyper-Parameters}}},
+  author = {Cawley, Gavin C. and Talbot, Nicola L. C.},
+  year = {2007},
+  journal = {Journal of Machine Learning Research},
+  volume = {8},
+  number = {31},
+  pages = {841--861},
+  issn = {1533-7928},
+  abstract = {While the model parameters of a kernel machine are typically given by the solution of a convex optimisation problem, with a single global optimum, the selection of good values for the regularisation and kernel parameters is much less straightforward. Fortunately the leave-one-out cross-validation procedure can be performed or a least approximated very efficiently in closed form for a wide variety of kernel learning methods, providing a convenient means for model selection. Leave-one-out cross-validation based estimates of performance, however, generally exhibit a relatively high variance and are therefore prone to over-fitting. In this paper, we investigate the novel use of Bayesian regularisation at the second level of inference, adding a regularisation term to the model selection criterion corresponding to a prior over the hyper-parameter values, where the additional regularisation parameters are integrated out analytically. Results obtained on a suite of thirteen real-world and synthetic benchmark data sets clearly demonstrate the benefit of this approach.},
+  file = {/home/derek/Zotero/storage/AHUXGAEG/Cawley and Talbot - 2007 - Preventing Over-Fitting during Model Selection via.pdf}
 }
 
 @article{dekhilUsingRestingState2018,
@@ -146,9 +172,9 @@
 }
 
 @inproceedings{el-gazzarHybrid3DCNN3DCLSTM2019,
-  title = {A {{Hybrid 3DCNN}} and {{3DC}}-{{LSTM Based Model}} for {{4D Spatio}}-{{Temporal fMRI Data}}: An {{ABIDE Autism Classification Study}}},
-  shorttitle = {A {{Hybrid 3DCNN}} and {{3DC}}-{{LSTM Based Model}} for {{4D Spatio}}-{{Temporal fMRI Data}}},
-  booktitle = {{{OR}} 2.0 {{Context}}-{{Aware Operating Theaters}} and {{Machine Learning}} in {{Clinical Neuroimaging}}},
+  title = {A {{Hybrid 3DCNN}} and {{3DC-LSTM Based Model}} for {{4D Spatio-Temporal fMRI Data}}: {{An ABIDE Autism Classification Study}}},
+  shorttitle = {A {{Hybrid 3DCNN}} and {{3DC-LSTM Based Model}} for {{4D Spatio-Temporal fMRI Data}}},
+  booktitle = {{{OR}} 2.0 {{Context-Aware Operating Theaters}} and {{Machine Learning}} in {{Clinical Neuroimaging}}},
   author = {{El-Gazzar}, Ahmed and Quaak, Mirjam and Cerliani, Leonardo and Bloem, Peter and {van Wingen}, Guido and Mani Thomas, Rajat},
   editor = {Zhou, Luping and Sarikaya, Duygu and Kia, Seyed Mostafa and Speidel, Stefanie and Malpani, Anand and Hashimoto, Daniel and Habes, Mohamad and L{\"o}fstedt, Tommy and Ritter, Kerstin and Wang, Hongzhi},
   year = {2019},
@@ -164,8 +190,8 @@
 }
 
 @article{eslamiASDDiagNetHybridLearning2019,
-  title = {{{ASD}}-{{DiagNet}}: A {{Hybrid Learning Approach}} for {{Detection}} of {{Autism Spectrum Disorder Using fMRI Data}}},
-  shorttitle = {{{ASD}}-{{DiagNet}}},
+  title = {{{ASD-DiagNet}}: {{A Hybrid Learning Approach}} for {{Detection}} of {{Autism Spectrum Disorder Using fMRI Data}}},
+  shorttitle = {{{ASD-DiagNet}}},
   author = {Eslami, Taban and Mirjalili, Vahid and Fong, Alvis and Laird, Angela R. and Saeed, Fahad},
   year = {2019},
   journal = {Frontiers in Neuroinformatics},
@@ -195,7 +221,7 @@
 }
 
 @article{fanHumanBrainnetomeAtlas2016,
-  title = {The {{Human Brainnetome Atlas}}: A {{New Brain Atlas Based}} on {{Connectional Architecture}}},
+  title = {The {{Human Brainnetome Atlas}}: {{A New Brain Atlas Based}} on {{Connectional Architecture}}},
   shorttitle = {The {{Human Brainnetome Atlas}}},
   author = {Fan, Lingzhong and Li, Hai and Zhuo, Junjie and Zhang, Yu and Wang, Jiaojian and Chen, Liangfu and Yang, Zhengyi and Chu, Congying and Xie, Sangma and Laird, Angela R. and Fox, Peter T. and Eickhoff, Simon B. and Yu, Chunshui and Jiang, Tianzi},
   year = {2016},
@@ -305,7 +331,7 @@
 }
 
 @article{iqbalGenerativeAdversarialNetwork2018,
-  title = {Generative {{Adversarial Network}} for {{Medical Images}} ({{MI}}-{{GAN}})},
+  title = {Generative {{Adversarial Network}} for {{Medical Images}} ({{MI-GAN}})},
   author = {Iqbal, Talha and Ali, Hazrat},
   year = {2018},
   month = nov,
@@ -325,7 +351,7 @@
 }
 
 @article{itaniMultilevelClassificationFramework2018,
-  title = {A Multi-Level Classification Framework for Multi-Site Medical Data: Application to the {{ADHD}}-200 Collection},
+  title = {A Multi-Level Classification Framework for Multi-Site Medical Data: {{Application}} to the {{ADHD-200}} Collection},
   shorttitle = {A Multi-Level Classification Framework for Multi-Site Medical Data},
   author = {Itani, Sarah and Lecron, Fabian and Fortemps, Philippe},
   year = {2018},
@@ -341,8 +367,18 @@
   file = {/home/derek/Zotero/storage/Z43BMI9U/S0957417417305924.html}
 }
 
+@article{JMLR:v8:cawley07a,
+  title = {Preventing Over-Fitting during Model Selection via Bayesian Regularisation of the Hyper-Parameters},
+  author = {Cawley, Gavin C. and Talbot, Nicola L. C.},
+  year = {2007},
+  journal = {Journal of Machine Learning Research},
+  volume = {8},
+  number = {31},
+  pages = {841--861}
+}
+
 @article{kazeminejadTopologicalPropertiesRestingState2019,
-  title = {Topological {{Properties}} of {{Resting}}-{{State fMRI Functional Networks Improve Machine Learning}}-{{Based Autism Classification}}},
+  title = {Topological {{Properties}} of {{Resting-State fMRI Functional Networks Improve Machine Learning-Based Autism Classification}}},
   author = {Kazeminejad, Amirali and Sotero, Roberto C.},
   year = {2019},
   journal = {Frontiers in Neuroscience},
@@ -421,7 +457,7 @@
 }
 
 @article{liuDeepSpatioTemporalRepresentation2021,
-  title = {Deep {{Spatio}}-{{Temporal Representation}} and {{Ensemble Classification}} for {{Attention Deficit}}/{{Hyperactivity Disorder}}},
+  title = {Deep {{Spatio-Temporal Representation}} and {{Ensemble Classification}} for {{Attention Deficit}}/{{Hyperactivity Disorder}}},
   author = {Liu, Shuaiqi and Zhao, Ling and Wang, Xu and Xin, Qi and Zhao, Jie and Guttery, David S. and Zhang, Yu-Dong},
   year = {2021},
   journal = {IEEE Transactions on Neural Systems and Rehabilitation Engineering},
@@ -452,7 +488,7 @@
 
 @techreport{markiewiczOpenNeuroOpenResource2021,
   type = {Preprint},
-  title = {{{OpenNeuro}}: An Open Resource for Sharing of Neuroimaging Data},
+  title = {{{OpenNeuro}}: {{An}} Open Resource for Sharing of Neuroimaging Data},
   shorttitle = {{{OpenNeuro}}},
   author = {Markiewicz, Christopher J. and Gorgolewski, Krzysztof J. and Feingold, Franklin and Blair, Ross and Halchenko, Yaroslav O. and Miller, Eric and Hardcastle, Nell and Wexler, Joe and Esteban, Oscar and Goncalves, Mathias and Jwa, Anita and Poldrack, Russell A.},
   year = {2021},
@@ -507,7 +543,7 @@
 }
 
 @article{parisotDiseasePredictionUsing2018,
-  title = {Disease Prediction Using Graph Convolutional Networks: Application to {{Autism Spectrum Disorder}} and {{Alzheimer}}'s Disease},
+  title = {Disease Prediction Using Graph Convolutional Networks: {{Application}} to {{Autism Spectrum Disorder}} and {{Alzheimer}}'s Disease},
   shorttitle = {Disease Prediction Using Graph Convolutional Networks},
   author = {Parisot, Sarah and Ktena, Sofia Ira and Ferrante, Enzo and Lee, Matthew and Guerrero, Ricardo and Glocker, Ben and Rueckert, Daniel},
   year = {2018},
@@ -524,7 +560,7 @@
 }
 
 @article{picardTorchManualSeed2021,
-  title = {Torch.Manual\_seed(3407) Is All You Need: On the Influence of Random Seeds in Deep Learning Architectures for Computer Vision},
+  title = {Torch.Manual\_seed(3407) Is All You Need: {{On}} the Influence of Random Seeds in Deep Learning Architectures for Computer Vision},
   shorttitle = {Torch.Manual\_seed(3407) Is All You Need},
   author = {Picard, David},
   year = {2021},
@@ -629,7 +665,7 @@
 }
 
 @article{singh3DDeepLearning2020,
-  title = {{{3D Deep Learning}} on {{Medical Images}}: A {{Review}}},
+  title = {{{3D Deep Learning}} on {{Medical Images}}: {{A Review}}},
   shorttitle = {{{3D Deep Learning}} on {{Medical Images}}},
   author = {Singh, Satya P. and Wang, Lipo and Gupta, Sukrit and Goli, Haveesh and Padmanabhan, Parasuraman and Guly{\'a}s, Bal{\'a}zs},
   year = {2020},
@@ -679,7 +715,7 @@
 }
 
 @inproceedings{tranVideoClassificationChannelSeparated2019,
-  title = {Video {{Classification With Channel}}-{{Separated Convolutional Networks}}},
+  title = {Video {{Classification With Channel-Separated Convolutional Networks}}},
   booktitle = {Proceedings of the {{IEEE}}/{{CVF International Conference}} on {{Computer Vision}}},
   author = {Tran, Du and Wang, Heng and Torresani, Lorenzo and Feiszli, Matt},
   year = {2019},
@@ -688,7 +724,7 @@
 }
 
 @article{tzourio-mazoyerAutomatedAnatomicalLabeling2002,
-  title = {Automated {{Anatomical Labeling}} of {{Activations}} in {{SPM Using}} a {{Macroscopic Anatomical Parcellation}} of the {{MNI MRI Single}}-{{Subject Brain}}},
+  title = {Automated {{Anatomical Labeling}} of {{Activations}} in {{SPM Using}} a {{Macroscopic Anatomical Parcellation}} of the {{MNI MRI Single-Subject Brain}}},
   author = {{Tzourio-Mazoyer}, N. and Landeau, B. and Papathanassiou, D. and Crivello, F. and Etard, O. and Delcroix, N. and Mazoyer, B. and Joliot, M.},
   year = {2002},
   month = jan,
@@ -704,7 +740,7 @@
 }
 
 @article{wangFunctionalConnectivitybasedClassification2019,
-  title = {Functional Connectivity-Based Classification of Autism and Control Using {{SVM}}-{{RFECV}} on Rs-{{fMRI}} Data},
+  title = {Functional Connectivity-Based Classification of Autism and Control Using {{SVM-RFECV}} on Rs-{{fMRI}} Data},
   author = {Wang, Canhua and Xiao, Zhiyong and Wu, Jianhua},
   year = {2019},
   month = sep,
@@ -720,7 +756,7 @@
 }
 
 @article{wangIdentifyingAutismSpectrum2020,
-  title = {Identifying {{Autism Spectrum Disorder With Multi}}-{{Site fMRI}} via {{Low}}-{{Rank Domain Adaptation}}},
+  title = {Identifying {{Autism Spectrum Disorder With Multi-Site fMRI}} via {{Low-Rank Domain Adaptation}}},
   author = {Wang, Mingliang and Zhang, Daoqiang and Huang, Jiashuang and Yap, Pew-Thian and Shen, Dinggang and Liu, Mingxia},
   year = {2020},
   month = mar,
@@ -736,7 +772,7 @@
 }
 
 @article{wangMAGEAutomaticDiagnosis2021,
-  title = {{{MAGE}}: Automatic Diagnosis of Autism Spectrum Disorders Using Multi-Atlas Graph Convolutional Networks and Ensemble Learning},
+  title = {{{MAGE}}: {{Automatic}} Diagnosis of Autism Spectrum Disorders Using Multi-Atlas Graph Convolutional Networks and Ensemble Learning},
   shorttitle = {{{MAGE}}},
   author = {Wang, Yufei and Liu, Jin and Xiang, Yizhen and Wang, Jianxin and Chen, Qingyong and Chong, Jing},
   year = {2021},
@@ -812,7 +848,7 @@
 }
 
 @article{xieRethinkingSpatiotemporalFeature2018,
-  title = {Rethinking {{Spatiotemporal Feature Learning}}: Speed-{{Accuracy Trade}}-Offs in {{Video Classification}}},
+  title = {Rethinking {{Spatiotemporal Feature Learning}}: {{Speed-Accuracy Trade-offs}} in {{Video Classification}}},
   shorttitle = {Rethinking {{Spatiotemporal Feature Learning}}},
   author = {Xie, Saining and Sun, Chen and Huang, Jonathan and Tu, Zhuowen and Murphy, Kevin},
   year = {2018},

@@ -67,7 +67,9 @@ def compute_results(args: Dict) -> Optional[DataFrame]:
 #
 # and n_trials=200, total runtime is about 15 minutes.
 # If n_trials=500, total runtime is just under 50 minutes.
-if __name__ == "__main__":
+
+
+def compute_last_year_full_results() -> None:
     parser = ArgumentParser()
     parser.add_argument("--silent", action="store_true")
     silent = parser.parse_args().silent
@@ -85,3 +87,25 @@ if __name__ == "__main__":
     dfs = [df for df in dfs if df is not None]
     df = pd.concat(dfs, axis=0, ignore_index=True)
     df.to_parquet(RESULTS / "seq_results_all.parquet")
+
+
+if __name__ == "__main__":
+    parser = ArgumentParser()
+    parser.add_argument("--silent", action="store_true")
+    silent = parser.parse_args().silent
+    GRID = dict(
+        source=["func"],
+        norm=[None],  # TODO: Fix this ambiguous behaviour
+        reducer=[eigvals],
+        # slicer=[slice(50, None)],
+        slicer=[slice(-3, None)],
+        slice_reducer=[identity],
+        classifier=[RandomForestClassifier],
+        classifier_args=[dict(n_jobs=-1)],
+    )
+    params = list(ParameterGrid(GRID))
+    dfs = process_map(compute_results, params, disable=silent)
+    dfs = [df for df in dfs if df is not None]
+    df = pd.concat(dfs, axis=0, ignore_index=True)
+    df.to_parquet(RESULTS / f"seq_results_all_sliced.parquet")
+    print(df.sort_values(by="acc", ascending=False).to_markdown(tablefmt="simple", floatfmt="0.3f"))

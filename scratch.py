@@ -37,11 +37,15 @@ from torch.nn import (
     AvgPool1d,
     AvgPool2d,
     BatchNorm1d,
+    BatchNorm2d,
     Conv1d,
+    Conv2d,
+    Dropout,
     Flatten,
     LeakyReLU,
     Linear,
     MaxPool1d,
+    MaxPool2d,
     Module,
     Sequential,
 )
@@ -135,6 +139,30 @@ class Conv(Module):
         return x
 
 
+class Conv2(Module):
+    def __init__(self, in_channels: int, out_channels: int, kernel_size: int = 3) -> None:
+        super().__init__()
+        self.model = Sequential(
+            Conv2d(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                kernel_size=kernel_size,
+                # padding="same",
+                padding=0,
+                bias=True,
+            ),
+            LeakyReLU(),
+            BatchNorm2d(out_channels),
+        )
+
+    def forward(self, x: Tensor) -> Tensor:
+        # needs x.shape == (B, C, seq_length)
+        if x.ndim == 2:
+            x = x.unsqueeze(1)
+        x = self.model(x)
+        return x
+
+
 class GlobalAveragePool1D(Module):
     def __init__(self) -> None:
         super().__init__()
@@ -142,6 +170,15 @@ class GlobalAveragePool1D(Module):
     def forward(self, x: Tensor) -> Tensor:
         # x.shape == (B, C, len)
         return torch.mean(x, dim=-1)
+
+
+class GlobalAveragePool2D(Module):
+    def __init__(self) -> None:
+        super().__init__()
+
+    def forward(self, x: Tensor) -> Tensor:
+        # x.shape == (B, C, H, W)
+        return torch.mean(x, dim=(2, 3))
 
 
 class TrainingMixin(LightningModule, ABC):
@@ -159,14 +196,16 @@ class TrainingMixin(LightningModule, ABC):
 
     def configure_optimizers(self) -> Any:
         opt = Adam(self.parameters(), weight_decay=self.weight_decay, lr=self.lr)
-        step = 500
+        # step = 500
+        step = 1
         lr_decay = 0.9
         sched = StepLR(opt, step_size=step, gamma=lr_decay)
         return dict(
             optimizer=opt,
             lr_scheduler=dict(
                 scheduler=sched,
-                interval="step",
+                # interval="step",
+                interval="epoch",
             ),
         )
 
@@ -238,6 +277,7 @@ class PointModel(TrainingMixin):
 class ConvModel(TrainingMixin):
     def __init__(
         self,
+        in_channels: int = 1,
         init_ch: int = 16,
         depth: int = 4,
         kernel_size: int = 3,
@@ -250,7 +290,9 @@ class ConvModel(TrainingMixin):
         super().__init__(*args, **kwargs)
         self.lr = lr
         self.weight_decay = weight_decay
-        layers: List[Module] = [Conv(in_channels=1, out_channels=init_ch, kernel_size=kernel_size)]
+        layers: List[Module] = [
+            Conv(in_channels=in_channels, out_channels=init_ch, kernel_size=kernel_size)
+        ]
         ch = init_ch
         out = ch
         for _ in range(depth - 1):
@@ -263,7 +305,38 @@ class ConvModel(TrainingMixin):
         self.model = Sequential(*layers)
 
 
-if __name__ == "__main__":
+class Conv2dModel(TrainingMixin):
+    def __init__(
+        self,
+        in_channels: int = 1,
+        init_ch: int = 16,
+        depth: int = 4,
+        kernel_size: int = 3,
+        lr: float = 1e-3,
+        weight_decay: float = 0.0,
+        max_depth: int = 512,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self.lr = lr
+        self.weight_decay = weight_decay
+        layers: List[Module] = [
+            Conv2(in_channels=in_channels, out_channels=init_ch, kernel_size=kernel_size)
+        ]
+        ch = init_ch
+        out = ch
+        for _ in range(depth - 1):
+            out = min(max_depth, out * 2)
+            layers.append(Conv2(ch, out, kernel_size=kernel_size))
+            ch = out
+        # will have shape (B, out, LEN)
+        layers.append(GlobalAveragePool2D())
+        layers.append(Linear(out, 1, bias=True))
+        self.model = Sequential(*layers)
+
+
+def compare_1D_eig_models() -> None:
     ROOT = Path(__file__).resolve().parent
     DATA = ROOT / "data"
     SUBJ_DATA = DATA / "Phenotypic_V1_0b_preprocessed1.csv"
@@ -328,3 +401,148 @@ if __name__ == "__main__":
     75%     235.000000
     max     315.000000
     """
+
+
+def load_corrmat(path: Path) -> ndarray:
+    return np.load(path)
+
+
+class CorrCell(Module):
+    def __init__(self, in_channels: int, out_channels: int) -> None:
+        super().__init__()
+        self.model = Sequential(
+            Conv2d(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                kernel_size=1,
+                # padding="same",
+                padding=0,
+                bias=True,
+            ),
+            LeakyReLU(),
+            BatchNorm2d(out_channels),
+        )
+
+    def forward(self, x: Tensor) -> Tensor:
+        # needs x.shape == (B, C, seq_length)
+        if x.ndim == 2:
+            x = x.unsqueeze(1)
+        x = self.model(x)
+        return x
+
+
+class CorrPool(Module):
+    def __init__(self, in_channels: int, spatial_in: Tuple[int, int]) -> None:
+        super().__init__()
+        self.conv = Conv2d(
+            in_chanels=in_channels, out_channels=in_channels // 2, kernel_size=spatial_in, padding=0
+        )
+
+    def forward(self, x: Tensor) -> Tensor:
+        # needs x.shape == (B, C, seq_length)
+        if x.ndim == 2:
+            x = x.unsqueeze(1)
+        x1 = self.maxpool(x)
+        x2 = self.avgpool(x)
+        x = torch.cat([x1, x2])
+        return x
+
+
+class CorrNet(TrainingMixin):
+    def __init__(
+        self,
+        init_ch: int = 16,
+        depth: int = 4,
+        lr: float = 3e-4,
+        weight_decay: float = 0.0,
+        max_channels: int = 512,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self.lr = lr
+        self.weight_decay = weight_decay
+        # layers: List[Module] = [
+        #     Conv2(in_channels=2, out_channels=init_ch, kernel_size=1)
+        # ]
+        layers: List[Module] = [
+            Conv2(in_channels=2, out_channels=init_ch, kernel_size=(200, 200)),
+            Flatten(),
+        ]
+        ch = init_ch
+        out = ch
+        for _ in range(depth - 1):
+            out = min(max_channels, out * 2)
+            # layers.append(CorrCell(ch, out))
+            layers.append(Linear(ch, out))
+            layers.append(Dropout(p=0.4))
+            ch = out
+        # will have shape (B, out, LEN)
+        # layers.append(GlobalAveragePool2D())
+        layers.append(Linear(out, 1, bias=True))
+        self.model = Sequential(*layers)
+
+    def shared_step(self, batch: Tuple[Tensor, Tensor], phase: str) -> Tensor:
+        x, target = batch
+        preds = self.model(x)
+        loss = binary_cross_entropy_with_logits(preds.squeeze(), target.float())
+        acc = accuracy(preds, target) - GUESS
+        f1_score = f1(preds, target)
+        self.log(f"{phase}/loss", loss)
+        self.log(f"{phase}/acc+", acc, prog_bar=True)
+        # self.log(f"{phase}/prec", prec, prog_bar=True)
+        self.log(f"{phase}/f1", f1_score, prog_bar=True)
+        if phase == "val":
+            self.log(f"{phase}/acc", acc + GUESS, prog_bar=True)
+        return loss
+
+
+if __name__ == "__main__":
+    ROOT = Path(__file__).resolve().parent
+    DATA = ROOT / "data"
+    SUBJ_DATA = DATA / "Phenotypic_V1_0b_preprocessed1.csv"
+    CORR_MEAN_PATHS = sorted((ROOT / "data/features_cpac/cc200/r_mean").rglob("*.npy"))
+    CORR_SD_PATHS = sorted((ROOT / "data/features_cpac/cc200/r_sd").rglob("*.npy"))
+    BATCH_SIZE = 32
+    WORKERS = 4
+    labels, sites = get_labels_sites(CORR_MEAN_PATHS, SUBJ_DATA)
+    means = np.stack(process_map(load_corrmat, CORR_MEAN_PATHS, chunksize=1, disable=True))
+    means += 1
+    means /= 2
+    sds = np.stack(process_map(load_corrmat, CORR_SD_PATHS, chunksize=1, disable=True))
+    X = np.stack([means, sds], axis=1)
+    dummy = np.empty([len(X), 1])
+    idx_train, idx_val = next(
+        StratifiedShuffleSplit(n_splits=1, test_size=200).split(X=dummy, y=labels, groups=sites)
+    )
+    labels = torch.tensor(labels)
+    X = torch.from_numpy(X.copy()).float()
+    x_train, x_val = X[idx_train], X[idx_val]
+    y_train, y_val = labels[idx_train], labels[idx_val]
+    GUESS = 0.5 + np.abs(torch.mean(y_val.float()) - 0.5)
+
+    args = dict(batch_size=BATCH_SIZE, num_workers=WORKERS, drop_last=True)
+    train_loader = DataLoader(TensorDataset(x_train, y_train), shuffle=True, **args)
+    val_loader = DataLoader(TensorDataset(x_val, y_val), shuffle=False, **args)
+    parser = ArgumentParser()
+    parser = Trainer.add_argparse_args(parser)
+    train_args = parser.parse_known_args()[0]
+    cbs = [LearningRateMonitor(), ModelCheckpoint(monitor="val/acc+")]
+
+    shared_args: Dict[str, Any] = dict(
+        init_ch=32, depth=8, weight_decay=0, max_channels=256, lr=3e-4
+    )
+    model: LightningModule
+    # model = LinearModel(**shared_args)
+    # model = PointModel(lr=1e-3, **shared_args)
+    model = CorrNet(**shared_args)
+
+    trainer: Trainer = Trainer.from_argparse_args(
+        train_args,
+        callbacks=cbs,
+        max_epochs=1000,
+        gpus=1,
+        default_root_dir=LOGS / f"corrs_test_logs/{model.__class__.__name__}",
+    )
+    print(model)
+    trainer.fit(model, train_loader, val_loader)

@@ -136,6 +136,11 @@ def pca(x: ndarray) -> ndarray:
     return PCA(n_components=1).fit_transform(x).ravel()  # type: ignore
 
 
+def alpha(x: ndarray) -> ndarray:
+    """Fit an exponential  to the eigenvalues above a natural threshold (e.g. Otsu, Yen)
+    and return the fit paramater(s)."""
+
+
 def eigvals(x: ndarray) -> ndarray:
     eigs: ndarray = eigs_via_transpose(x, covariance=True)
     return eigs[1:]  # type: ignore

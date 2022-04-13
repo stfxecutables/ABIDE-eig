@@ -26,7 +26,6 @@ from torch.nn.modules.pooling import MaxPool3d
 from tqdm import tqdm
 from typing_extensions import Literal
 
-from src.analysis.predict.deep_learning.constants import INPUT_SHAPE
 from src.analysis.predict.deep_learning.models.layers.cbam import CBAM
 from src.analysis.predict.deep_learning.models.layers.utils import (
     EVEN_PAD,
@@ -34,6 +33,7 @@ from src.analysis.predict.deep_learning.models.layers.utils import (
     outsize_3d,
     padding_same,
 )
+from src.constants.shapes import INPUT_SHAPE
 
 Padding = Union[Literal["same"], int]
 

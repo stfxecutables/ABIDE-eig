@@ -146,6 +146,6 @@ def predict_from_sequence_reductions(
     X = df.drop(columns="target").to_numpy()
     y = df["target"].to_numpy().ravel()
     guess = np.max([np.sum(y == 0), np.sum(y == 1)]) / len(y)
-    htune_result = hypertune_classifier("rf", X, y, n_trials=500, cv_method=5, verbosity=VERBOSITY)
+    htune_result = hypertune_classifier("xgb", X, y, n_trials=500, cv_method=5, verbosity=VERBOSITY)
     # res = cross_val_score(classifier(**classifier_args), X, y, cv=5, scoring="accuracy")
     return guess, htune_result
