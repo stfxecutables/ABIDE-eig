@@ -18,7 +18,8 @@ if CC_CLUSTER is not None:
     os.environ["MPLCONFIGDIR"] = str(Path(SCRATCH) / ".mplconfig")
 ROOT = Path(__file__).resolve().parent.parent.parent.parent
 sys.path.append(str(ROOT))
-from src.analysis.preprocess.constants import ATLASES, FEATURES_DIR, MASK, NIIS, T_CROP
+from src.constants.paths import MASK, NIIS
+from src.constants.preprocess import ATLASES, FEATURES_DIR, T_CROP
 from src.eigenimage.compute import eigs_via_transpose
 
 """
@@ -31,6 +32,10 @@ We need to extract:
 - roi_sds:
 - r_mean: (ROI mean correlations)
 - r_sd: (ROI sd correlations)
+- r_max: (ROI max correlations)
+- r_95: (ROI 95th percentile)
+- r_05: (ROI 5th percentile)
+- r_min: (ROI min correlations)
 - lap_mean: (T-thresholded Laplacian eigenvalues of r_mean)
 - lap_sd: (T-thresholded Laplacian eigenvalues of r_sd)
 - eig_mean: (Eigenvalues of r_mean)
@@ -62,20 +67,28 @@ def parse_legend(legend: Path) -> DataFrame:
 
 
 def compute_roi_descriptives(
-    arr: ndarray, atlas: ndarray, summary: Literal["mean", "sd"]
+    arr: ndarray, atlas: ndarray, summary: Literal["mean", "sd", "max", "min", "p95", "p05"]
 ) -> ndarray:
     """Return array of shape (T, n_ROI) where ROIs are summarized via statistic in `summary`"""
+    ops = dict(
+        mean=lambda roi: np.mean(roi, axis=0),
+        sd=lambda roi: np.std(roi, axis=0, ddof=1),
+        max=lambda roi: np.max(roi, axis=0),
+        min=lambda roi: np.min(roi, axis=0),
+        p95=lambda roi: np.percentile(roi, 95),
+        p05=lambda roi: np.percentile(roi, 5),
+    )
     roi_ids = np.unique(atlas)[1:]  # exclude 0 == air voxels
     rois = np.empty((arr.shape[-1], len(roi_ids)))
     for i, rid in enumerate(roi_ids):
         roi = arr[atlas == rid]
-        seq = np.mean(roi, axis=0) if summary == "mean" else np.std(roi, axis=0, ddof=1)
+        seq = ops[summary](roi)
         rois[:, i] = seq
     return rois
 
 
 def compute_desc_correlations(
-    arr: ndarray, desc: ndarray, summary: Literal["mean", "sd"]
+    arr: ndarray, desc: ndarray, summary: Literal["mean", "sd", "min", "max", "p95", "p05"]
 ) -> ndarray:
     """Assumes `desc` has shape (T, n_ROI).
 
@@ -95,13 +108,17 @@ def compute_desc_correlations(
     An alternative might be to replace such ROIs with the global mean signal (or
     global sd signal, for the ROI sds). We do the latter.
     """
+    ops = dict(
+        mean=lambda arr: np.mean(arr, axis=(0, 1, 2)),
+        sd=lambda arr: np.std(arr, axis=(0, 1, 2), ddof=1),
+        max=lambda arr: np.max(arr, axis=(0, 1, 2)),
+        min=lambda arr: np.min(arr, axis=(0, 1, 2)),
+        p95=lambda arr: np.percentile(arr, 95, axis=(0, 1, 2)),
+        p05=lambda arr: np.percentile(arr, 5, axis=(0, 1, 2)),
+    )
     const_idx = np.where(np.std(desc, axis=0, ddof=1) == 0)[0]
     if len(const_idx) > 0:
-        replace = (
-            np.mean(arr, axis=(0, 1, 2))
-            if summary == "mean"
-            else np.std(arr, axis=(0, 1, 2), ddof=1)
-        )
+        replace = ops[summary](arr)
         desc = np.copy(desc)
         for idx in const_idx:
             desc[:, idx] = replace
@@ -227,6 +244,54 @@ def extract_roi_features(nii: Path) -> None:
         print(f"Got error for subject {nii}:")
         print(e)
 
+
+def extract_roi_correlation_features(nii: Path) -> None:
+    try:
+        arr = nib.load(str(nii)).get_fdata()
+        for atlas_data in ATLASES:
+            # even with CC400 matrix each result is only 400x400, e.g. 1.2 MB max
+            atlas = nib.load(str(atlas_data.path)).get_fdata()
+            roi_means = compute_roi_descriptives(arr, atlas, "mean")
+            roi_sds = compute_roi_descriptives(arr, atlas, "sd")
+            roi_maxs = compute_roi_descriptives(arr, atlas, "max")
+            roi_mins = compute_roi_descriptives(arr, atlas, "min")
+            roi_95s = compute_roi_descriptives(arr, atlas, "p95")
+            roi_05s = compute_roi_descriptives(arr, atlas, "p05")
+
+            r_mean = compute_desc_correlations(arr, roi_means, "mean")
+            r_sd = compute_desc_correlations(arr, roi_sds, "sd")
+            r_max = compute_desc_correlations(arr, roi_maxs, "max")
+            r_min = compute_desc_correlations(arr, roi_mins, "min")
+            r_95 = compute_desc_correlations(arr, roi_maxs, "p95")
+            r_05 = compute_desc_correlations(arr, roi_mins, "p05")
+
+            features = dict(
+                roi_means=roi_means,
+                roi_sds=roi_sds,
+                roi_maxs=roi_maxs,
+                roi_mins=roi_mins,
+                roi_p95s=roi_95s,
+                roi_p05s=roi_05s,
+                r_mean=r_mean,
+                r_sd=r_sd,
+                r_max=r_max,
+                r_min=r_min,
+                r_95=r_95,
+                r_05=r_05,
+            )
+            atlas_outdir = FEATURES_DIR / atlas_data.name
+            for feature_name, feature in features.items():
+                outdir = atlas_outdir / feature_name
+                outfile = outdir / nii.name.replace("func_preproc.nii.gz", f"_{feature_name}.npy")
+                if not outdir.exists():
+                    os.makedirs(outdir, exist_ok=True)
+                np.save(outfile, feature, allow_pickle=False, fix_imports=False)
+    except Exception as e:
+        traceback.print_exc()
+        print(f"Got error for subject {nii}:")
+        print(e)
+
+
 def extract_wholebrain_features(nii: Path) -> None:
     try:
         arr = nib.load(str(nii)).get_fdata()
@@ -257,6 +322,8 @@ if __name__ == "__main__":
     if CC_CLUSTER is None:  # debugging
         niis = niis[:10]
         for nii in niis:
-            extract_roi_features(nii)
+            # extract_roi_features(nii)
+            extract_roi_correlation_features(nii)
     # process_map(extract_roi_features, niis, desc="Extracting ROI features")
-    process_map(extract_wholebrain_features, niis, desc="Extracting whole-brain features")
+    # process_map(extract_wholebrain_features, niis, desc="Extracting whole-brain features")
+    process_map(extract_roi_correlation_features, niis, desc="Extracting ROI correlation features")

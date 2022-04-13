@@ -23,7 +23,7 @@ from sklearn.model_selection import ParameterGrid
 from tqdm.contrib.concurrent import process_map
 
 from src.analysis.predict.roi_predict import predict_from_roi_reductions
-from src.analysis.rois import identity, max, mean, pca, std
+from src.analysis.preprocess.rois import identity, max, mean, pca, std
 from src.run.cc_setup import RESULTS
 
 LOGFILE = setup_logging("compute_roi_preds")

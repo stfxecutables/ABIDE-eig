@@ -11,7 +11,7 @@ setup_environment()
 import sys
 from pathlib import Path
 
-from src.analysis.rois import (
+from src.analysis.preprocess.rois import (
     precompute_all_eigimg_roi_reductions,
     precompute_all_func_roi_reductions,
 )
