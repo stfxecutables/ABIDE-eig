@@ -18,7 +18,7 @@ if CC_CLUSTER is not None:
     os.environ["MPLCONFIGDIR"] = str(Path(SCRATCH) / ".mplconfig")
 ROOT = Path(__file__).resolve().parent.parent.parent.parent
 sys.path.append(str(ROOT))
-from src.constants.paths import MASK, NIIS
+from src.constants.paths import FULL_DEEP_FMRI, MASK, NIIS
 from src.constants.preprocess import ATLASES, FEATURES_DIR, T_CROP
 from src.eigenimage.compute import eigs_via_transpose
 
@@ -318,7 +318,7 @@ def extract_wholebrain_features(nii: Path) -> None:
 
 
 if __name__ == "__main__":
-    niis = sorted(NIIS.rglob("*.nii.gz"))
+    niis = sorted(FULL_DEEP_FMRI.rglob("*.nii.gz"))
     if CC_CLUSTER is None:  # debugging
         niis = niis[:10]
         for nii in niis:
