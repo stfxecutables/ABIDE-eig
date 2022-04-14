@@ -33,7 +33,13 @@ from pytorch_lightning.callbacks import (
     LearningRateMonitor,
     ModelCheckpoint,
 )
-from sklearn.model_selection import GroupKFold, StratifiedKFold, StratifiedShuffleSplit
+from sklearn.model_selection import (
+    GridSearchCV,
+    GroupKFold,
+    KFold,
+    StratifiedKFold,
+    StratifiedShuffleSplit,
+)
 from torch import Tensor
 from torch.nn import (
     SELU,
@@ -45,6 +51,7 @@ from torch.nn import (
     Conv2d,
     Dropout,
     Flatten,
+    LazyLinear,
     LeakyReLU,
     Linear,
     MaxPool1d,
@@ -63,6 +70,7 @@ from torchmetrics.functional import accuracy, f1, precision
 from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 from typing_extensions import Literal
+from xgboost import DMatrix, XGBClassifier
 
 ROOT = Path(__file__).resolve().parent
 LOGS = ROOT / "lightning_logs"
@@ -470,7 +478,7 @@ class Thresholder(Module):
     def __init__(self, in_channels: int) -> None:
         super().__init__()
         self.relu = ReLU()
-        self.rescale = Parameter(torch.randn([1, in_channels, 200, 200]), requires_grad=True)
+        self.attention = Parameter(torch.randn([1, in_channels, 200, 200]), requires_grad=True)
         self.thresh = Parameter(torch.randn([1, in_channels, 1, 1]), requires_grad=True)
 
     def forward(self, x: Tensor) -> Tensor:
@@ -478,10 +486,33 @@ class Thresholder(Module):
         if x.ndim == 2:
             x = x.unsqueeze(1)
         x = x * 2 - 1  # send back to [-1, 1]
-        mask = torch.abs(x) + self.thresh  # makes correlations > self.thresh all that matter
+        mask = torch.abs(x) - torch.abs(
+            self.thresh
+        )  # makes correlations > self.thresh all that matter
         mask = self.relu(mask)
         x = x * mask
-        x = torch.mul(self.rescale, x)
+        x = torch.mul(torch.sigmoid(self.attention), x)
+        return x
+
+
+class CorrInput(Module):
+    def __init__(self, in_channels: int) -> None:
+        super().__init__()
+        self.relu = ReLU()
+        self.attention = Parameter(torch.randn([1, in_channels, 200, 200]), requires_grad=True)
+        self.thresh = Parameter(torch.randn([1, in_channels, 1, 1]), requires_grad=True)
+
+    def forward(self, x: Tensor) -> Tensor:
+        # needs x.shape == (B, C, seq_length)
+        if x.ndim == 2:
+            x = x.unsqueeze(1)
+        x = x * 2 - 1  # send back to [-1, 1]
+        mask = torch.abs(x) - torch.abs(
+            self.thresh
+        )  # makes correlations > self.thresh all that matter
+        mask = self.relu(mask)
+        x = x * mask
+        x = torch.mul(torch.sigmoid(self.attention), x)
         return x
 
 
@@ -493,6 +524,7 @@ class CorrNet(TrainingMixin):
         lr: float = 3e-4,
         weight_decay: float = 0.0,
         max_channels: int = 512,
+        dropout: float = 0.6,
         *args: Any,
         **kwargs: Any,
     ) -> None:
@@ -503,9 +535,12 @@ class CorrNet(TrainingMixin):
         #     Conv2(in_channels=2, out_channels=init_ch, kernel_size=1)
         # ]
         layers: List[Module] = [
-            Thresholder(in_channels=6),
-            Conv2(in_channels=6, out_channels=init_ch, kernel_size=(200, 200)),
+            # Thresholder(in_channels=6),
+            Conv(in_channels=6, out_channels=init_ch, kernel_size=N),
             Flatten(),
+            # LazyLinear(out_features=init_ch, bias=False),
+            # BatchNorm1d(init_ch),
+            # LeakyReLU(inplace=True),
         ]
         ch = init_ch
         out = ch
@@ -513,8 +548,9 @@ class CorrNet(TrainingMixin):
             out = min(max_channels, out * 2)
             # layers.append(CorrCell(ch, out))
             layers.append(Linear(ch, out))
-            layers.append(SELU(inplace=True))
-            layers.append(Dropout(p=0.4))
+            layers.append(BatchNorm1d(out))
+            layers.append(LeakyReLU(inplace=True))
+            layers.append(Dropout(p=dropout))
             ch = out
         # will have shape (B, out, LEN)
         # layers.append(GlobalAveragePool2D())
@@ -538,7 +574,7 @@ class CorrNet(TrainingMixin):
 
 
 @MEMOIZER.cache
-def load_X_labels() -> Tuple[Tensor, Tensor, List, List]:
+def load_X_labels_unshuffled() -> Tuple[ndarray, ndarray, List]:
     ROOT = Path(__file__).resolve().parent
     DATA = ROOT / "data"
     SUBJ_DATA = DATA / "Phenotypic_V1_0b_preprocessed1.csv"
@@ -555,20 +591,30 @@ def load_X_labels() -> Tuple[Tensor, Tensor, List, List]:
     X[np.isnan(X)] = 0  # shouldn't be any, but just in case
     X += 1
     X /= 2  # are correlations, normalize to be positive in [0, 1]
+    idx_h, idx_w = np.triu_indices_from(X[0, 0, :, :], k=1)
+    X = X[:, :, idx_h, idx_w]  # 19 900 features
+    return X, labels_, sites
+
+
+def load_X_labels() -> Tuple[Tensor, Tensor, List, List]:
+    X, labels_, sites = load_X_labels_unshuffled()
+
+    # shuffle
+    idx = np.random.permutation(len(X))
+    X = X[idx]
+    labels = np.array(labels_)[idx]
+    sites = np.array(sites)[idx].tolist()
+
     labels = torch.tensor(labels_)
     X = torch.from_numpy(X.copy()).float()
     return X, labels, labels_, sites
 
 
-if __name__ == "__main__":
-    BATCH_SIZE = 32
-    LR = 3e-4
-    # LR = 1e-3
-    WORKERS = 4
+def test_kfold() -> None:
+    global GUESS
     X, labels, labels_, sites = load_X_labels()
     dummy = np.empty([len(X), 1])
-    # 17 sites based on site unification
-    kf = GroupKFold(n_splits=5).split(X=dummy, y=labels_, groups=sites)
+    kf = StratifiedKFold(n_splits=5).split(X=dummy, y=labels_, groups=sites)
     # all_idx_train, idx_test = next(
     #     StratifiedShuffleSplit(n_splits=1, test_size=64).split(X=dummy, y=labels_, groups=sites)
     # )
@@ -630,3 +676,67 @@ if __name__ == "__main__":
     print("\n\nFinal results:")
     df = pd.DataFrame({"acc": accs, "acc+": acc_deltas, "f1": f1s, "loss": losses})
     print(df.describe().T.drop(columns="count").to_markdown(tablefmt="simple", floatfmt="0.3f"))
+
+
+def test_split() -> None:
+    global GUESS
+    X, labels, labels_, sites = load_X_labels()
+    dummy = np.empty([len(X), 1])
+    idx_train, idx_val = next(
+        StratifiedShuffleSplit(n_splits=1, test_size=256).split(X=dummy, y=labels_, groups=sites)
+    )
+    x_train, x_val = X[idx_train], X[idx_val]
+    y_train, y_val = labels[idx_train], labels[idx_val]
+    GUESS = 0.5 + np.abs(torch.mean(y_val.float()) - 0.5)
+
+    args = dict(batch_size=BATCH_SIZE, num_workers=WORKERS, drop_last=True)
+    train_loader = DataLoader(TensorDataset(x_train, y_train), shuffle=True, **args)
+    val_loader = DataLoader(TensorDataset(x_val, y_val), shuffle=False, **args)
+    parser = ArgumentParser()
+    parser = Trainer.add_argparse_args(parser)
+    train_args = parser.parse_known_args()[0]
+    cbs = [LearningRateMonitor(), ModelCheckpoint(monitor="val/acc", mode="max")]
+
+    model: LightningModule
+    # model = LinearModel(**shared_args)
+    # model = PointModel(lr=1e-3, **shared_args)
+    model = CorrNet(**SHARED_ARGS)
+
+    trainer: Trainer = Trainer.from_argparse_args(
+        train_args,
+        callbacks=cbs,
+        enable_model_summary=False,
+        log_every_n_steps=64,
+        max_steps=6000,
+        gpus=1,
+        default_root_dir=LOGS / f"corrs_test_logs/{model.__class__.__name__}/holdout",
+    )
+    trainer.fit(model, train_loader, val_loader)
+
+
+if __name__ == "__main__":
+    N = int((200 ** 2 - 200) / 2)  # upper triangle of 200x200 matrix where diagonals are 1
+    GUESS = None
+    BATCH_SIZE = 32
+    LR = 3e-4
+    # LR = 1e-3
+    WORKERS = 4
+    SHARED_ARGS: Dict[str, Any] = dict(
+        init_ch=256, depth=8, weight_decay=0, max_channels=512, lr=LR, dropout=0.4
+    )
+    X, labels, labels_, sites = load_X_labels()
+    dummy = np.empty([len(X), 1])
+    idx_train, idx_val = next(
+        StratifiedShuffleSplit(n_splits=1, test_size=256).split(X=dummy, y=labels_, groups=sites)
+    )
+    x_train, x_val = X[idx_train], X[idx_val]
+    y_train, y_val = labels[idx_train], labels[idx_val]
+
+    GUESS = 0.5 + np.abs(torch.mean(y_val.float()) - 0.5)
+    model = XGBClassifier(n_jobs=-1, objective="binary:logloss", use_label_encoder=False)
+    train = DMatrix(x_train.reshape(x_train.shape[0], -1), y_train)
+    clf = GridSearchCV(model, {'max_depth': [2, 4, 6], 'n_estimators': [50, 100, 200]}, verbose=1, n_jobs=1)
+    clf.fit(x_train.reshape(x_train.shape[0], -1), y_train)
+    clf.score(x_val.reshape(x_val.shape[0], -1), y_val)
+    # test_kfold()
+    # test_split()
