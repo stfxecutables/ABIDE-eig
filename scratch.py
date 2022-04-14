@@ -744,8 +744,7 @@ if __name__ == "__main__":
         n_jobs=1,
         cv=3,
     )
-    # clf.fit(x_train.reshape(x_train.shape[0], -1), y_train, eval_metric="logloss")
-    clf.fit(x_train.reshape(x_train.shape[0], -1)[:100], y_train[:100], eval_metric="logloss")
+    clf.fit(x_train.reshape(x_train.shape[0], -1), y_train, eval_metric="logloss")
     pred = clf.predict(x_val.reshape(x_val.shape[0], -1))
     acc = accuracy_score(y_val, pred)
     acc_delta = acc - GUESS
