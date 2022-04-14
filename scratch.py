@@ -734,10 +734,11 @@ if __name__ == "__main__":
     )
     x_train, x_val = X[idx_train], X[idx_val]
     y_train, y_val = labels[idx_train], labels[idx_val]
+    x_train = x_train.reshape(x_train.shape[0], -1)
+    x_val = x_val.reshape(x_val.shape[0], -1)
 
     GUESS = 0.5 + np.abs(torch.mean(y_val.float()) - 0.5)
     model = XGBClassifier(n_jobs=-1, objective="binary:logistic", use_label_encoder=False)
-    train = DMatrix(x_train.reshape(x_train.shape[0], -1), y_train)
     result = hypertune_classifier("xgb", x_train, y_train, n_trials=1, cv_method=5, verbosity=20)
     print(result)
     print("Best params:")
