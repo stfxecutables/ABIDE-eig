@@ -737,7 +737,7 @@ if __name__ == "__main__":
     model = XGBClassifier(n_jobs=-1, objective="binary:logistic", use_label_encoder=False)
     train = DMatrix(x_train.reshape(x_train.shape[0], -1), y_train)
     clf = GridSearchCV(
-        model, {"max_depth": [2, 4, 6], "n_estimators": [100, 200]}, verbose=1, n_jobs=1, cv=3
+        model, {"max_depth": [2, 4, 6], "n_estimators": [100, 200]}, verbose=2, n_jobs=1, cv=3
     )
     clf.fit(x_train.reshape(x_train.shape[0], -1), y_train, eval_metric="logloss")
     pred = clf.predict(x_val.reshape(x_val.shape[0], -1))
