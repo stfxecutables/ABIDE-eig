@@ -73,6 +73,8 @@ from tqdm.contrib.concurrent import process_map
 from typing_extensions import Literal
 from xgboost import DMatrix, XGBClassifier
 
+from src.analysis.predict.hypertune import evaluate_hypertuned, hypertune_classifier
+
 ROOT = Path(__file__).resolve().parent
 LOGS = ROOT / "lightning_logs"
 MEMOIZER = Memory("__CACHE__")
@@ -734,19 +736,19 @@ if __name__ == "__main__":
     y_train, y_val = labels[idx_train], labels[idx_val]
 
     GUESS = 0.5 + np.abs(torch.mean(y_val.float()) - 0.5)
-    model = XGBClassifier(
-        n_jobs=-1, objective="binary:logistic", use_label_encoder=False, tree_method="hist", verbose=1
-    )
+    model = XGBClassifier(n_jobs=-1, objective="binary:logistic", use_label_encoder=False)
     train = DMatrix(x_train.reshape(x_train.shape[0], -1), y_train)
-    clf = GridSearchCV(
-        model, {"max_depth": [2, 4, 6], "n_estimators": [100, 200]}, verbose=2, n_jobs=1, cv=3
+    result = hypertune_classifier("xgb", x_train, y_train, n_trials=1, cv_method=5, verbosity=20)
+    print(result)
+    print("Best params:")
+    print(result.best_params)
+    print("Tuning acc: ")
+    print(f"{result.val_acc} ({result.val_acc - GUESS})")
+
+    res = evaluate_hypertuned(
+        result, cv_method=None, X_train=x_train, y_train=y_train, X_test=x_val, y_test=y_val
     )
-    clf.fit(x_train.reshape(x_train.shape[0], -1), y_train, eval_metric="logloss")
-    pred = clf.predict(x_val.reshape(x_val.shape[0], -1))
-    acc = accuracy_score(y_val, pred)
-    acc_delta = acc - GUESS
-    print(f"Got accuracy: {acc} ({acc_delta})")
-    print(clf.score(x_val.reshape(x_val.shape[0], -1), y_val))
+    print(res)
 
     # test_kfold()
     # test_split()
