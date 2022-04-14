@@ -735,7 +735,7 @@ if __name__ == "__main__":
 
     GUESS = 0.5 + np.abs(torch.mean(y_val.float()) - 0.5)
     model = XGBClassifier(
-        n_jobs=-1, objective="binary:logistic", use_label_encoder=False, tree_method="hist"
+        n_jobs=-1, objective="binary:logistic", use_label_encoder=False, tree_method="hist", verbose=1
     )
     train = DMatrix(x_train.reshape(x_train.shape[0], -1), y_train)
     clf = GridSearchCV(
