@@ -739,7 +739,7 @@ if __name__ == "__main__":
 
     GUESS = 0.5 + np.abs(torch.mean(y_val.float()) - 0.5)
     model = XGBClassifier(n_jobs=-1, objective="binary:logistic", use_label_encoder=False)
-    result = hypertune_classifier("xgb", x_train, y_train, n_trials=1, cv_method=5, verbosity=20)
+    result = hypertune_classifier("xgb", x_train, y_train, n_trials=1, cv_method=3, verbosity=10)
     print(result)
     print("Best params:")
     print(result.best_params)
