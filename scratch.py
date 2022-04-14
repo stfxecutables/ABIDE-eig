@@ -1,3 +1,4 @@
+import sys
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace
 from dataclasses import dataclass
@@ -22,6 +23,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import torch
+from joblib import Memory
 from numpy import ndarray
 from pandas import DataFrame, Series
 from pytorch_lightning import LightningModule, Trainer, seed_everything
@@ -31,9 +33,10 @@ from pytorch_lightning.callbacks import (
     LearningRateMonitor,
     ModelCheckpoint,
 )
-from sklearn.model_selection import StratifiedShuffleSplit
+from sklearn.model_selection import GroupKFold, StratifiedKFold, StratifiedShuffleSplit
 from torch import Tensor
 from torch.nn import (
+    SELU,
     AvgPool1d,
     AvgPool2d,
     BatchNorm1d,
@@ -47,19 +50,23 @@ from torch.nn import (
     MaxPool1d,
     MaxPool2d,
     Module,
+    ReLU,
     Sequential,
 )
 from torch.nn.functional import binary_cross_entropy_with_logits
+from torch.nn.parameter import Parameter
 from torch.optim import Adam
 from torch.optim.lr_scheduler import StepLR
 from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader, TensorDataset
 from torchmetrics.functional import accuracy, f1, precision
+from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 from typing_extensions import Literal
 
 ROOT = Path(__file__).resolve().parent
 LOGS = ROOT / "lightning_logs"
+MEMOIZER = Memory("__CACHE__")
 
 
 def get_labels_sites(imgs: List[Path], subj_data: Path) -> Tuple[List[int], List[str]]:
@@ -75,6 +82,12 @@ def get_labels_sites(imgs: List[Path], subj_data: Path) -> Tuple[List[int], List
     fids = [img.stem[: img.stem.find("__")] for img in imgs]
     labels: List[int] = subjects.loc[fids].label.to_list()
     sites = subjects.loc[fids].site.to_list()
+    for i, site in enumerate(sites):
+        # remove some unnecessary fine-grained site distinctions like LEUVEN_1, UM_2, UM_1
+        for s in ["LEUVEN", "UCLA", "UM"]:
+            if s in site:
+                sites[i] = s
+
     return labels, sites
 
 
@@ -194,11 +207,16 @@ class TrainingMixin(LightningModule, ABC):
     ) -> Optional[Any]:
         self.shared_step(batch, "val")
 
+    def test_step(
+        self, batch: Tuple[Tensor, Tensor], batch_idx: int, *args, **kwargs
+    ) -> Optional[Any]:
+        self.shared_step(batch, "test")
+
     def configure_optimizers(self) -> Any:
         opt = Adam(self.parameters(), weight_decay=self.weight_decay, lr=self.lr)
         # step = 500
         step = 1
-        lr_decay = 0.9
+        lr_decay = 0.95
         sched = StepLR(opt, step_size=step, gamma=lr_decay)
         return dict(
             optimizer=opt,
@@ -448,6 +466,25 @@ class CorrPool(Module):
         return x
 
 
+class Thresholder(Module):
+    def __init__(self, in_channels: int) -> None:
+        super().__init__()
+        self.relu = ReLU()
+        self.rescale = Parameter(torch.randn([1, in_channels, 200, 200]), requires_grad=True)
+        self.thresh = Parameter(torch.randn([1, in_channels, 1, 1]), requires_grad=True)
+
+    def forward(self, x: Tensor) -> Tensor:
+        # needs x.shape == (B, C, seq_length)
+        if x.ndim == 2:
+            x = x.unsqueeze(1)
+        x = x * 2 - 1  # send back to [-1, 1]
+        mask = torch.abs(x) + self.thresh  # makes correlations > self.thresh all that matter
+        mask = self.relu(mask)
+        x = x * mask
+        x = torch.mul(self.rescale, x)
+        return x
+
+
 class CorrNet(TrainingMixin):
     def __init__(
         self,
@@ -466,7 +503,8 @@ class CorrNet(TrainingMixin):
         #     Conv2(in_channels=2, out_channels=init_ch, kernel_size=1)
         # ]
         layers: List[Module] = [
-            Conv2(in_channels=2, out_channels=init_ch, kernel_size=(200, 200)),
+            Thresholder(in_channels=6),
+            Conv2(in_channels=6, out_channels=init_ch, kernel_size=(200, 200)),
             Flatten(),
         ]
         ch = init_ch
@@ -475,6 +513,7 @@ class CorrNet(TrainingMixin):
             out = min(max_channels, out * 2)
             # layers.append(CorrCell(ch, out))
             layers.append(Linear(ch, out))
+            layers.append(SELU(inplace=True))
             layers.append(Dropout(p=0.4))
             ch = out
         # will have shape (B, out, LEN)
@@ -486,63 +525,108 @@ class CorrNet(TrainingMixin):
         x, target = batch
         preds = self.model(x)
         loss = binary_cross_entropy_with_logits(preds.squeeze(), target.float())
-        acc = accuracy(preds, target) - GUESS
-        f1_score = f1(preds, target)
+
         self.log(f"{phase}/loss", loss)
-        self.log(f"{phase}/acc+", acc, prog_bar=True)
         # self.log(f"{phase}/prec", prec, prog_bar=True)
-        self.log(f"{phase}/f1", f1_score, prog_bar=True)
-        if phase == "val":
+        if phase in ["val", "test"]:
+            acc = accuracy(preds, target) - GUESS
+            f1_score = f1(preds, target)
+            self.log(f"{phase}/acc+", acc, prog_bar=True)
             self.log(f"{phase}/acc", acc + GUESS, prog_bar=True)
+            self.log(f"{phase}/f1", f1_score, prog_bar=True)
         return loss
 
 
-if __name__ == "__main__":
+@MEMOIZER.cache
+def load_X_labels() -> Tuple[Tensor, Tensor, List, List]:
     ROOT = Path(__file__).resolve().parent
     DATA = ROOT / "data"
     SUBJ_DATA = DATA / "Phenotypic_V1_0b_preprocessed1.csv"
-    CORR_MEAN_PATHS = sorted((ROOT / "data/features_cpac/cc200/r_mean").rglob("*.npy"))
-    CORR_SD_PATHS = sorted((ROOT / "data/features_cpac/cc200/r_sd").rglob("*.npy"))
-    BATCH_SIZE = 32
-    WORKERS = 4
-    labels, sites = get_labels_sites(CORR_MEAN_PATHS, SUBJ_DATA)
-    means = np.stack(process_map(load_corrmat, CORR_MEAN_PATHS, chunksize=1, disable=True))
-    means += 1
-    means /= 2
-    sds = np.stack(process_map(load_corrmat, CORR_SD_PATHS, chunksize=1, disable=True))
-    X = np.stack([means, sds], axis=1)
-    dummy = np.empty([len(X), 1])
-    idx_train, idx_val = next(
-        StratifiedShuffleSplit(n_splits=1, test_size=200).split(X=dummy, y=labels, groups=sites)
-    )
-    labels = torch.tensor(labels)
+    CC200 = ROOT / "data/features_cpac/cc200"
+    CORR_FEAT_NAMES = ["r_mean", "r_sd", "r_05", "r_95", "r_max", "r_min"]
+    CORR_FEATURE_DIRS = [CC200 / p for p in CORR_FEAT_NAMES]
+    CORR_FEAT_PATHS = [sorted(p.rglob("*.npy")) for p in CORR_FEATURE_DIRS]
+    labels_, sites = get_labels_sites(CORR_FEAT_PATHS[0], SUBJ_DATA)
+    feats = [
+        np.stack(process_map(load_corrmat, paths, chunksize=1, disable=True))
+        for paths in tqdm(CORR_FEAT_PATHS, desc="Loading correlation features")
+    ]
+    X = np.stack(feats, axis=1)
+    X[np.isnan(X)] = 0  # shouldn't be any, but just in case
+    X += 1
+    X /= 2  # are correlations, normalize to be positive in [0, 1]
+    labels = torch.tensor(labels_)
     X = torch.from_numpy(X.copy()).float()
-    x_train, x_val = X[idx_train], X[idx_val]
-    y_train, y_val = labels[idx_train], labels[idx_val]
-    GUESS = 0.5 + np.abs(torch.mean(y_val.float()) - 0.5)
+    return X, labels, labels_, sites
 
-    args = dict(batch_size=BATCH_SIZE, num_workers=WORKERS, drop_last=True)
-    train_loader = DataLoader(TensorDataset(x_train, y_train), shuffle=True, **args)
-    val_loader = DataLoader(TensorDataset(x_val, y_val), shuffle=False, **args)
-    parser = ArgumentParser()
-    parser = Trainer.add_argparse_args(parser)
-    train_args = parser.parse_known_args()[0]
-    cbs = [LearningRateMonitor(), ModelCheckpoint(monitor="val/acc+")]
 
-    shared_args: Dict[str, Any] = dict(
-        init_ch=32, depth=8, weight_decay=0, max_channels=256, lr=3e-4
-    )
-    model: LightningModule
-    # model = LinearModel(**shared_args)
-    # model = PointModel(lr=1e-3, **shared_args)
-    model = CorrNet(**shared_args)
+if __name__ == "__main__":
+    BATCH_SIZE = 32
+    LR = 3e-4
+    # LR = 1e-3
+    WORKERS = 4
+    X, labels, labels_, sites = load_X_labels()
+    dummy = np.empty([len(X), 1])
+    # 17 sites based on site unification
+    kf = GroupKFold(n_splits=5).split(X=dummy, y=labels_, groups=sites)
+    # all_idx_train, idx_test = next(
+    #     StratifiedShuffleSplit(n_splits=1, test_size=64).split(X=dummy, y=labels_, groups=sites)
+    # )
+    all_results = []
+    accs, acc_deltas, f1s, losses = [], [], [], []
+    for i, (all_idx_train, idx_test) in enumerate(kf):
+        print(f"Fold {i}:")
 
-    trainer: Trainer = Trainer.from_argparse_args(
-        train_args,
-        callbacks=cbs,
-        max_epochs=1000,
-        gpus=1,
-        default_root_dir=LOGS / f"corrs_test_logs/{model.__class__.__name__}",
-    )
-    print(model)
-    trainer.fit(model, train_loader, val_loader)
+        # StratifiedKFold()
+        X_train_all, y_train_all = X[all_idx_train], labels[all_idx_train]
+        train_sites = np.array(sites)[all_idx_train]
+
+        idx_train, idx_val = next(
+            StratifiedShuffleSplit(n_splits=1, test_size=64).split(
+                X=np.arange(len(X_train_all)), y=y_train_all, groups=train_sites
+            )
+        )
+
+        x_train, x_val = X_train_all[idx_train], X_train_all[idx_val]
+        y_train, y_val = y_train_all[idx_train], y_train_all[idx_val]
+        x_test, y_test = X[idx_test], labels[idx_test]
+        GUESS = 0.5 + np.abs(torch.mean(y_val.float()) - 0.5)
+
+        args = dict(batch_size=BATCH_SIZE, num_workers=WORKERS, drop_last=True)
+        train_loader = DataLoader(TensorDataset(x_train, y_train), shuffle=True, **args)
+        val_loader = DataLoader(TensorDataset(x_val, y_val), shuffle=False, **args)
+        test_loader = DataLoader(TensorDataset(x_test, y_test), shuffle=False, **args)
+        parser = ArgumentParser()
+        parser = Trainer.add_argparse_args(parser)
+        train_args = parser.parse_known_args()[0]
+        cbs = [LearningRateMonitor(), ModelCheckpoint(monitor="val/acc", mode="max")]
+
+        shared_args: Dict[str, Any] = dict(
+            init_ch=32, depth=4, weight_decay=0, max_channels=256, lr=LR
+        )
+        model: LightningModule
+        # model = LinearModel(**shared_args)
+        # model = PointModel(lr=1e-3, **shared_args)
+        model = CorrNet(**shared_args)
+
+        trainer: Trainer = Trainer.from_argparse_args(
+            train_args,
+            callbacks=cbs,
+            enable_model_summary=False,
+            log_every_n_steps=23,
+            max_steps=2000,
+            gpus=1,
+            default_root_dir=LOGS / f"corrs_test_logs/{model.__class__.__name__}/kfold",
+        )
+        trainer.fit(model, train_loader, val_loader)
+        results = trainer.test(model, test_loader, ckpt_path="best")
+        accs.append(results[0]["test/acc"])
+        acc_deltas.append(results[0]["test/acc+"])
+        f1s.append(results[0]["test/f1"])
+        losses.append(results[0]["test/loss"])
+        all_results.append(results)
+        torch.cuda.empty_cache()
+        # break
+    print("\n\nFinal results:")
+    df = pd.DataFrame({"acc": accs, "acc+": acc_deltas, "f1": f1s, "loss": losses})
+    print(df.describe().T.drop(columns="count").to_markdown(tablefmt="simple", floatfmt="0.3f"))
