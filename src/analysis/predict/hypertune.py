@@ -46,7 +46,10 @@ DTREE_BASE_ARGS: Dict = dict()
 MLP_BASE_ARGS: Dict = dict()
 LDA_BASE_ARGS: Dict = dict()
 XGB_BASE_ARGS: Dict = dict(
-    use_label_encoder=False, objective="binary:logistic", n_jobs=-1, n_estimators=500,
+    use_label_encoder=False,
+    objective="binary:logistic",
+    n_jobs=-1,
+    n_estimators=100,
 )
 BASE_ARGS: Dict[Classifier, Dict] = {
     "rf": RF_BASE_ARGS,
