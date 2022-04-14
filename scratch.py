@@ -33,6 +33,7 @@ from pytorch_lightning.callbacks import (
     LearningRateMonitor,
     ModelCheckpoint,
 )
+from sklearn.metrics import accuracy_score
 from sklearn.model_selection import (
     GridSearchCV,
     GroupKFold,
@@ -735,8 +736,21 @@ if __name__ == "__main__":
     GUESS = 0.5 + np.abs(torch.mean(y_val.float()) - 0.5)
     model = XGBClassifier(n_jobs=-1, objective="binary:logistic", use_label_encoder=False)
     train = DMatrix(x_train.reshape(x_train.shape[0], -1), y_train)
-    clf = GridSearchCV(model, {'max_depth': [2, 4, 6], 'n_estimators': [100, 200]}, verbose=1, n_jobs=1, cv=3)
-    clf.fit(x_train.reshape(x_train.shape[0], -1), y_train, eval_metric="logloss")
-    clf.score(x_val.reshape(x_val.shape[0], -1), y_val)
+    clf = GridSearchCV(
+        # model, {"max_depth": [2, 4, 6], "n_estimators": [100, 200]}, verbose=1, n_jobs=1, cv=3
+        model,
+        {"max_depth": [2], "n_estimators": [100]},
+        verbose=1,
+        n_jobs=1,
+        cv=3,
+    )
+    # clf.fit(x_train.reshape(x_train.shape[0], -1), y_train, eval_metric="logloss")
+    clf.fit(x_train.reshape(x_train.shape[0], -1)[:100], y_train[:100], eval_metric="logloss")
+    pred = clf.predict(x_val.reshape(x_val.shape[0], -1))
+    acc = accuracy_score(y_val, pred)
+    acc_delta = acc - GUESS
+    print(f"Got accuracy: {acc} ({acc_delta})")
+    print(clf.score(x_val.reshape(x_val.shape[0], -1), y_val))
+
     # test_kfold()
     # test_split()
