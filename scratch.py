@@ -744,6 +744,29 @@ def test_xgboost() -> None:
     )
     print(res)
 
+@dataclass
+class LrArgs:
+    X: ndarray
+    labels: ndarray
+    idx_train: List[int]
+    idx_test: List[int]
+
+def eval_lr(lr_args: LrArgs) -> float:
+    X, labels = lr_args.X, lr_args.labels
+    idx_train, idx_test = lr_args.idx_train, lr_args.idx_test
+
+    X_train, y_train = X[idx_train], labels[idx_train]
+    X_test, y_test = X[idx_test], labels[idx_test]
+    return LogisticRegression(
+        penalty="elasticnet",
+        solver="saga",
+        C=10,
+        l1_ratio=0.5,
+        n_jobs=-1,
+        verbose=0,
+    ).fit(X_train, y_train).score(X_test, y_test)
+
+
 
 if __name__ == "__main__":
     N = int((200 ** 2 - 200) / 2)  # upper triangle of 200x200 matrix where diagonals are 1
@@ -760,18 +783,8 @@ if __name__ == "__main__":
     X = X.reshape(X.shape[0], -1)
     kf = StratifiedKFold()
     scores = []
-    for idx_train, idx_test in tqdm(kf.split(X, labels, sites), total=5):
-        X_train, y_train = X[idx_train], labels[idx_train]
-        X_test, y_test = X[idx_test], labels[idx_test]
-        score = LogisticRegression(
-            penalty="elasticnet",
-            solver="saga",
-            C=10,
-            l1_ratio=0.5,
-            n_jobs=-1,
-            verbose=10,
-        ).fit(X_train, y_train).score(X_test, y_test)
-        scores.append(score)
+    args = [LrArgs(X, labels.numpy(), idx_train, idx_test) for idx_train, idx_test in kf.split(X, labels, sites)]
+    scores = process_map(eval_lr, args, max_workers=8)
     print(DataFrame(scores).describe().T.drop(columns="count").rename(index=lambda x: "acc").to_markdown(tablefmt="simple"))
 
     # test_kfold()
