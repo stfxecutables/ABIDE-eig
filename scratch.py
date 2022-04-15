@@ -39,8 +39,10 @@ from sklearn.model_selection import (
     GridSearchCV,
     GroupKFold,
     KFold,
+    ParameterGrid,
     StratifiedKFold,
     StratifiedShuffleSplit,
+    cross_val_score,
 )
 from sklearn.svm import LinearSVC
 from torch import Tensor
@@ -744,28 +746,22 @@ def test_xgboost() -> None:
     )
     print(res)
 
+
 @dataclass
 class LrArgs:
     X: ndarray
     labels: ndarray
-    idx_train: List[int]
-    idx_test: List[int]
+    sites: List[str]
+    args: Dict
+
 
 def eval_lr(lr_args: LrArgs) -> float:
-    X, labels = lr_args.X, lr_args.labels
-    idx_train, idx_test = lr_args.idx_train, lr_args.idx_test
-
-    X_train, y_train = X[idx_train], labels[idx_train]
-    X_test, y_test = X[idx_test], labels[idx_test]
-    return LogisticRegression(
-        penalty="elasticnet",
-        solver="saga",
-        C=10,
-        l1_ratio=0.5,
-        n_jobs=-1,
-        verbose=0,
-    ).fit(X_train, y_train).score(X_test, y_test)
-
+    X, labels, sites = lr_args.X, lr_args.labels, lr_args.sites
+    args = lr_args.args
+    lr = LogisticRegression(verbose=0, **args)
+    score = np.mean(cross_val_score(lr, X, labels, groups=sites, cv=3))
+    print(args, score)
+    return score, args
 
 
 if __name__ == "__main__":
@@ -781,11 +777,30 @@ if __name__ == "__main__":
     )
     X, labels, labels_, sites = load_X_labels()
     X = X.reshape(X.shape[0], -1)
+    # N = 10
+    # X = X[:N, :N]
+    # labels = labels[:N]
+    # sites = sites[:N]
+    grid = list(
+        ParameterGrid(
+            dict(
+                penalty=["l1", "l2"],
+                solver=["liblinear"],
+                C=[1e4, 1e3, 1e2, 10, 1, 0.5, 0.1, 1e-2, 1e-3, 1e-4, 1e-5],
+                max_iter=[200],
+            )
+        )
+    )
     kf = StratifiedKFold()
-    scores = []
-    args = [LrArgs(X, labels.numpy(), idx_train, idx_test) for idx_train, idx_test in kf.split(X, labels, sites)]
-    scores = process_map(eval_lr, args, max_workers=8)
-    print(DataFrame(scores).describe().T.drop(columns="count").rename(index=lambda x: "acc").to_markdown(tablefmt="simple"))
+    args = [LrArgs(X, labels.numpy(), sites, arg) for arg in grid]
+    scores, args = list(zip(*process_map(eval_lr, args, max_workers=8)))
+    print(
+        DataFrame(scores)
+        .describe()
+        .T.drop(columns="count")
+        .rename(index=lambda x: "acc")
+        .to_markdown(tablefmt="simple")
+    )
 
     # test_kfold()
     # test_split()
