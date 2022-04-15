@@ -793,7 +793,7 @@ if __name__ == "__main__":
     )
     kf = StratifiedKFold()
     args = [LrArgs(X, labels.numpy(), sites, arg) for arg in grid]
-    scores, args = list(zip(*process_map(eval_lr, args, max_workers=8)))
+    scores, args = list(zip(*process_map(eval_lr, args, max_workers=4)))
     print(
         DataFrame(scores)
         .describe()
