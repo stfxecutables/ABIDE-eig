@@ -759,7 +759,7 @@ def eval_lr(lr_args: LrArgs) -> float:
     X, labels, sites = lr_args.X, lr_args.labels, lr_args.sites
     args = lr_args.args
     lr = LogisticRegression(verbose=0, **args)
-    score = np.mean(cross_val_score(lr, X, labels, groups=sites, cv=3, n_jobs=3))
+    score = np.mean(cross_val_score(lr, X, labels, groups=sites, cv=5, n_jobs=5))
     print(args, score)
     return score, args
 
@@ -784,10 +784,10 @@ if __name__ == "__main__":
     grid = list(
         ParameterGrid(
             dict(
-                penalty=["l1", "l2"],
+                penalty=["l1"],
                 solver=["liblinear"],
                 C=[1e4, 1e3, 1e2, 10, 1, 0.5, 0.1, 1e-2, 1e-3, 1e-4, 1e-5],
-                max_iter=[200],
+                max_iter=[400],
             )
         )
     )
