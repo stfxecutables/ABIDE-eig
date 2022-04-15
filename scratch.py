@@ -759,7 +759,7 @@ def eval_lr(lr_args: LrArgs) -> float:
     X, labels, sites = lr_args.X, lr_args.labels, lr_args.sites
     args = lr_args.args
     lr = LogisticRegression(verbose=0, **args)
-    score = np.mean(cross_val_score(lr, X, labels, groups=sites, cv=3))
+    score = np.mean(cross_val_score(lr, X, labels, groups=sites, cv=3, n_jobs=3))
     print(args, score)
     return score, args
 
