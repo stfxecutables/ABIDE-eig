@@ -33,6 +33,7 @@ from pytorch_lightning.callbacks import (
     LearningRateMonitor,
     ModelCheckpoint,
 )
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import (
     GridSearchCV,
@@ -41,6 +42,7 @@ from sklearn.model_selection import (
     StratifiedKFold,
     StratifiedShuffleSplit,
 )
+from sklearn.svm import LinearSVC
 from torch import Tensor
 from torch.nn import (
     SELU,
@@ -717,16 +719,7 @@ def test_split() -> None:
     trainer.fit(model, train_loader, val_loader)
 
 
-if __name__ == "__main__":
-    N = int((200 ** 2 - 200) / 2)  # upper triangle of 200x200 matrix where diagonals are 1
-    GUESS = None
-    BATCH_SIZE = 32
-    LR = 3e-4
-    # LR = 1e-3
-    WORKERS = 4
-    SHARED_ARGS: Dict[str, Any] = dict(
-        init_ch=256, depth=8, weight_decay=0, max_channels=512, lr=LR, dropout=0.4
-    )
+def test_xgboost() -> None:
     X, labels, labels_, sites = load_X_labels()
     dummy = np.empty([len(X), 1])
     idx_train, idx_val = next(
@@ -750,6 +743,36 @@ if __name__ == "__main__":
         result, cv_method=None, X_train=x_train, y_train=y_train, X_test=x_val, y_test=y_val
     )
     print(res)
+
+
+if __name__ == "__main__":
+    N = int((200 ** 2 - 200) / 2)  # upper triangle of 200x200 matrix where diagonals are 1
+    GUESS = None
+    BATCH_SIZE = 32
+    LR = 3e-4
+    # LR = 1e-3
+    WORKERS = 4
+    # depth=12 is rreally bad for some reason
+    SHARED_ARGS: Dict[str, Any] = dict(
+        init_ch=256, depth=8, weight_decay=0, max_channels=512, lr=LR, dropout=0.4
+    )
+    X, labels, labels_, sites = load_X_labels()
+    X = X.reshape(X.shape[0], -1)
+    kf = StratifiedKFold()
+    scores = []
+    for idx_train, idx_test in tqdm(kf.split(X, labels, sites), total=5):
+        X_train, y_train = X[idx_train], labels[idx_train]
+        X_test, y_test = X[idx_test], labels[idx_test]
+        score = LogisticRegression(
+            penalty="elasticnet",
+            solver="saga",
+            C=10,
+            l1_ratio=0.5,
+            n_jobs=-1,
+            verbose=10,
+        ).fit(X_train, y_train).score(X_test, y_test)
+        scores.append(score)
+    print(DataFrame(scores).describe().T.drop(columns="count").rename(index=lambda x: "acc").to_markdown(tablefmt="simple"))
 
     # test_kfold()
     # test_split()
