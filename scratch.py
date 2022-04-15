@@ -786,7 +786,7 @@ if __name__ == "__main__":
             dict(
                 penalty=["l2"],
                 solver=["liblinear"],
-                dual=True,
+                dual=[True],
                 C=[1e5, 1e4, 1e3, 1e2, 10, 1, 0.5, 0.1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6],
                 max_iter=[400],
             )
