@@ -56,6 +56,7 @@ from torch.nn import (
     Conv2d,
     Dropout,
     Flatten,
+    Identity,
     LazyLinear,
     LeakyReLU,
     Linear,
@@ -65,7 +66,7 @@ from torch.nn import (
     ReLU,
     Sequential,
 )
-from torch.nn.functional import binary_cross_entropy_with_logits
+from torch.nn.functional import binary_cross_entropy_with_logits, mse_loss
 from torch.nn.parameter import Parameter
 from torch.optim import Adam
 from torch.optim.lr_scheduler import StepLR
@@ -79,9 +80,13 @@ from xgboost import DMatrix, XGBClassifier
 
 from src.analysis.predict.hypertune import evaluate_hypertuned, hypertune_classifier
 
+from scratch_models import GUESS, ASDDiagNet
+
 ROOT = Path(__file__).resolve().parent
 LOGS = ROOT / "lightning_logs"
 MEMOIZER = Memory("__CACHE__")
+
+Norm = Optional[Literal["const", "feature", "grand"]]
 
 
 def get_labels_sites(imgs: List[Path], subj_data: Path) -> Tuple[List[int], List[str]]:
@@ -94,7 +99,10 @@ def get_labels_sites(imgs: List[Path], subj_data: Path) -> Tuple[List[int], List
     )
     subjects.index = subjects.fid.to_list()
     subjects.drop(columns="fid")
-    fids = [img.stem[: img.stem.find("__")] for img in imgs]
+    if "1D" in imgs[0].name:
+        fids = [img.stem[: img.stem.find("_rois")] for img in imgs]
+    else:
+        fids = [img.stem[: img.stem.find("__")] for img in imgs]
     labels: List[int] = subjects.loc[fids].label.to_list()
     sites = subjects.loc[fids].site.to_list()
     for i, site in enumerate(sites):
@@ -108,265 +116,6 @@ def get_labels_sites(imgs: List[Path], subj_data: Path) -> Tuple[List[int], List
 
 def load_eigs(eig: Path) -> ndarray:
     return np.load(eig)
-
-
-class Lin(Module):
-    def __init__(self, in_channels: int, out_channels: int) -> None:
-        super().__init__()
-        self.model = Sequential(
-            Linear(in_channels, out_channels, bias=True),
-            LeakyReLU(),
-            BatchNorm1d(out_channels),
-        )
-
-    def forward(self, x: Tensor) -> Tensor:
-        x = self.model(x)
-        return x
-
-
-class PointLinear(Module):
-    def __init__(self, out_channels: int) -> None:
-        super().__init__()
-        self.model = Sequential(
-            Linear(4, out_channels, bias=True),
-            LeakyReLU(),
-            BatchNorm1d(out_channels),
-        )
-
-    def forward(self, x: Tensor) -> Tensor:
-        x_mean = torch.mean(x, dim=1)
-        x_min = torch.min(x, dim=1)[0]
-        x_max = torch.max(x, dim=1)[0]
-        x_sd = torch.std(x, dim=1)
-        x = torch.stack([x_mean, x_min, x_max, x_sd], dim=1)
-        x = self.model(x)
-        return x
-
-
-class Conv(Module):
-    def __init__(self, in_channels: int, out_channels: int, kernel_size: int = 3) -> None:
-        super().__init__()
-        self.model = Sequential(
-            Conv1d(
-                in_channels=in_channels,
-                out_channels=out_channels,
-                kernel_size=kernel_size,
-                # padding="same",
-                padding=0,
-                bias=True,
-            ),
-            LeakyReLU(),
-            BatchNorm1d(out_channels),
-        )
-
-    def forward(self, x: Tensor) -> Tensor:
-        # needs x.shape == (B, C, seq_length)
-        if x.ndim == 2:
-            x = x.unsqueeze(1)
-        x = self.model(x)
-        return x
-
-
-class Conv2(Module):
-    def __init__(self, in_channels: int, out_channels: int, kernel_size: int = 3) -> None:
-        super().__init__()
-        self.model = Sequential(
-            Conv2d(
-                in_channels=in_channels,
-                out_channels=out_channels,
-                kernel_size=kernel_size,
-                # padding="same",
-                padding=0,
-                bias=True,
-            ),
-            LeakyReLU(),
-            BatchNorm2d(out_channels),
-        )
-
-    def forward(self, x: Tensor) -> Tensor:
-        # needs x.shape == (B, C, seq_length)
-        if x.ndim == 2:
-            x = x.unsqueeze(1)
-        x = self.model(x)
-        return x
-
-
-class GlobalAveragePool1D(Module):
-    def __init__(self) -> None:
-        super().__init__()
-
-    def forward(self, x: Tensor) -> Tensor:
-        # x.shape == (B, C, len)
-        return torch.mean(x, dim=-1)
-
-
-class GlobalAveragePool2D(Module):
-    def __init__(self) -> None:
-        super().__init__()
-
-    def forward(self, x: Tensor) -> Tensor:
-        # x.shape == (B, C, H, W)
-        return torch.mean(x, dim=(2, 3))
-
-
-class TrainingMixin(LightningModule, ABC):
-    @abstractmethod
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__()
-
-    def training_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int, *args, **kwargs) -> Any:
-        return self.shared_step(batch, "train")
-
-    def validation_step(
-        self, batch: Tuple[Tensor, Tensor], batch_idx: int, *args, **kwargs
-    ) -> Optional[Any]:
-        self.shared_step(batch, "val")
-
-    def test_step(
-        self, batch: Tuple[Tensor, Tensor], batch_idx: int, *args, **kwargs
-    ) -> Optional[Any]:
-        self.shared_step(batch, "test")
-
-    def configure_optimizers(self) -> Any:
-        opt = Adam(self.parameters(), weight_decay=self.weight_decay, lr=self.lr)
-        # step = 500
-        step = 1
-        lr_decay = 0.95
-        sched = StepLR(opt, step_size=step, gamma=lr_decay)
-        return dict(
-            optimizer=opt,
-            lr_scheduler=dict(
-                scheduler=sched,
-                # interval="step",
-                interval="epoch",
-            ),
-        )
-
-    def shared_step(self, batch: Tuple[Tensor, Tensor], phase: str) -> Tensor:
-        x, target = batch
-        preds = self.model(x)
-        loss = binary_cross_entropy_with_logits(preds.squeeze(), target.float())
-        acc = accuracy(preds, target) - GUESS
-        f1_score = f1(preds, target)
-        self.log(f"{phase}/loss", loss)
-        self.log(f"{phase}/acc+", acc, prog_bar=True)
-        # self.log(f"{phase}/prec", prec, prog_bar=True)
-        self.log(f"{phase}/f1", f1_score, prog_bar=True)
-        if phase == "val":
-            self.log(f"{phase}/acc", acc + GUESS, prog_bar=True)
-        return loss
-
-
-class LinearModel(TrainingMixin):
-    def __init__(
-        self,
-        init_ch: int = 16,
-        depth: int = 4,
-        lr: float = 1e-3,
-        weight_decay: float = 0.0,
-        max_depth: int = 512,
-        *args: Any,
-        **kwargs: Any,
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        self.lr = lr
-        self.weight_decay = weight_decay
-        layers: List[Module] = [Lin(LEN, init_ch)]
-        ch = init_ch
-        out = ch
-        for _ in range(depth - 1):
-            out = min(max_depth, out * 2)
-            layers.append(Lin(ch, out))
-            ch = out
-        layers.append(Linear(out, 1, bias=True))
-        self.model = Sequential(*layers)
-
-
-class PointModel(TrainingMixin):
-    def __init__(
-        self,
-        init_ch: int = 16,
-        depth: int = 4,
-        lr: float = 1e-3,
-        weight_decay: float = 0.0,
-        max_depth: int = 512,
-        *args: Any,
-        **kwargs: Any,
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        self.lr = lr
-        self.weight_decay = weight_decay
-        layers: List[Module] = [PointLinear(init_ch)]
-        ch = init_ch
-        out = ch
-        for _ in range(depth - 1):
-            out = min(max_depth, out * 2)
-            layers.append(Lin(ch, out))
-            ch = out
-        layers.append(Linear(out, 1, bias=True))
-        self.model = Sequential(*layers)
-
-
-class ConvModel(TrainingMixin):
-    def __init__(
-        self,
-        in_channels: int = 1,
-        init_ch: int = 16,
-        depth: int = 4,
-        kernel_size: int = 3,
-        lr: float = 1e-3,
-        weight_decay: float = 0.0,
-        max_depth: int = 512,
-        *args: Any,
-        **kwargs: Any,
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        self.lr = lr
-        self.weight_decay = weight_decay
-        layers: List[Module] = [
-            Conv(in_channels=in_channels, out_channels=init_ch, kernel_size=kernel_size)
-        ]
-        ch = init_ch
-        out = ch
-        for _ in range(depth - 1):
-            out = min(max_depth, out * 2)
-            layers.append(Conv(ch, out, kernel_size=kernel_size))
-            ch = out
-        # will have shape (B, out, LEN)
-        layers.append(GlobalAveragePool1D())
-        layers.append(Linear(out, 1, bias=True))
-        self.model = Sequential(*layers)
-
-
-class Conv2dModel(TrainingMixin):
-    def __init__(
-        self,
-        in_channels: int = 1,
-        init_ch: int = 16,
-        depth: int = 4,
-        kernel_size: int = 3,
-        lr: float = 1e-3,
-        weight_decay: float = 0.0,
-        max_depth: int = 512,
-        *args: Any,
-        **kwargs: Any,
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        self.lr = lr
-        self.weight_decay = weight_decay
-        layers: List[Module] = [
-            Conv2(in_channels=in_channels, out_channels=init_ch, kernel_size=kernel_size)
-        ]
-        ch = init_ch
-        out = ch
-        for _ in range(depth - 1):
-            out = min(max_depth, out * 2)
-            layers.append(Conv2(ch, out, kernel_size=kernel_size))
-            ch = out
-        # will have shape (B, out, LEN)
-        layers.append(GlobalAveragePool2D())
-        layers.append(Linear(out, 1, bias=True))
-        self.model = Sequential(*layers)
 
 
 def compare_1D_eig_models() -> None:
@@ -440,153 +189,87 @@ def load_corrmat(path: Path) -> ndarray:
     return np.load(path)
 
 
-class CorrCell(Module):
-    def __init__(self, in_channels: int, out_channels: int) -> None:
-        super().__init__()
-        self.model = Sequential(
-            Conv2d(
-                in_channels=in_channels,
-                out_channels=out_channels,
-                kernel_size=1,
-                # padding="same",
-                padding=0,
-                bias=True,
-            ),
-            LeakyReLU(),
-            BatchNorm2d(out_channels),
-        )
-
-    def forward(self, x: Tensor) -> Tensor:
-        # needs x.shape == (B, C, seq_length)
-        if x.ndim == 2:
-            x = x.unsqueeze(1)
-        x = self.model(x)
-        return x
-
-
-class CorrPool(Module):
-    def __init__(self, in_channels: int, spatial_in: Tuple[int, int]) -> None:
-        super().__init__()
-        self.conv = Conv2d(
-            in_chanels=in_channels, out_channels=in_channels // 2, kernel_size=spatial_in, padding=0
-        )
-
-    def forward(self, x: Tensor) -> Tensor:
-        # needs x.shape == (B, C, seq_length)
-        if x.ndim == 2:
-            x = x.unsqueeze(1)
-        x1 = self.maxpool(x)
-        x2 = self.avgpool(x)
-        x = torch.cat([x1, x2])
-        return x
-
-
-class Thresholder(Module):
-    def __init__(self, in_channels: int) -> None:
-        super().__init__()
-        self.relu = ReLU()
-        self.attention = Parameter(torch.randn([1, in_channels, 200, 200]), requires_grad=True)
-        self.thresh = Parameter(torch.randn([1, in_channels, 1, 1]), requires_grad=True)
-
-    def forward(self, x: Tensor) -> Tensor:
-        # needs x.shape == (B, C, seq_length)
-        if x.ndim == 2:
-            x = x.unsqueeze(1)
-        x = x * 2 - 1  # send back to [-1, 1]
-        mask = torch.abs(x) - torch.abs(
-            self.thresh
-        )  # makes correlations > self.thresh all that matter
-        mask = self.relu(mask)
-        x = x * mask
-        x = torch.mul(torch.sigmoid(self.attention), x)
-        return x
-
-
-class CorrInput(Module):
-    def __init__(self, in_channels: int) -> None:
-        super().__init__()
-        self.relu = ReLU()
-        self.attention = Parameter(torch.randn([1, in_channels, 200, 200]), requires_grad=True)
-        self.thresh = Parameter(torch.randn([1, in_channels, 1, 1]), requires_grad=True)
-
-    def forward(self, x: Tensor) -> Tensor:
-        # needs x.shape == (B, C, seq_length)
-        if x.ndim == 2:
-            x = x.unsqueeze(1)
-        x = x * 2 - 1  # send back to [-1, 1]
-        mask = torch.abs(x) - torch.abs(
-            self.thresh
-        )  # makes correlations > self.thresh all that matter
-        mask = self.relu(mask)
-        x = x * mask
-        x = torch.mul(torch.sigmoid(self.attention), x)
-        return x
-
-
-class CorrNet(TrainingMixin):
-    def __init__(
-        self,
-        init_ch: int = 16,
-        depth: int = 4,
-        lr: float = 3e-4,
-        weight_decay: float = 0.0,
-        max_channels: int = 512,
-        dropout: float = 0.6,
-        *args: Any,
-        **kwargs: Any,
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        self.lr = lr
-        self.weight_decay = weight_decay
-        # layers: List[Module] = [
-        #     Conv2(in_channels=2, out_channels=init_ch, kernel_size=1)
-        # ]
-        layers: List[Module] = [
-            # Thresholder(in_channels=6),
-            Conv(in_channels=6, out_channels=init_ch, kernel_size=N),
-            Flatten(),
-            # LazyLinear(out_features=init_ch, bias=False),
-            # BatchNorm1d(init_ch),
-            # LeakyReLU(inplace=True),
-        ]
-        ch = init_ch
-        out = ch
-        for _ in range(depth - 1):
-            out = min(max_channels, out * 2)
-            # layers.append(CorrCell(ch, out))
-            layers.append(Linear(ch, out))
-            layers.append(BatchNorm1d(out))
-            layers.append(LeakyReLU(inplace=True))
-            layers.append(Dropout(p=dropout))
-            ch = out
-        # will have shape (B, out, LEN)
-        # layers.append(GlobalAveragePool2D())
-        layers.append(Linear(out, 1, bias=True))
-        self.model = Sequential(*layers)
-
-    def shared_step(self, batch: Tuple[Tensor, Tensor], phase: str) -> Tensor:
-        x, target = batch
-        preds = self.model(x)
-        loss = binary_cross_entropy_with_logits(preds.squeeze(), target.float())
-
-        self.log(f"{phase}/loss", loss)
-        # self.log(f"{phase}/prec", prec, prog_bar=True)
-        if phase in ["val", "test"]:
-            acc = accuracy(preds, target) - GUESS
-            f1_score = f1(preds, target)
-            self.log(f"{phase}/acc+", acc, prog_bar=True)
-            self.log(f"{phase}/acc", acc + GUESS, prog_bar=True)
-            self.log(f"{phase}/f1", f1_score, prog_bar=True)
-        return loss
+def load_corrs_from_roi_1D_file(path: Path) -> ndarray:
+    return pd.read_csv(path, sep="\t").corr().to_numpy()
 
 
 @MEMOIZER.cache
-def load_X_labels_unshuffled() -> Tuple[ndarray, ndarray, List]:
+def load_X_labels_unshuffled_from_1D() -> Tuple[ndarray, List[int], List]:
+    ROOT = Path(__file__).resolve().parent
+    DATA = ROOT / "data"
+    SUBJ_DATA = DATA / "Phenotypic_V1_0b_preprocessed1.csv"
+    CC200 = DATA / "rois_cpac_cc200"
+    # CORR_FEAT_NAMES = ["r_mean", "r_sd", "r_05", "r_95", "r_max", "r_min"]
+    ROI_PATHS = sorted(CC200.rglob("*.1D*"))
+    labels_, sites = get_labels_sites(ROI_PATHS, SUBJ_DATA)
+    feats = np.stack(
+        process_map(
+            load_corrs_from_roi_1D_file,
+            ROI_PATHS,
+            chunksize=1,
+            disable=False,
+            desc="Loading correlation features from 1D files",
+        )
+    )
+    X = np.stack(feats, axis=0)
+    X[np.isnan(X)] = 0  # 20-30 subjects do have NaNs, usually about 1000-3000 when occurs
+    idx_h, idx_w = np.triu_indices_from(X[0, :, :], k=1)
+    X = X[:, idx_h, idx_w]  # 19 900 features
+    return X, labels_, sites
+
+
+def load_X_labels_from_1D(
+    n_features: int,
+    select: Literal["mean", "sd"] = "mean",
+    norm: Norm = None,
+) -> Tuple[Tensor, Tensor, List, List]:
+    X, labels_, sites = load_X_labels_unshuffled_from_1D()
+
+    # shuffle
+    idx = np.random.permutation(len(X))
+    X = X[idx]
+    labels = np.array(labels_)[idx]
+    sites = np.array(sites)[idx].tolist()
+
+    if select == "mean":
+        sort_idx = np.argsort(-np.abs(np.mean(X, axis=0)))
+    elif select == "sd":
+        sort_idx = np.argsort(-np.std(X, axis=0, ddof=1))
+    else:
+        raise ValueError("Invalid feature selection method")
+    X = X[:, sort_idx[:n_features]]
+
+    if norm is None:
+        pass
+    elif norm == "const":
+        X += 1
+        X /= 2  # are correlations, normalize to be positive in [0, 1]
+    elif norm == "feature":
+        X -= X.mean(axis=0)
+        sd = X.std(axis=0, ddof=1)
+        sd[np.isnan(sd)] = 1.0
+        X /= sd
+    elif norm == "grand":
+        X -= X.mean()
+        X /= X.std(ddof=1)
+    else:
+        raise ValueError("Invalid norm method.")
+
+    labels = torch.tensor(labels_)
+    X = torch.from_numpy(X.copy()).float()
+    return X, labels, labels_, sites
+
+    return X, labels, labels_, sites
+
+
+@MEMOIZER.cache
+def load_X_labels_unshuffled(n: int = 19900 // 2) -> Tuple[ndarray, ndarray, List]:
     ROOT = Path(__file__).resolve().parent
     DATA = ROOT / "data"
     SUBJ_DATA = DATA / "Phenotypic_V1_0b_preprocessed1.csv"
     CC200 = ROOT / "data/features_cpac/cc200"
-    CORR_FEAT_NAMES = ["r_mean", "r_sd", "r_05", "r_95", "r_max", "r_min"]
+    # CORR_FEAT_NAMES = ["r_mean", "r_sd", "r_05", "r_95", "r_max", "r_min"]
+    CORR_FEAT_NAMES = ["r_mean", "r_sd"]
     CORR_FEATURE_DIRS = [CC200 / p for p in CORR_FEAT_NAMES]
     CORR_FEAT_PATHS = [sorted(p.rglob("*.npy")) for p in CORR_FEATURE_DIRS]
     labels_, sites = get_labels_sites(CORR_FEAT_PATHS[0], SUBJ_DATA)
@@ -596,15 +279,21 @@ def load_X_labels_unshuffled() -> Tuple[ndarray, ndarray, List]:
     ]
     X = np.stack(feats, axis=1)
     X[np.isnan(X)] = 0  # shouldn't be any, but just in case
-    X += 1
-    X /= 2  # are correlations, normalize to be positive in [0, 1]
     idx_h, idx_w = np.triu_indices_from(X[0, 0, :, :], k=1)
     X = X[:, :, idx_h, idx_w]  # 19 900 features
+    sort_idx = np.argsort(-np.abs(np.mean(X, axis=0)), axis=1)
+    largests = []
+    for c in range(sort_idx.shape[0]):  # channel
+        ix = sort_idx[c]
+        largests.append(X[:, c, ix[:n]])
+    X = np.stack(largests, axis=1)
+    X += 1
+    X /= 2  # are correlations, normalize to be positive in [0, 1]
     return X, labels_, sites
 
 
-def load_X_labels() -> Tuple[Tensor, Tensor, List, List]:
-    X, labels_, sites = load_X_labels_unshuffled()
+def load_X_labels(n: int) -> Tuple[Tensor, Tensor, List, List]:
+    X, labels_, sites = load_X_labels_unshuffled(n)
 
     # shuffle
     idx = np.random.permutation(len(X))
@@ -685,9 +374,15 @@ def test_kfold() -> None:
     print(df.describe().T.drop(columns="count").to_markdown(tablefmt="simple", floatfmt="0.3f"))
 
 
-def test_split() -> None:
+def test_split(
+    n_features: int = 19900, feat_select: Literal["mean", "sd"] = "mean", norm: Norm = None
+) -> None:
     global GUESS
-    X, labels, labels_, sites = load_X_labels()
+    X, labels, labels_, sites = load_X_labels_from_1D(
+        n_features=n_features,
+        select=feat_select,
+        norm=norm,
+    )
     dummy = np.empty([len(X), 1])
     idx_train, idx_val = next(
         StratifiedShuffleSplit(n_splits=1, test_size=256).split(X=dummy, y=labels_, groups=sites)
@@ -707,7 +402,9 @@ def test_split() -> None:
     model: LightningModule
     # model = LinearModel(**shared_args)
     # model = PointModel(lr=1e-3, **shared_args)
-    model = CorrNet(**SHARED_ARGS)
+    # model = CorrNet(**SHARED_ARGS)
+    # model = SharedAutoEncoder(**SHARED_ARGS)
+    model = ASDDiagNet(**SHARED_ARGS)
 
     trainer: Trainer = Trainer.from_argparse_args(
         train_args,
@@ -718,6 +415,8 @@ def test_split() -> None:
         gpus=1,
         default_root_dir=LOGS / f"corrs_test_logs/{model.__class__.__name__}/holdout",
     )
+    # result = trainer.tuner.lr_find(model, train_loader, val_loader, num_training=200)
+    # result.plot(suggest=True, show=True)
     trainer.fit(model, train_loader, val_loader)
 
 
@@ -764,17 +463,7 @@ def eval_lr(lr_args: LrArgs) -> float:
     return score, args
 
 
-if __name__ == "__main__":
-    N = int((200 ** 2 - 200) / 2)  # upper triangle of 200x200 matrix where diagonals are 1
-    GUESS = None
-    BATCH_SIZE = 32
-    LR = 3e-4
-    # LR = 1e-3
-    WORKERS = 4
-    # depth=12 is rreally bad for some reason
-    SHARED_ARGS: Dict[str, Any] = dict(
-        init_ch=256, depth=8, weight_decay=0, max_channels=512, lr=LR, dropout=0.4
-    )
+def test_log_reg() -> None:
     X, labels, labels_, sites = load_X_labels()
     X = X.reshape(X.shape[0], -1)
     # N = 10
@@ -803,5 +492,25 @@ if __name__ == "__main__":
         .to_markdown(tablefmt="simple")
     )
 
+
+if __name__ == "__main__":
+    N = int((200 ** 2 - 200) / 2)  # upper triangle of 200x200 matrix where diagonals are 1
+    n = N // 2
+    BATCH_SIZE = 32
+    LR = 3e-4
+    # LR = 1e-3
+    WORKERS = 4
+    # depth=12 is rreally bad for some reason
+    # SHARED_ARGS: Dict[str, Any] = dict(
+    #     init_ch=256, depth=2, weight_decay=0, max_channels=512, lr=LR, dropout=0.1
+    # )
+    FEAT_SELECT = "mean"
+    NORM = None
+    SHARED_ARGS: Dict[str, Any] = dict(
+        in_features=n,
+        bottleneck=1000,
+        weight_decay=0,
+        lr=LR,
+    )
     # test_kfold()
-    # test_split()
+    test_split(n_features=n, feat_select=FEAT_SELECT, norm=NORM)
