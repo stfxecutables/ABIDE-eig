@@ -10,6 +10,7 @@ logging.getLogger("tensorflow").setLevel(logging.FATAL)
 logging.getLogger("tensorboard").setLevel(logging.FATAL)
 
 import sys
+import traceback
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace
 from dataclasses import dataclass
@@ -92,7 +93,7 @@ from xgboost import DMatrix, XGBClassifier
 
 from src.analysis.predict.hypertune import evaluate_hypertuned, hypertune_classifier
 
-from scratch_models import GUESS, ASDDiagNet, Subah2021
+from scratch_models import GUESS, ASDDiagNet, LinearModel, Subah2021
 
 ROOT = Path(__file__).resolve().parent
 LOGS = ROOT / "lightning_logs"
@@ -414,12 +415,12 @@ def test_split(
     cbs = [LearningRateMonitor(), ModelCheckpoint(monitor="val/acc", mode="max")]
 
     model: LightningModule
-    # model = LinearModel(**shared_args)
+    model = LinearModel(**SHARED_ARGS)
     # model = PointModel(lr=1e-3, **shared_args)
     # model = CorrNet(**SHARED_ARGS)
     # model = SharedAutoEncoder(**SHARED_ARGS)
     # model = ASDDiagNet(**SHARED_ARGS, guess=guess)
-    model = Subah2021(**SHARED_ARGS, guess=guess)
+    # model = Subah2021(**SHARED_ARGS, guess=guess)
     wd = SHARED_ARGS["weight_decay"]
     root_dir = (
         LOGS
@@ -541,12 +542,12 @@ if __name__ == "__main__":
     MAX_STEPS = 3000
     MAX_EPOCHS = 150
 
-    # depth=12 is rreally bad for some reason
-    # SHARED_ARGS: Dict[str, Any] = dict(
-    #     init_ch=256, depth=2, weight_decay=0, max_channels=512, lr=LR, dropout=0.1
-    # )
+    # LinearModel
+    SHARED_ARGS: Dict[str, Any] = dict(
+        in_features=n, init_ch=16, depth=2, max_channels=512, dropout=0.0, weight_decay=0, lr=LR
+    )
 
-    # EslamiASDDiagNet
+    # Eslami ASDDiagNet
     # SHARED_ARGS: Dict[str, Any] = dict(
     #     in_features=n,
     #     bottleneck=250,
@@ -555,19 +556,39 @@ if __name__ == "__main__":
     # )
 
     # Subah 2021
-    SHARED_ARGS: Dict[str, Any] = dict(
-        in_features=n,
-        lr=LR,
-        weight_decay=1e-6,
-        dropout=0.8,
-    )
+    # SHARED_ARGS: Dict[str, Any] = dict(
+    #     in_features=n,
+    #     lr=LR,
+    #     weight_decay=1e-6,
+    #     dropout=0.8,
+    # )
     # FEAT_SELECT = "mean"
     FEAT_SELECT = "sd"
     NORM: Norm = "feature"  # this is the only one that works
     # NORM: Norm = "const"
     # NORM: Norm = "grand"
     # test_kfold()
-    for decay in [1e-6, 1e-5, 1e-4]:
-        SHARED_ARGS["weight_decay"] = decay
-        for _ in range(10):
+    # test_split(n_features=n, feat_select=FEAT_SELECT, norm=NORM)
+    grid = list(
+        ParameterGrid(
+            dict(
+                in_features=[n // 2, n // 4, 2000],
+                init_ch=[16, 64],
+                depth=[2, 4, 8],
+                max_channels=[64, 256],
+                dropout=[0.0, 0.25, 0.5, 0.75],
+                weight_decay=[0.0, 1e-4],
+            )
+        )
+    )
+    for i, params in enumerate(grid):
+        print(f"Iteration {i} of {len(grid)}.")
+        print(f"Testing params: {params}")
+        SHARED_ARGS.update(params)
+        # SHARED_ARGS["weight_decay"] = params["weight_decay"]
+        # SHARED_ARGS["in_features"] = params["weight_decay"]
+        n = params["in_features"]
+        try:
             test_split(n_features=n, feat_select=FEAT_SELECT, norm=NORM)
+        except Exception as e:
+            traceback.print_exc()

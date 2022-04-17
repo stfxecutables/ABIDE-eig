@@ -34,12 +34,13 @@ GUESS = None
 
 
 class Lin(Module):
-    def __init__(self, in_channels: int, out_channels: int) -> None:
+    def __init__(self, in_channels: int, out_channels: int, dropout: float = 0.0) -> None:
         super().__init__()
         self.model = Sequential(
             Linear(in_channels, out_channels, bias=True),
             LeakyReLU(),
             BatchNorm1d(out_channels),
+            Dropout(0.0),
         )
 
     def forward(self, x: Tensor) -> Tensor:
@@ -140,7 +141,7 @@ class TrainingMixin(LightningModule, ABC):
         super().__init__()
         self.weight_decay = weight_decay
         self.lr = lr
-        self.guess = torch.Tensor(guess).to("cuda")
+        self.guess = torch.Tensor([guess]).to("cuda")
         self.acc_train = Accuracy(compute_on_step=True)
         self.acc_val = Accuracy(compute_on_step=False)
         self.acc_plus = Accuracy(compute_on_step=False) - self.guess
@@ -205,26 +206,29 @@ class TrainingMixin(LightningModule, ABC):
 class LinearModel(TrainingMixin):
     def __init__(
         self,
+        in_features: int = 19900,
         init_ch: int = 16,
         depth: int = 4,
+        max_channels: int = 512,
+        dropout: float = 0.0,
         lr: float = 1e-3,
         weight_decay: float = 0.0,
-        max_depth: int = 512,
+        guess: float = 0.5,
         *args: Any,
         **kwargs: Any,
     ) -> None:
-        super().__init__(*args, **kwargs)
-        self.lr = lr
-        self.weight_decay = weight_decay
-        layers: List[Module] = [Lin(LEN, init_ch)]
+        super().__init__(lr=lr, weight_decay=weight_decay, guess=guess, *args, **kwargs)
+        self.save_hyperparameters()
+        layers: List[Module] = [Lin(in_features, init_ch, dropout)]
         ch = init_ch
         out = ch
         for _ in range(depth - 1):
-            out = min(max_depth, out * 2)
+            out = min(max_channels, out * 2)
             layers.append(Lin(ch, out))
             ch = out
         layers.append(Linear(out, 1, bias=True))
         self.model = Sequential(*layers)
+        print(self.model)
 
 
 class PointModel(TrainingMixin):
