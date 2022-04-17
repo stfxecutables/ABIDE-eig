@@ -1,3 +1,14 @@
+import logging
+import os
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+import tensorflow as tf
+
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.FATAL)
+logging.getLogger("tensorflow").setLevel(logging.FATAL)
+logging.getLogger("tensorboard").setLevel(logging.FATAL)
+
 import sys
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace
@@ -17,6 +28,7 @@ from typing import (
     cast,
     no_type_check,
 )
+from warnings import filterwarnings
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -80,7 +92,7 @@ from xgboost import DMatrix, XGBClassifier
 
 from src.analysis.predict.hypertune import evaluate_hypertuned, hypertune_classifier
 
-from scratch_models import GUESS, ASDDiagNet
+from scratch_models import GUESS, ASDDiagNet, Subah2021
 
 ROOT = Path(__file__).resolve().parent
 LOGS = ROOT / "lightning_logs"
@@ -377,7 +389,6 @@ def test_kfold() -> None:
 def test_split(
     n_features: int = 19900, feat_select: Literal["mean", "sd"] = "mean", norm: Norm = None
 ) -> None:
-    global GUESS
     X, labels, labels_, sites = load_X_labels_from_1D(
         n_features=n_features,
         select=feat_select,
@@ -389,11 +400,15 @@ def test_split(
     )
     x_train, x_val = X[idx_train], X[idx_val]
     y_train, y_val = labels[idx_train], labels[idx_val]
-    GUESS = 0.5 + np.abs(torch.mean(y_val.float()) - 0.5)
+    sites_val = np.array(sites)[idx_val]
+
+    g = torch.abs(torch.mean(y_val.float()))
+    guess = torch.max(g, 1 - g)
 
     args = dict(batch_size=BATCH_SIZE, num_workers=WORKERS, drop_last=True)
     train_loader = DataLoader(TensorDataset(x_train, y_train), shuffle=True, **args)
     val_loader = DataLoader(TensorDataset(x_val, y_val), shuffle=False, **args)
+    test_loader = DataLoader(TensorDataset(x_val, y_val), shuffle=False, **args)
     parser = ArgumentParser()
     parser = Trainer.add_argparse_args(parser)
     train_args = parser.parse_known_args()[0]
@@ -404,20 +419,39 @@ def test_split(
     # model = PointModel(lr=1e-3, **shared_args)
     # model = CorrNet(**SHARED_ARGS)
     # model = SharedAutoEncoder(**SHARED_ARGS)
-    model = ASDDiagNet(**SHARED_ARGS)
+    # model = ASDDiagNet(**SHARED_ARGS, guess=guess)
+    model = Subah2021(**SHARED_ARGS, guess=guess)
+
+    root_dir = (
+        LOGS
+        / f"corrs_test_logs/{model.__class__.__name__}/holdout/n={n_features}/sel={feat_select}/norm={norm}"
+    )
 
     trainer: Trainer = Trainer.from_argparse_args(
         train_args,
         callbacks=cbs,
         enable_model_summary=False,
         log_every_n_steps=64,
-        max_steps=6000,
+        max_steps=20000,
         gpus=1,
-        default_root_dir=LOGS / f"corrs_test_logs/{model.__class__.__name__}/holdout",
+        default_root_dir=root_dir,
     )
     # result = trainer.tuner.lr_find(model, train_loader, val_loader, num_training=200)
     # result.plot(suggest=True, show=True)
+    filterwarnings("ignore", message="The dataloader, val_dataloader 0, does not have many workers")
+    filterwarnings("ignore", message="The dataloader, train_dataloader, does not have many workers")
+    filterwarnings("ignore", message="The number of training samples")
+    print("=" * 150)
+    sites, counts = np.unique(sites_val, return_counts=True)
+    print(f"Val site distribution: ({len(sites)} sites)\n")
+    df = DataFrame(data=counts, columns=["N"], index=sites).T
+    print(df.to_markdown(tablefmt="simple"))
+    print(f"\nGuess acc: {guess}")
+    print("=" * 150)
+
     trainer.fit(model, train_loader, val_loader)
+    result = trainer.test(model, test_loader)
+    print(result)
 
 
 def test_xgboost() -> None:
@@ -495,22 +529,40 @@ def test_log_reg() -> None:
 
 if __name__ == "__main__":
     N = int((200 ** 2 - 200) / 2)  # upper triangle of 200x200 matrix where diagonals are 1
-    n = N // 2
-    BATCH_SIZE = 32
+    n = N // 8
+    # n = N
+    # n = 2000
+    # BATCH_SIZE = 32
+    BATCH_SIZE = 4
+    # LR = 3e-4
+    # LR = 1e-2
     LR = 3e-4
     # LR = 1e-3
-    WORKERS = 4
+    WORKERS = 0
+
     # depth=12 is rreally bad for some reason
     # SHARED_ARGS: Dict[str, Any] = dict(
     #     init_ch=256, depth=2, weight_decay=0, max_channels=512, lr=LR, dropout=0.1
     # )
-    FEAT_SELECT = "mean"
-    NORM = None
+
+    # EslamiASDDiagNet
+    # SHARED_ARGS: Dict[str, Any] = dict(
+    #     in_features=n,
+    #     bottleneck=250,
+    #     weight_decay=0,
+    #     lr=LR,
+    # )
+
+    # Subah 2021
     SHARED_ARGS: Dict[str, Any] = dict(
         in_features=n,
-        bottleneck=1000,
-        weight_decay=0,
         lr=LR,
+        weight_decay=1e-6,
+        dropout=0.15,
     )
+    # FEAT_SELECT = "mean"
+    FEAT_SELECT = "sd"
+    NORM: Norm = "feature"
+    # NORM: Norm = "const"
     # test_kfold()
     test_split(n_features=n, feat_select=FEAT_SELECT, norm=NORM)

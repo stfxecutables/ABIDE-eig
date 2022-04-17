@@ -19,17 +19,17 @@ from torch.nn import (
     ReLU,
     Sequential,
 )
-from torch.nn.functional import binary_cross_entropy_with_logits, mse_loss
+from torch.nn.functional import binary_cross_entropy_with_logits, mse_loss, relu
 from torch.nn.parameter import Parameter
 from torch.optim import Adam
 from torch.optim.lr_scheduler import StepLR
+from torchmetrics import F1, Accuracy
 from torchmetrics.functional import accuracy, f1
 
 ROOT = Path(__file__).resolve().parent
 LOGS = ROOT / "lightning_logs"
 MEMOIZER = Memory("__CACHE__")
 
-global GUESS
 GUESS = None
 
 
@@ -134,11 +134,21 @@ class GlobalAveragePool2D(Module):
 
 class TrainingMixin(LightningModule, ABC):
     @abstractmethod
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(
+        self, weight_decay: float, lr: float, guess: float, *args: Any, **kwargs: Any
+    ) -> None:
         super().__init__()
+        self.weight_decay = weight_decay
+        self.lr = lr
+        self.guess = torch.Tensor(guess).to("cuda")
+        self.acc_train = Accuracy(compute_on_step=True)
+        self.acc_val = Accuracy(compute_on_step=False)
+        self.acc_plus = Accuracy(compute_on_step=False) - self.guess
+        self.f1 = F1(compute_on_step=False)
+        print("Model guess:", self.guess)
 
     @no_type_check
-    def training_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int, *args, **kwargs) -> Any:
+    def training_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> Any:
         return self.shared_step(batch, "train")
 
     @no_type_check
@@ -171,16 +181,25 @@ class TrainingMixin(LightningModule, ABC):
     def shared_step(self, batch: Tuple[Tensor, Tensor], phase: str) -> Tensor:
         x, target = batch
         preds = self.model(x)
+        args = (preds.squeeze(), target)
         loss = binary_cross_entropy_with_logits(preds.squeeze(), target.float())
-        acc = accuracy(preds, target) - GUESS
-        f1_score = f1(preds, target)
         self.log(f"{phase}/loss", loss)
-        self.log(f"{phase}/acc+", acc, prog_bar=True)
-        # self.log(f"{phase}/prec", prec, prog_bar=True)
-        self.log(f"{phase}/f1", f1_score, prog_bar=True)
-        if phase == "val":
-            self.log(f"{phase}/acc", acc + GUESS, prog_bar=True)
+        if phase == "train":
+            self.acc_train.update(*args)
+            self.log(f"{phase}/acc", self.acc_train.compute(), prog_bar=False)
+        if phase in ["val", "test"]:
+            self.acc_val.update(*args)
+            self.acc_plus.update(*args)
+            self.f1.update(*args)
         return loss
+
+    def validation_epoch_end(self, outputs: Any) -> None:
+        self.log("val/acc+", 100 * self.acc_plus.compute(), prog_bar=True)
+        self.log("val/acc", 100 * self.acc_val.compute(), prog_bar=True)
+        self.log(f"val/f1", self.f1.compute(), prog_bar=True)
+        self.acc_plus.reset()
+        self.acc_val.reset()
+        self.f1.reset()
 
 
 class LinearModel(TrainingMixin):
@@ -381,18 +400,17 @@ class CorrInput(Module):
 class CorrNet(TrainingMixin):
     def __init__(
         self,
-        init_ch: int = 16,
-        depth: int = 4,
         lr: float = 3e-4,
         weight_decay: float = 0.0,
+        guess: float = 0.5,
+        init_ch: int = 16,
+        depth: int = 4,
         max_channels: int = 512,
         dropout: float = 0.6,
         *args: Any,
         **kwargs: Any,
     ) -> None:
-        super().__init__(*args, **kwargs)
-        self.lr = lr
-        self.weight_decay = weight_decay
+        super().__init__(lr=lr, weight_decay=weight_decay, guess=guess, *args, **kwargs)
         # layers: List[Module] = [
         #     Conv2(in_channels=2, out_channels=init_ch, kernel_size=1)
         # ]
@@ -424,6 +442,7 @@ class CorrNet(TrainingMixin):
         self.model = Sequential(*layers)
 
     def shared_step(self, batch: Tuple[Tensor, Tensor], phase: str) -> Tensor:
+        global GUESS
         """
         channel sds:
         0  0.105912
@@ -455,19 +474,59 @@ class CorrNet(TrainingMixin):
         return loss
 
 
+class Subah2021(TrainingMixin):
+    """https://mdpi-res.com/d_attachment/applsci/applsci-11-03636/article_deploy/applsci-11-03636.pdf
+
+    Subah, F.Z., Deb, K., Dhar, P.K., Koshiba, T. (2021). A Deep Learning Approach to Predict Autism
+    Spectrum Disorder Using Multisite Resting-State fMRI. Appl. Sci. 2021, 11, 3636.
+    https://doi.org/10.3390/app11083636
+    """
+
+    def __init__(
+        self,
+        lr: float = 1e-4,
+        weight_decay: float = 0.0,
+        guess: float = 0.5,
+        in_features: int = 19900,
+        dropout: float = 0.8,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(lr=lr, weight_decay=weight_decay, guess=guess, *args, **kwargs)
+        # self.lr = lr
+        # self.weight_decay = weight_decay
+        # self.guess = guess
+
+        self.model = Sequential(
+            Dropout(dropout),
+            Linear(in_features, 32),
+            ReLU(inplace=True),
+            #
+            Dropout(dropout),
+            Linear(32, 32),
+            ReLU(inplace=True),
+            #
+            # Dropout(0.8),
+            Linear(32, 1),
+        )
+
+
 class ASDDiagNet(TrainingMixin):
     """An attempt to replicate https://www.frontiersin.org/articles/10.3389/fninf.2019.00070/full"""
 
     def __init__(
         self,
-        in_features: int = 9950,
-        bottleneck: int = 1000,
         lr: float = 3e-4,
         weight_decay: float = 0.0,
+        guess: float = 0.5,
+        in_features: int = 9950,
+        bottleneck: int = 1000,
         *args: Any,
         **kwargs: Any,
     ) -> None:
-        super().__init__(*args, **kwargs)
+        super().__init__(lr=lr, weight_decay=weight_decay, guess=guess, *args, **kwargs)
+        self.automatic_optimization = False
+
         self.lr = lr
         self.weight_decay = weight_decay
         self.W = Parameter(torch.randn([in_features, bottleneck]))
@@ -484,44 +543,103 @@ class ASDDiagNet(TrainingMixin):
         )
 
     def shared_step(self, batch: Tuple[Tensor, Tensor], phase: str) -> Tensor:
+        # see https://github.com/PyTorchLightning/pytorch-lightning/issues/9806
         x, target = batch  # x.shape == (B, in_features)
-        h_enc = torch.tanh(torch.matmul(x, self.W) + self.b_enc)
-        x_prime = torch.matmul(h_enc, self.W.T) + self.b_dec
+        if self.global_step < 6000:
+            if phase == "train":
+                opt = self.optimizers()[0]
+                opt.zero_grad()
+            h_enc = torch.tanh(torch.matmul(x, self.W) + self.b_enc)
+            x_prime = torch.matmul(h_enc, self.W.T) + self.b_dec
+            preds = self.slp(h_enc)
+            # preds = self.mlp(encoded)
+
+            # loss = binary_cross_entropy_with_logits(preds.squeeze(), target.float())
+            loss_c = binary_cross_entropy_with_logits(preds.squeeze(), target.float())
+            loss_enc = mse_loss(x_prime, x)
+            loss = loss_c + loss_enc
+            if phase == "train":
+                self.manual_backward(loss)
+                opt.step()
+
+            self.log(f"{phase}/loss", loss, prog_bar=True)
+            self.log(f"{phase}/loss_c", loss_c)
+            self.log(f"{phase}/loss_enc", loss_enc)
+            # self.log(f"{phase}/prec", prec, prog_bar=True)
+            if phase in ["val", "test"]:
+                acc = accuracy(preds, target) - self.guess
+                f1_score = f1(preds, target)
+                self.log(f"{phase}/acc+", acc, prog_bar=True)
+                self.log(f"{phase}/acc", acc + self.guess, prog_bar=True)
+                self.log(f"{phase}/f1", f1_score, prog_bar=True)
+            return loss
+        with torch.no_grad():
+            h_enc = torch.tanh(torch.matmul(x, self.W) + self.b_enc)
+        if phase == "train":
+            opt = self.optimizers()[1]
+            opt.zero_grad()
         preds = self.slp(h_enc)
-        # preds = self.mlp(encoded)
+        loss = binary_cross_entropy_with_logits(preds.squeeze(), target.float())
+        if phase == "train":
+            self.manual_backward(loss)
+            opt.step()
 
-        # loss = binary_cross_entropy_with_logits(preds.squeeze(), target.float())
-        loss_c = binary_cross_entropy_with_logits(preds.squeeze(), target.float())
-        loss_enc = mse_loss(x_prime, x)
-        loss = loss_c + loss_enc
-
-        self.log(f"{phase}/loss", loss)
-        self.log(f"{phase}/loss_c", loss_c)
-        self.log(f"{phase}/loss_enc", loss_enc)
-        # self.log(f"{phase}/prec", prec, prog_bar=True)
+        self.log(f"{phase}/loss", loss, prog_bar=True)
         if phase in ["val", "test"]:
-            acc = accuracy(preds, target) - GUESS
+            acc = accuracy(preds, target) - self.guess
             f1_score = f1(preds, target)
             self.log(f"{phase}/acc+", acc, prog_bar=True)
-            self.log(f"{phase}/acc", acc + GUESS, prog_bar=True)
+            self.log(f"{phase}/acc", acc + self.guess, prog_bar=True)
             self.log(f"{phase}/f1", f1_score, prog_bar=True)
         return loss
+
+    def on_train_epoch_end(self) -> None:
+        if self.global_step < 6000:
+            sched = self.lr_schedulers()[0]
+        else:
+            sched = self.lr_schedulers()[1]
+        sched.step()
+
+    def configure_optimizers(self) -> Any:
+        # see https://github.com/PyTorchLightning/pytorch-lightning/issues/9806
+        opt1 = Adam(self.parameters(), weight_decay=self.weight_decay, lr=self.lr)
+        opt2 = Adam(self.slp.parameters(), weight_decay=self.weight_decay, lr=3e-4)
+
+        # step = 500
+        step = 1
+        lr_decay = 0.99
+        sched1 = StepLR(opt1, step_size=step, gamma=lr_decay)
+        sched2 = StepLR(opt2, step_size=5, gamma=0.95)
+        config1 = dict(
+            optimizer=opt1,
+            lr_scheduler=dict(
+                scheduler=sched1,
+                interval="epoch",
+            ),
+        )
+        config2 = dict(
+            optimizer=opt2,
+            lr_scheduler=dict(
+                scheduler=sched2,
+                interval="epoch",
+            ),
+        )
+        return config1, config2
 
 
 class SharedAutoEncoder(TrainingMixin):
     def __init__(
         self,
         in_features: int,
-        depth: int = 2,
-        bottleneck: int = 1000,
         lr: float = 3e-4,
         weight_decay: float = 0.0,
+        guess: float = 0.5,
+        depth: int = 2,
+        bottleneck: int = 1000,
         *args: Any,
         **kwargs: Any,
     ) -> None:
-        super().__init__(*args, **kwargs)
-        self.lr = lr
-        self.weight_decay = weight_decay
+        super().__init__(lr=lr, weight_decay=weight_decay, guess=guess, *args, **kwargs)
         if depth == 1:
             self.encoder = Sequential(Linear(in_features, bottleneck), ReLU(inplace=True))
             self.decoder = Sequential(Linear(bottleneck, in_features), ReLU(inplace=True))
@@ -592,9 +710,9 @@ class SharedAutoEncoder(TrainingMixin):
         self.log(f"{phase}/loss", loss)
         # self.log(f"{phase}/prec", prec, prog_bar=True)
         if phase in ["val", "test"]:
-            acc = accuracy(preds, target) - GUESS
+            acc = accuracy(preds, target) - self.guess
             f1_score = f1(preds, target)
             self.log(f"{phase}/acc+", acc, prog_bar=True)
-            self.log(f"{phase}/acc", acc + GUESS, prog_bar=True)
+            self.log(f"{phase}/acc", acc + self.guess, prog_bar=True)
             self.log(f"{phase}/f1", f1_score, prog_bar=True)
         return loss
