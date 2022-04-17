@@ -1,7 +1,7 @@
 import logging
 import os
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 import tensorflow as tf
 
@@ -408,7 +408,6 @@ def test_split(
     args = dict(batch_size=BATCH_SIZE, num_workers=WORKERS, drop_last=True)
     train_loader = DataLoader(TensorDataset(x_train, y_train), shuffle=True, **args)
     val_loader = DataLoader(TensorDataset(x_val, y_val), shuffle=False, **args)
-    test_loader = DataLoader(TensorDataset(x_val, y_val), shuffle=False, **args)
     parser = ArgumentParser()
     parser = Trainer.add_argparse_args(parser)
     train_args = parser.parse_known_args()[0]
@@ -421,10 +420,10 @@ def test_split(
     # model = SharedAutoEncoder(**SHARED_ARGS)
     # model = ASDDiagNet(**SHARED_ARGS, guess=guess)
     model = Subah2021(**SHARED_ARGS, guess=guess)
-
+    wd = SHARED_ARGS["weight_decay"]
     root_dir = (
         LOGS
-        / f"corrs_test_logs/{model.__class__.__name__}/holdout/n={n_features}/sel={feat_select}/norm={norm}"
+        / f"corrs_test_logs/{model.__class__.__name__}/holdout/n={n_features}/sel={feat_select}/norm={norm}/wd={wd}"
     )
 
     trainer: Trainer = Trainer.from_argparse_args(
@@ -432,7 +431,8 @@ def test_split(
         callbacks=cbs,
         enable_model_summary=False,
         log_every_n_steps=64,
-        max_steps=20000,
+        max_epochs=MAX_EPOCHS,
+        max_steps=MAX_STEPS,
         gpus=1,
         default_root_dir=root_dir,
     )
@@ -450,8 +450,6 @@ def test_split(
     print("=" * 150)
 
     trainer.fit(model, train_loader, val_loader)
-    result = trainer.test(model, test_loader)
-    print(result)
 
 
 def test_xgboost() -> None:
@@ -529,16 +527,19 @@ def test_log_reg() -> None:
 
 if __name__ == "__main__":
     N = int((200 ** 2 - 200) / 2)  # upper triangle of 200x200 matrix where diagonals are 1
-    n = N // 8
-    # n = N
+    # n = N // 8
+    n = N
     # n = 2000
     # BATCH_SIZE = 32
-    BATCH_SIZE = 4
+    BATCH_SIZE = 32
     # LR = 3e-4
     # LR = 1e-2
     LR = 3e-4
     # LR = 1e-3
     WORKERS = 0
+    # MAX_STEPS = 20000
+    MAX_STEPS = 3000
+    MAX_EPOCHS = 150
 
     # depth=12 is rreally bad for some reason
     # SHARED_ARGS: Dict[str, Any] = dict(
@@ -558,11 +559,15 @@ if __name__ == "__main__":
         in_features=n,
         lr=LR,
         weight_decay=1e-6,
-        dropout=0.15,
+        dropout=0.8,
     )
     # FEAT_SELECT = "mean"
     FEAT_SELECT = "sd"
-    NORM: Norm = "feature"
+    NORM: Norm = "feature"  # this is the only one that works
     # NORM: Norm = "const"
+    # NORM: Norm = "grand"
     # test_kfold()
-    test_split(n_features=n, feat_select=FEAT_SELECT, norm=NORM)
+    for decay in [1e-6, 1e-5, 1e-4]:
+        SHARED_ARGS["weight_decay"] = decay
+        for _ in range(10):
+            test_split(n_features=n, feat_select=FEAT_SELECT, norm=NORM)
