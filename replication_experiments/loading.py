@@ -71,7 +71,6 @@ def load_corrs_from_roi_1D_file(path: Path) -> ndarray:
 
 @MEMOIZER.cache
 def load_X_labels_unshuffled_from_1D() -> Tuple[ndarray, List[int], List]:
-    ROOT = Path(__file__).resolve().parent
     DATA = ROOT / "data"
     SUBJ_DATA = DATA / "Phenotypic_V1_0b_preprocessed1.csv"
     CC200 = DATA / "rois_cpac_cc200"
@@ -138,7 +137,6 @@ def load_X_labels_from_1D(
 
 @MEMOIZER.cache
 def load_X_labels_unshuffled(n: int = 19900 // 2) -> Tuple[ndarray, ndarray, List]:
-    ROOT = Path(__file__).resolve().parent
     DATA = ROOT / "data"
     SUBJ_DATA = DATA / "Phenotypic_V1_0b_preprocessed1.csv"
     CC200 = ROOT / "data/features_cpac/cc200"

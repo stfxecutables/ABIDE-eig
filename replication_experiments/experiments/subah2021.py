@@ -14,10 +14,14 @@ logging.getLogger("tensorflow").setLevel(logging.FATAL)
 logging.getLogger("tensorboard").setLevel(logging.FATAL)
 # fmt: on
 
-from typing import Any
+import traceback
+from typing import Any, Dict, List
 
+from sklearn.model_selection import ParameterGrid
 from torch.nn import Dropout, Linear, ReLU, Sequential
 
+from replication_experiments.constants import Norm
+from replication_experiments.evaluation import test_split
 from replication_experiments.models import TrainingMixin
 
 
@@ -56,3 +60,47 @@ class Subah2021(TrainingMixin):
             # Dropout(0.8),
             Linear(32, 1),
         )
+
+
+if __name__ == "__main__":
+    # hparams that NEED to be replicated
+    N = int((200 ** 2 - 200) / 2)  # upper triangle of 200x200 matrix where diagonals are 1
+    BATCH_SIZE = 10
+    LR = 1e-4
+    FEAT_SELECT = "sd"  # no effect with n == N
+    NORM: Norm = "feature"  # this is the only one that works
+
+    # options that should be irrelevant, if set correctly (e.g. large enough)
+    MAX_STEPS = 3000
+    MAX_EPOCHS = 150
+    TRAINER_ARGS = dict(max_epochs=MAX_EPOCHS, max_steps=MAX_STEPS)
+    REPEATS = 1
+
+    grid: List[Dict] = list(
+        ParameterGrid(
+            dict(
+                in_features=[N],
+                lr=[1e-4],
+                weight_decay=[1e-8, 1e-7, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1],
+                dropout=[0.2, 0.8],
+            )
+        )
+    )
+
+    for i, model_args in enumerate(grid):
+        print(f"Iteration {i} of {len(grid)}.")
+        print(f"Testing model with args: {model_args}")
+        for _ in range(REPEATS):
+            try:
+                test_split(
+                    n_features=N,
+                    feat_select=FEAT_SELECT,
+                    norm=NORM,
+                    batch_size=BATCH_SIZE,
+                    model_args=model_args,
+                    trainer_args=TRAINER_ARGS,
+                    logdirname="subah2021"
+                )
+            except Exception:
+                traceback.print_exc()
+            sys.exit()
