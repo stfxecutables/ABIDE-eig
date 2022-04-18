@@ -16,6 +16,7 @@ logging.getLogger("tensorboard").setLevel(logging.FATAL)
 
 import re
 import traceback
+from random import shuffle
 from typing import Any, Dict, List
 
 from sklearn.model_selection import ParameterGrid
@@ -32,7 +33,7 @@ GRID_LOGDIR = "SoftLinear--Grid"
 # hparams that NEED to be replicated
 N = int((200 ** 2 - 200) / 2)  # upper triangle of 200x200 matrix where diagonals are 1
 BATCH_SIZE = 16  # NOTE: CURRENTLY ASSUMES BATCH_SIZE IS NOT TUNED
-LR = 3e-4
+LR = 6e-4
 
 # options that should be irrelevant, if set correctly (e.g. large enough)
 FEAT_SELECT = "sd"  # no effect with n == N
@@ -70,6 +71,7 @@ class SoftLinearModel(TrainingMixin):
 
 
 def test_exhaustive_grid() -> None:
+    # TODO: Switch to random grid
     grid = list(
         ParameterGrid(
             dict(
@@ -79,10 +81,11 @@ def test_exhaustive_grid() -> None:
                 max_channels=[64, 256],
                 dropout=[0.0, 0.25, 0.5, 0.75],
                 weight_decay=[0.0, 1e-4],
-                lr=[LR],
+                lr=[3e-4, 6e-4],
             )
         )
     )
+    shuffle(grid)
 
     for i, model_args in enumerate(grid):
         print(f"Iteration {i} of {len(grid)}.")

@@ -117,9 +117,11 @@ class TrainingMixin(LightningModule, ABC):
         return loss
 
     def validation_epoch_end(self, outputs: Any) -> None:
-        self.log("val/acc+", 100 * self.acc_plus.compute(), prog_bar=True)
+        ap = 100 * self.acc_plus.compute()
+        self.log("val/acc+", ap, prog_bar=True)
         self.log("val/acc", 100 * self.acc_val.compute(), prog_bar=True)
         self.log("val/f1", self.f1.compute(), prog_bar=True)
+        self.log("hp_metric", ap)
         self.acc_plus.reset()
         self.acc_val.reset()
         self.f1.reset()
