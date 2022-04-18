@@ -1,3 +1,19 @@
+# fmt: off
+import logging
+import os
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.append(str(ROOT))
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+import tensorflow as tf
+
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.FATAL)
+logging.getLogger("tensorflow").setLevel(logging.FATAL)
+logging.getLogger("tensorboard").setLevel(logging.FATAL)
+# fmt: on
+
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, List, Optional, Tuple, no_type_check
@@ -7,9 +23,7 @@ from joblib import Memory
 from pytorch_lightning import LightningModule
 from torch import Tensor
 from torch.nn import (
-    BatchNorm1d,
     BatchNorm2d,
-    Conv1d,
     Conv2d,
     Dropout,
     LazyLinear,
@@ -19,118 +33,25 @@ from torch.nn import (
     ReLU,
     Sequential,
 )
-from torch.nn.functional import binary_cross_entropy_with_logits, mse_loss, relu
+from torch.nn.functional import binary_cross_entropy_with_logits, mse_loss
 from torch.nn.parameter import Parameter
 from torch.optim import Adam
 from torch.optim.lr_scheduler import StepLR
 from torchmetrics import F1, Accuracy
 from torchmetrics.functional import accuracy, f1
 
-ROOT = Path(__file__).resolve().parent
+from replication_experiments.layers import (
+    Conv,
+    Conv2,
+    GlobalAveragePool1D,
+    GlobalAveragePool2D,
+    Lin,
+    PointLinear,
+)
+
 LOGS = ROOT / "lightning_logs"
-MEMOIZER = Memory("__CACHE__")
 
 GUESS = None
-
-
-class Lin(Module):
-    def __init__(self, in_channels: int, out_channels: int, dropout: float = 0.0) -> None:
-        super().__init__()
-        self.model = Sequential(
-            Linear(in_channels, out_channels, bias=True),
-            LeakyReLU(),
-            BatchNorm1d(out_channels),
-            Dropout(0.0),
-        )
-
-    def forward(self, x: Tensor) -> Tensor:
-        x = self.model(x)
-        return x
-
-
-class PointLinear(Module):
-    def __init__(self, out_channels: int) -> None:
-        super().__init__()
-        self.model = Sequential(
-            Linear(4, out_channels, bias=True),
-            LeakyReLU(),
-            BatchNorm1d(out_channels),
-        )
-
-    def forward(self, x: Tensor) -> Tensor:
-        x_mean = torch.mean(x, dim=1)
-        x_min = torch.min(x, dim=1)[0]
-        x_max = torch.max(x, dim=1)[0]
-        x_sd = torch.std(x, dim=1)
-        x = torch.stack([x_mean, x_min, x_max, x_sd], dim=1)
-        x = self.model(x)
-        return x
-
-
-class Conv(Module):
-    def __init__(self, in_channels: int, out_channels: int, kernel_size: int = 3) -> None:
-        super().__init__()
-        self.model = Sequential(
-            Conv1d(
-                in_channels=in_channels,
-                out_channels=out_channels,
-                kernel_size=kernel_size,
-                # padding="same",
-                padding=0,
-                bias=True,
-            ),
-            LeakyReLU(),
-            BatchNorm1d(out_channels),
-        )
-
-    def forward(self, x: Tensor) -> Tensor:
-        # needs x.shape == (B, C, seq_length)
-        if x.ndim == 2:
-            x = x.unsqueeze(1)
-        x = self.model(x)
-        return x
-
-
-class Conv2(Module):
-    def __init__(self, in_channels: int, out_channels: int, kernel_size: int = 3) -> None:
-        super().__init__()
-        self.model = Sequential(
-            Conv2d(
-                in_channels=in_channels,
-                out_channels=out_channels,
-                kernel_size=kernel_size,
-                # padding="same",
-                padding=0,
-                bias=True,
-            ),
-            LeakyReLU(),
-            BatchNorm2d(out_channels),
-        )
-
-    def forward(self, x: Tensor) -> Tensor:
-        # needs x.shape == (B, C, seq_length)
-        if x.ndim == 2:
-            x = x.unsqueeze(1)
-        x = self.model(x)
-        return x
-
-
-class GlobalAveragePool1D(Module):
-    def __init__(self) -> None:
-        super().__init__()
-
-    def forward(self, x: Tensor) -> Tensor:
-        # x.shape == (B, C, len)
-        return torch.mean(x, dim=-1)
-
-
-class GlobalAveragePool2D(Module):
-    def __init__(self) -> None:
-        super().__init__()
-
-    def forward(self, x: Tensor) -> Tensor:
-        # x.shape == (B, C, H, W)
-        return torch.mean(x, dim=(2, 3))
 
 
 class TrainingMixin(LightningModule, ABC):
@@ -139,6 +60,7 @@ class TrainingMixin(LightningModule, ABC):
         self, weight_decay: float, lr: float, guess: float, *args: Any, **kwargs: Any
     ) -> None:
         super().__init__()
+        self.model: Sequential
         self.weight_decay = weight_decay
         self.lr = lr
         self.guess = torch.Tensor([guess]).to("cuda")
@@ -197,7 +119,7 @@ class TrainingMixin(LightningModule, ABC):
     def validation_epoch_end(self, outputs: Any) -> None:
         self.log("val/acc+", 100 * self.acc_plus.compute(), prog_bar=True)
         self.log("val/acc", 100 * self.acc_val.compute(), prog_bar=True)
-        self.log(f"val/f1", self.f1.compute(), prog_bar=True)
+        self.log("val/f1", self.f1.compute(), prog_bar=True)
         self.acc_plus.reset()
         self.acc_val.reset()
         self.f1.reset()
@@ -217,7 +139,7 @@ class LinearModel(TrainingMixin):
         *args: Any,
         **kwargs: Any,
     ) -> None:
-        super().__init__(lr=lr, weight_decay=weight_decay, guess=guess, *args, **kwargs)
+        super().__init__(lr=lr, weight_decay=weight_decay, guess=guess, *args, **kwargs)  # type: ignore # noqa
         self.save_hyperparameters()
         layers: List[Module] = [Lin(in_features, init_ch, dropout)]
         ch = init_ch
@@ -341,23 +263,6 @@ class CorrCell(Module):
         return x
 
 
-class CorrPool(Module):
-    def __init__(self, in_channels: int, spatial_in: Tuple[int, int]) -> None:
-        super().__init__()
-        self.conv = Conv2d(
-            in_chanels=in_channels, out_channels=in_channels // 2, kernel_size=spatial_in, padding=0
-        )
-
-    def forward(self, x: Tensor) -> Tensor:
-        # needs x.shape == (B, C, seq_length)
-        if x.ndim == 2:
-            x = x.unsqueeze(1)
-        x1 = self.maxpool(x)
-        x2 = self.avgpool(x)
-        x = torch.cat([x1, x2])
-        return x
-
-
 class Thresholder(Module):
     def __init__(self, in_channels: int) -> None:
         super().__init__()
@@ -413,7 +318,7 @@ class CorrNet(TrainingMixin):
         *args: Any,
         **kwargs: Any,
     ) -> None:
-        super().__init__(lr=lr, weight_decay=weight_decay, guess=guess, *args, **kwargs)
+        super().__init__(lr=lr, weight_decay=weight_decay, guess=guess, *args, **kwargs)  # type: ignore  # noqa
         # layers: List[Module] = [
         #     Conv2(in_channels=2, out_channels=init_ch, kernel_size=1)
         # ]
@@ -477,159 +382,6 @@ class CorrNet(TrainingMixin):
         return loss
 
 
-class Subah2021(TrainingMixin):
-    """https://mdpi-res.com/d_attachment/applsci/applsci-11-03636/article_deploy/applsci-11-03636.pdf
-
-    Subah, F.Z., Deb, K., Dhar, P.K., Koshiba, T. (2021). A Deep Learning Approach to Predict Autism
-    Spectrum Disorder Using Multisite Resting-State fMRI. Appl. Sci. 2021, 11, 3636.
-    https://doi.org/10.3390/app11083636
-    """
-
-    def __init__(
-        self,
-        lr: float = 1e-4,
-        weight_decay: float = 0.0,
-        guess: float = 0.5,
-        in_features: int = 19900,
-        dropout: float = 0.8,
-        *args: Any,
-        **kwargs: Any,
-    ) -> None:
-        super().__init__(lr=lr, weight_decay=weight_decay, guess=guess, *args, **kwargs)
-        # self.lr = lr
-        # self.weight_decay = weight_decay
-        # self.guess = guess
-
-        self.model = Sequential(
-            Dropout(dropout),
-            Linear(in_features, 32),
-            ReLU(inplace=True),
-            #
-            Dropout(dropout),
-            Linear(32, 32),
-            ReLU(inplace=True),
-            #
-            # Dropout(0.8),
-            Linear(32, 1),
-        )
-
-
-class ASDDiagNet(TrainingMixin):
-    """An attempt to replicate https://www.frontiersin.org/articles/10.3389/fninf.2019.00070/full"""
-
-    def __init__(
-        self,
-        lr: float = 3e-4,
-        weight_decay: float = 0.0,
-        guess: float = 0.5,
-        in_features: int = 9950,
-        bottleneck: int = 1000,
-        *args: Any,
-        **kwargs: Any,
-    ) -> None:
-        super().__init__(lr=lr, weight_decay=weight_decay, guess=guess, *args, **kwargs)
-        self.automatic_optimization = False
-
-        self.lr = lr
-        self.weight_decay = weight_decay
-        self.W = Parameter(torch.randn([in_features, bottleneck]))
-        self.b_enc = Parameter(torch.randn(1))
-        self.b_dec = Parameter(torch.randn(1))
-        self.slp = Linear(in_features=bottleneck, out_features=1, bias=True)
-
-        self.mlp = Sequential(
-            Linear(bottleneck, bottleneck // 2),
-            ReLU(inplace=True),
-            Linear(bottleneck // 2, 500),
-            ReLU(inplace=True),
-            Linear(500, 1),
-        )
-
-    def shared_step(self, batch: Tuple[Tensor, Tensor], phase: str) -> Tensor:
-        # see https://github.com/PyTorchLightning/pytorch-lightning/issues/9806
-        x, target = batch  # x.shape == (B, in_features)
-        if self.global_step < 6000:
-            if phase == "train":
-                opt = self.optimizers()[0]
-                opt.zero_grad()
-            h_enc = torch.tanh(torch.matmul(x, self.W) + self.b_enc)
-            x_prime = torch.matmul(h_enc, self.W.T) + self.b_dec
-            preds = self.slp(h_enc)
-            # preds = self.mlp(encoded)
-
-            # loss = binary_cross_entropy_with_logits(preds.squeeze(), target.float())
-            loss_c = binary_cross_entropy_with_logits(preds.squeeze(), target.float())
-            loss_enc = mse_loss(x_prime, x)
-            loss = loss_c + loss_enc
-            if phase == "train":
-                self.manual_backward(loss)
-                opt.step()
-
-            self.log(f"{phase}/loss", loss, prog_bar=True)
-            self.log(f"{phase}/loss_c", loss_c)
-            self.log(f"{phase}/loss_enc", loss_enc)
-            # self.log(f"{phase}/prec", prec, prog_bar=True)
-            if phase in ["val", "test"]:
-                acc = accuracy(preds, target) - self.guess
-                f1_score = f1(preds, target)
-                self.log(f"{phase}/acc+", acc, prog_bar=True)
-                self.log(f"{phase}/acc", acc + self.guess, prog_bar=True)
-                self.log(f"{phase}/f1", f1_score, prog_bar=True)
-            return loss
-        with torch.no_grad():
-            h_enc = torch.tanh(torch.matmul(x, self.W) + self.b_enc)
-        if phase == "train":
-            opt = self.optimizers()[1]
-            opt.zero_grad()
-        preds = self.slp(h_enc)
-        loss = binary_cross_entropy_with_logits(preds.squeeze(), target.float())
-        if phase == "train":
-            self.manual_backward(loss)
-            opt.step()
-
-        self.log(f"{phase}/loss", loss, prog_bar=True)
-        if phase in ["val", "test"]:
-            acc = accuracy(preds, target) - self.guess
-            f1_score = f1(preds, target)
-            self.log(f"{phase}/acc+", acc, prog_bar=True)
-            self.log(f"{phase}/acc", acc + self.guess, prog_bar=True)
-            self.log(f"{phase}/f1", f1_score, prog_bar=True)
-        return loss
-
-    def on_train_epoch_end(self) -> None:
-        if self.global_step < 6000:
-            sched = self.lr_schedulers()[0]
-        else:
-            sched = self.lr_schedulers()[1]
-        sched.step()
-
-    def configure_optimizers(self) -> Any:
-        # see https://github.com/PyTorchLightning/pytorch-lightning/issues/9806
-        opt1 = Adam(self.parameters(), weight_decay=self.weight_decay, lr=self.lr)
-        opt2 = Adam(self.slp.parameters(), weight_decay=self.weight_decay, lr=3e-4)
-
-        # step = 500
-        step = 1
-        lr_decay = 0.99
-        sched1 = StepLR(opt1, step_size=step, gamma=lr_decay)
-        sched2 = StepLR(opt2, step_size=5, gamma=0.95)
-        config1 = dict(
-            optimizer=opt1,
-            lr_scheduler=dict(
-                scheduler=sched1,
-                interval="epoch",
-            ),
-        )
-        config2 = dict(
-            optimizer=opt2,
-            lr_scheduler=dict(
-                scheduler=sched2,
-                interval="epoch",
-            ),
-        )
-        return config1, config2
-
-
 class SharedAutoEncoder(TrainingMixin):
     def __init__(
         self,
@@ -642,12 +394,13 @@ class SharedAutoEncoder(TrainingMixin):
         *args: Any,
         **kwargs: Any,
     ) -> None:
-        super().__init__(lr=lr, weight_decay=weight_decay, guess=guess, *args, **kwargs)
+        super().__init__(lr=lr, weight_decay=weight_decay, guess=guess, *args, **kwargs)  # type: ignore # noqa
         if depth == 1:
             self.encoder = Sequential(Linear(in_features, bottleneck), ReLU(inplace=True))
             self.decoder = Sequential(Linear(bottleneck, in_features), ReLU(inplace=True))
         else:
-            enc_layers, dec_layers = [], []
+            enc_layers: List[Module] = []
+            dec_layers: List[Module] = []
             ch = in_features
             for d in range(depth):
                 if d != depth - 1:
