@@ -125,33 +125,6 @@ class TrainingMixin(LightningModule, ABC):
         self.f1.reset()
 
 
-class LinearModel(TrainingMixin):
-    def __init__(
-        self,
-        in_features: int = 19900,
-        init_ch: int = 16,
-        depth: int = 4,
-        max_channels: int = 512,
-        dropout: float = 0.0,
-        lr: float = 1e-3,
-        weight_decay: float = 0.0,
-        guess: float = 0.5,
-        *args: Any,
-        **kwargs: Any,
-    ) -> None:
-        super().__init__(lr=lr, weight_decay=weight_decay, guess=guess, *args, **kwargs)  # type: ignore # noqa
-        self.save_hyperparameters()
-        layers: List[Module] = [Lin(in_features, init_ch, dropout)]
-        ch = init_ch
-        out = ch
-        for _ in range(depth - 1):
-            out = min(max_channels, out * 2)
-            layers.append(Lin(ch, out))
-            ch = out
-        layers.append(Linear(out, 1, bias=True))
-        self.model = Sequential(*layers)
-
-
 class PointModel(TrainingMixin):
     def __init__(
         self,

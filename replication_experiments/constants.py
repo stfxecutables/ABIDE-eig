@@ -17,6 +17,4 @@ logging.getLogger("tensorflow").setLevel(logging.FATAL)
 logging.getLogger("tensorboard").setLevel(logging.FATAL)
 # fmt: on
 
-LOGS = ROOT / "lightning_logs"
-
 Norm = Optional[Literal["const", "feature", "grand"]]

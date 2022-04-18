@@ -18,7 +18,7 @@ import traceback
 from argparse import ArgumentParser
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Type
 from uuid import uuid1
 from warnings import filterwarnings
 
@@ -47,7 +47,6 @@ from replication_experiments.loading import (
     load_X_labels,
     load_X_labels_from_1D,
 )
-from replication_experiments.models import LinearModel
 from src.analysis.predict.hypertune import evaluate_hypertuned, hypertune_classifier
 
 LOGS = ROOT / "replication_experiments/logs"
@@ -194,14 +193,15 @@ def test_split(
     feat_select: Literal["mean", "sd"] = "mean",
     norm: Norm = None,
     batch_size: int = 16,
+    model_cls: Type[LightningModule] = None,
     model_args: Dict = None,
     trainer_args: Dict = None,
     logdirname: str = None,
 ) -> None:
     if model_args is None:
         model_args = {}
-    if trainer_args is None:
-        raise ValueError("Must specify at least MAX_STEPS or MAX_EPOCHS")
+    if None in (trainer_args, model_cls):
+        raise ValueError("Must specify at least MAX_STEPS or MAX_EPOCHS, and `model_cls`")
     X, labels, labels_, sites = load_X_labels_from_1D(
         n_features=n_features,
         select=feat_select,
@@ -223,13 +223,17 @@ def test_split(
     val_loader = DataLoader(TensorDataset(x_val, y_val), shuffle=False, **args)
     cbs = [
         LearningRateMonitor(),
-        ModelCheckpoint(monitor="val/acc", mode="max", filename=r"{epoch}-{val/acc:.2f}"),
+        ModelCheckpoint(
+            monitor="val/acc",
+            mode="max",
+            filename="epoch={epoch}-val_acc={val/acc:.2f}",
+            auto_insert_metric_name=False,
+        ),
         EarlyStopping(monitor="val/acc+", patience=30, mode="max", divergence_threshold=-4.0),
     ]
 
     uuid = uuid1().hex
-    model: LightningModule
-    model = LinearModel(uuid=uuid, **model_args)
+    model = model_cls(uuid=uuid, **model_args)
     # model = PointModel(lr=1e-3, **shared_args)
     # model = CorrNet(**SHARED_ARGS)
     # model = SharedAutoEncoder(**SHARED_ARGS)

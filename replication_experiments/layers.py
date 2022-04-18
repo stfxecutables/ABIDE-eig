@@ -28,7 +28,9 @@ from torch.nn import (
     LeakyReLU,
     Linear,
     Module,
+    ReLU,
     Sequential,
+    Softplus,
 )
 
 
@@ -37,7 +39,7 @@ class Lin(Module):
         super().__init__()
         self.model = Sequential(
             Linear(in_channels, out_channels, bias=True),
-            LeakyReLU(),
+            ReLU(),
             BatchNorm1d(out_channels),
             Dropout(0.0),
         )
@@ -45,6 +47,17 @@ class Lin(Module):
     def forward(self, x: Tensor) -> Tensor:
         x = self.model(x)
         return x
+
+
+class SoftLinear(Lin):
+    def __init__(self, in_channels: int, out_channels: int, dropout: float = 0.0) -> None:
+        super().__init__()
+        self.model = Sequential(
+            Linear(in_channels, out_channels, bias=True),
+            Softplus(),
+            BatchNorm1d(out_channels),
+            Dropout(0.0),
+        )
 
 
 class PointLinear(Module):

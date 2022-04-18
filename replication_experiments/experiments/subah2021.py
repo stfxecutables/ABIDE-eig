@@ -97,6 +97,7 @@ if __name__ == "__main__":
                     feat_select=FEAT_SELECT,
                     norm=NORM,
                     batch_size=BATCH_SIZE,
+                    model_cls=Subah2021,
                     model_args=model_args,
                     trainer_args=TRAINER_ARGS,
                     logdirname="subah2021"
