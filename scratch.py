@@ -29,6 +29,7 @@ from typing import (
     cast,
     no_type_check,
 )
+from uuid import UUID, uuid1
 from warnings import filterwarnings
 
 import matplotlib.pyplot as plt
@@ -412,10 +413,15 @@ def test_split(
     parser = ArgumentParser()
     parser = Trainer.add_argparse_args(parser)
     train_args = parser.parse_known_args()[0]
-    cbs = [LearningRateMonitor(), ModelCheckpoint(monitor="val/acc", mode="max")]
+    cbs = [
+        LearningRateMonitor(),
+        ModelCheckpoint(monitor="val/acc", mode="max"),
+        EarlyStopping(monitor="val/acc+", patience=30, mode="max", divergence_threshold=-4.0),
+    ]
 
+    uuid = uuid1().hex
     model: LightningModule
-    model = LinearModel(**SHARED_ARGS)
+    model = LinearModel(uuid=uuid, **SHARED_ARGS)
     # model = PointModel(lr=1e-3, **shared_args)
     # model = CorrNet(**SHARED_ARGS)
     # model = SharedAutoEncoder(**SHARED_ARGS)
@@ -424,7 +430,7 @@ def test_split(
     wd = SHARED_ARGS["weight_decay"]
     root_dir = (
         LOGS
-        / f"corrs_test_logs/{model.__class__.__name__}/holdout/n={n_features}/sel={feat_select}/norm={norm}/wd={wd}"
+        / f"corrs_test_logs/{model.__class__.__name__}/holdout/n={n_features}/sel={feat_select}/norm={norm}/wd={wd}/{uuid}"
     )
 
     trainer: Trainer = Trainer.from_argparse_args(
@@ -569,18 +575,49 @@ if __name__ == "__main__":
     # NORM: Norm = "grand"
     # test_kfold()
     # test_split(n_features=n, feat_select=FEAT_SELECT, norm=NORM)
-    grid = list(
-        ParameterGrid(
-            dict(
-                in_features=[n // 2, n // 4, 2000],
-                init_ch=[16, 64],
-                depth=[2, 4, 8],
-                max_channels=[64, 256],
-                dropout=[0.0, 0.25, 0.5, 0.75],
-                weight_decay=[0.0, 1e-4],
-            )
+
+    # test all linear models
+    # grid = list(
+    #     ParameterGrid(
+    #         dict(
+    #             in_features=[n // 2, n // 4, 2000],
+    #             init_ch=[16, 64],
+    #             depth=[2, 4, 8],
+    #             max_channels=[64, 256],
+    #             dropout=[0.0, 0.25, 0.5, 0.75],
+    #             weight_decay=[0.0, 1e-4],
+    #         )
+    #     )
+    # )
+
+    # test winning linear models with repeats
+    grid = [
+        dict(
+            in_features=9950,
+            init_ch=16,
+            depth=8,
+            max_channels=256,
+            dropout=0.75,
+            weight_decay=0.0,
+        ),
+        dict(
+            in_features=9950,
+            init_ch=16,
+            depth=8,
+            max_channels=256,
+            dropout=0.5,
+            weight_decay=1e-4,
+        ),
+        dict(
+            in_features=2000,
+            init_ch=64,
+            depth=2,
+            max_channels=256,
+            dropout=0.75,
+            weight_decay=1e-4,
         )
-    )
+    ]
+
     for i, params in enumerate(grid):
         print(f"Iteration {i} of {len(grid)}.")
         print(f"Testing params: {params}")
@@ -588,7 +625,8 @@ if __name__ == "__main__":
         # SHARED_ARGS["weight_decay"] = params["weight_decay"]
         # SHARED_ARGS["in_features"] = params["weight_decay"]
         n = params["in_features"]
-        try:
-            test_split(n_features=n, feat_select=FEAT_SELECT, norm=NORM)
-        except Exception as e:
-            traceback.print_exc()
+        for _ in range(5):
+            try:
+                test_split(n_features=n, feat_select=FEAT_SELECT, norm=NORM)
+            except Exception as e:
+                traceback.print_exc()

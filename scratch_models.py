@@ -228,7 +228,6 @@ class LinearModel(TrainingMixin):
             ch = out
         layers.append(Linear(out, 1, bias=True))
         self.model = Sequential(*layers)
-        print(self.model)
 
 
 class PointModel(TrainingMixin):
