@@ -7,4 +7,4 @@ skip_gitignore = false
 line_length = 100
 atomic = true
 sections = ['FUTURE', 'STDLIB', 'THIRDPARTY', 'LOCALFOLDER', 'FIRSTPARTY']
-known_local_folder = ['src', 'test', 'tests']
+known_local_folder = ['src', 'test', 'tests', 'replication_experiments']
