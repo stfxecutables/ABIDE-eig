@@ -1,17 +1,24 @@
 ################################################################################
 #                           Project-specific ignores                           #
 ################################################################################
+
+__CACHE__
+
 cc_logs
+lightning_logs
 
 data/atlases/*ALIGNED.nii.gz
 data/deep
 data/eigs
 data/eigimgs
+data/features_cpac*
 data/niis/*.nii.gz
 data/nii_cpac/*.nii.gz
+data/nii_cpac_f16_subsample
+data/reduced_subset.json
 data/rois*
 data/seqs
-data/features_cpac*
+MNIST
 
 job_scripts/submit_deep_*.sh
 job_scripts/submit_htune_*.sh
@@ -19,7 +26,8 @@ job_scripts/submit_htune_*.sh
 htune_results/*.db
 htune_results/*.json
 htune_results/cc
-lightning_logs
+results/*.zip
+
 
 paper/notes.pdf
 paper/.vscode
@@ -27,6 +35,9 @@ paper/__*.tex
 
 id_rsa*
 
+*.csv
+*.json
+*.parquet
 *.tar.gz
 **/*.out
 
