@@ -49,7 +49,7 @@ class Lin(Module):
         return x
 
 
-class SoftLinear(Lin):
+class SoftLinear(Module):
     def __init__(self, in_channels: int, out_channels: int, dropout: float = 0.0) -> None:
         super().__init__()
         self.model = Sequential(
@@ -58,6 +58,10 @@ class SoftLinear(Lin):
             BatchNorm1d(out_channels),
             Dropout(0.0),
         )
+
+    def forward(self, x: Tensor) -> Tensor:
+        x = self.model(x)
+        return x
 
 
 class PointLinear(Module):

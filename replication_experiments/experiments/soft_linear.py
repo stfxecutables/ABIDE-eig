@@ -24,10 +24,10 @@ from yaml import safe_load
 
 from replication_experiments.constants import Norm
 from replication_experiments.evaluation import LOGS, test_split
-from replication_experiments.layers import Lin
+from replication_experiments.layers import SoftLinear
 from replication_experiments.models import TrainingMixin
 
-GRID_LOGDIR = "SimpleLinear--Grid"
+GRID_LOGDIR = "SoftLinear--Grid"
 
 # hparams that NEED to be replicated
 N = int((200 ** 2 - 200) / 2)  # upper triangle of 200x200 matrix where diagonals are 1
@@ -42,7 +42,7 @@ MAX_EPOCHS = 500
 TRAINER_ARGS = dict(max_epochs=MAX_EPOCHS, max_steps=MAX_STEPS)
 
 
-class LinearModel(TrainingMixin):
+class SoftLinearModel(TrainingMixin):
     def __init__(
         self,
         in_features: int = 19900,
@@ -58,12 +58,12 @@ class LinearModel(TrainingMixin):
     ) -> None:
         super().__init__(lr=lr, weight_decay=weight_decay, guess=guess, *args, **kwargs)  # type: ignore # noqa
         self.save_hyperparameters()
-        layers: List[Module] = [Lin(in_features, init_ch, dropout)]
+        layers: List[Module] = [SoftLinear(in_features, init_ch, dropout)]
         ch = init_ch
         out = ch
         for _ in range(depth - 1):
             out = min(max_channels, out * 2)
-            layers.append(Lin(ch, out))
+            layers.append(SoftLinear(ch, out))
             ch = out
         layers.append(Linear(out, 1, bias=True))
         self.model = Sequential(*layers)
@@ -93,7 +93,7 @@ def test_exhaustive_grid() -> None:
                 feat_select=FEAT_SELECT,
                 norm=NORM,
                 batch_size=BATCH_SIZE,
-                model_cls=LinearModel,
+                model_cls=SoftLinearModel,
                 model_args=model_args,
                 trainer_args=TRAINER_ARGS,
                 logdirname=GRID_LOGDIR,
@@ -128,15 +128,15 @@ def test_grid_best(logdirname: str = GRID_LOGDIR) -> None:
                     feat_select=FEAT_SELECT,
                     norm=NORM,
                     batch_size=BATCH_SIZE,
-                    model_cls=LinearModel,
+                    model_cls=SoftLinearModel,
                     model_args=model_args,
                     trainer_args=TRAINER_ARGS,
-                    logdirname="SimpleLinear--Best",
+                    logdirname="SoftLinear--Best",
                 )
             except Exception:
                 traceback.print_exc()
 
 
 if __name__ == "__main__":
-    # test_exhaustive_grid()
-    test_grid_best()
+    test_exhaustive_grid()
+    # test_grid_best()

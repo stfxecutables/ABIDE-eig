@@ -229,7 +229,7 @@ def test_split(
             filename="epoch={epoch}-val_acc={val/acc:.2f}",
             auto_insert_metric_name=False,
         ),
-        EarlyStopping(monitor="val/acc+", patience=30, mode="max", divergence_threshold=-4.0),
+        EarlyStopping(monitor="val/acc+", patience=50, mode="max", divergence_threshold=-4.0),
     ]
 
     uuid = uuid1().hex
