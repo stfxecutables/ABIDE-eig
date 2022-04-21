@@ -32,18 +32,20 @@ from replication_experiments.evaluation import LOGS, test_split
 from replication_experiments.layers import SoftLinear
 from replication_experiments.models import TrainingMixin
 
-GRID_LOGDIR = "SoftLinear--Grid"
+N_REPEATS = 1
+
+GRID_LOGDIR = f"RandomData{N_REPEATS}--Grid"
 
 # hparams that NEED to be replicated
 N = int((200 ** 2 - 200) / 2)  # upper triangle of 200x200 matrix where diagonals are 1
-BATCH_SIZE = 16  # NOTE: CURRENTLY ASSUMES BATCH_SIZE IS NOT TUNED
+BATCH_SIZE = 16 if N_REPEATS == 1 else 128  # NOTE: CURRENTLY ASSUMES BATCH_SIZE IS NOT TUNED
 LR = 6e-4
 
 # options that should be irrelevant, if set correctly (e.g. large enough)
 FEAT_SELECT = "sd"  # no effect with n == N
 NORM: Norm = "feature"  # this is the only one that works
-MAX_STEPS = 10_000
-MAX_EPOCHS = 500
+MAX_STEPS = 10_000 * N_REPEATS
+MAX_EPOCHS = 500 // N_REPEATS
 TRAINER_ARGS = dict(max_epochs=MAX_EPOCHS, max_steps=MAX_STEPS)
 
 
@@ -102,7 +104,7 @@ def test_exhaustive_grid() -> None:
                 max_channels=[16, 64, 256],
                 dropout=uniform(loc=0, scale=1),
                 weight_decay=loguniform(1e-6, 1e-1),
-                lr=loguniform(1e-5, 1e-3),
+                lr=loguniform(1e-5, 1e-3 * N_REPEATS),
             ),
             n_iter=300,
         )
@@ -134,7 +136,9 @@ def test_exhaustive_grid() -> None:
                 model_cls=SoftLinearModel,
                 model_args=model_args,
                 trainer_args={**TRAINER_ARGS, **dict(enable_progress_bar=False)},
-                logdirname=GRID_LOGDIR,
+                logdirname=GRID_LOGDIR.format(n_repeats=N_REPEATS),
+                source="random",
+                n_repeats=N_REPEATS,
             )
         except Exception:
             traceback.print_exc()
@@ -197,13 +201,14 @@ def test_grid_best(logdirname: str = GRID_LOGDIR) -> None:
                     model_cls=SoftLinearModel,
                     model_args=model_args,
                     trainer_args=TRAINER_ARGS,
-                    logdirname="SoftLinear--Best",
+                    logdirname=GRID_LOGDIR.format(N_REPEATS).replace("Grid", "Best"),
+                    n_repeats=N_REPEATS,
                 )
             except Exception:
                 traceback.print_exc()
 
 
 if __name__ == "__main__":
-    # test_exhaustive_grid()
+    test_exhaustive_grid()
     # test_grid_best()
     get_results_table()

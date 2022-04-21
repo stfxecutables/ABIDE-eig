@@ -32,10 +32,10 @@ from replication_experiments.evaluation import LOGS, test_split
 from replication_experiments.layers import SoftLinear
 from replication_experiments.models import TrainingMixin
 
-GRID_LOGDIR = "SoftLinear--Grid"
+GRID_LOGDIR = "MeanSD--Grid"
 
 # hparams that NEED to be replicated
-N = int((200 ** 2 - 200) / 2)  # upper triangle of 200x200 matrix where diagonals are 1
+N = 400  # 200 means, 200 sds
 BATCH_SIZE = 16  # NOTE: CURRENTLY ASSUMES BATCH_SIZE IS NOT TUNED
 LR = 6e-4
 
@@ -96,7 +96,7 @@ def test_exhaustive_grid() -> None:
     grid = list(
         ParameterSampler(
             dict(
-                in_features=[N, N // 2, N // 4, 2500, 2000, 1000, 500],
+                in_features=[N, N // 2, N // 4, N // 8],
                 init_ch=[4, 16, 64],
                 depth=[2, 4, 8],
                 max_channels=[16, 64, 256],
@@ -135,6 +135,7 @@ def test_exhaustive_grid() -> None:
                 model_args=model_args,
                 trainer_args={**TRAINER_ARGS, **dict(enable_progress_bar=False)},
                 logdirname=GRID_LOGDIR,
+                source="mean-sd",
             )
         except Exception:
             traceback.print_exc()
@@ -197,13 +198,16 @@ def test_grid_best(logdirname: str = GRID_LOGDIR) -> None:
                     model_cls=SoftLinearModel,
                     model_args=model_args,
                     trainer_args=TRAINER_ARGS,
-                    logdirname="SoftLinear--Best",
+                    logdirname="MeanSD--Best",
                 )
             except Exception:
                 traceback.print_exc()
 
 
 if __name__ == "__main__":
-    # test_exhaustive_grid()
+    """
+    Umm, so this is HUGE. The correlations of two normal distributions
+    """
+    test_exhaustive_grid()
     # test_grid_best()
     get_results_table()

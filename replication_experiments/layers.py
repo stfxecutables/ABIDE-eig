@@ -60,6 +60,8 @@ class SoftLinear(Module):
         )
 
     def forward(self, x: Tensor) -> Tensor:
+        if x.ndim == 1:
+            x = x.unsqueeze(1)
         x = self.model(x)
         return x
 

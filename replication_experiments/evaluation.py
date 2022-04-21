@@ -44,8 +44,11 @@ from typing_extensions import Literal
 from replication_experiments.loading import (
     get_labels_sites,
     load_eigs,
+    load_seq_lengths_from_1D,
     load_X_labels,
     load_X_labels_from_1D,
+    mean_sd_data_from_1D,
+    random_data_from_1D,
 )
 from src.analysis.predict.hypertune import evaluate_hypertuned, hypertune_classifier
 
@@ -197,19 +200,45 @@ def test_split(
     model_args: Dict = None,
     trainer_args: Dict = None,
     logdirname: str = None,
+    source: Literal["random", "corrs", "mean-sd", "lengths"] = "corrs",
+    n_repeats: int = 1,
 ) -> None:
     if model_args is None:
         model_args = {}
     if None in (trainer_args, model_cls):
         raise ValueError("Must specify at least MAX_STEPS or MAX_EPOCHS, and `model_cls`")
-    X, labels, labels_, sites = load_X_labels_from_1D(
-        n_features=n_features,
-        select=feat_select,
-        norm=norm,
-    )
+    if source == "random":
+        X, labels, labels_, sites = random_data_from_1D(
+            n_features=n_features,
+            select=feat_select,
+            norm=norm,
+            n_repeats=n_repeats,
+        )
+    elif source == "mean-sd":
+        X, labels, labels_, sites = mean_sd_data_from_1D(
+            n_features=n_features,
+            select=feat_select,
+            norm=norm,
+        )
+    elif source == "lengths":
+        X, labels, labels_, sites = load_seq_lengths_from_1D(
+            n_features=n_features,
+            select=feat_select,
+            norm=norm,
+        )
+    else:
+        X, labels, labels_, sites = load_X_labels_from_1D(
+            n_features=n_features,
+            select=feat_select,
+            norm=norm,
+        )
     dummy = np.empty([len(X), 1])
+
+    test_size = 256 * n_repeats if source == "random" else 256
     idx_train, idx_val = next(
-        StratifiedShuffleSplit(n_splits=1, test_size=256).split(X=dummy, y=labels_, groups=sites)
+        StratifiedShuffleSplit(n_splits=1, test_size=test_size).split(
+            X=dummy, y=labels_, groups=sites
+        )
     )
     x_train, x_val = X[idx_train], X[idx_val]
     y_train, y_val = labels[idx_train], labels[idx_val]

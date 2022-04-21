@@ -32,11 +32,11 @@ from replication_experiments.evaluation import LOGS, test_split
 from replication_experiments.layers import SoftLinear
 from replication_experiments.models import TrainingMixin
 
-GRID_LOGDIR = "SoftLinear--Grid"
+GRID_LOGDIR = f"SeqLengths--Grid"
 
 # hparams that NEED to be replicated
 N = int((200 ** 2 - 200) / 2)  # upper triangle of 200x200 matrix where diagonals are 1
-BATCH_SIZE = 16  # NOTE: CURRENTLY ASSUMES BATCH_SIZE IS NOT TUNED
+BATCH_SIZE = 16
 LR = 6e-4
 
 # options that should be irrelevant, if set correctly (e.g. large enough)
@@ -96,13 +96,13 @@ def test_exhaustive_grid() -> None:
     grid = list(
         ParameterSampler(
             dict(
-                in_features=[N, N // 2, N // 4, 2500, 2000, 1000, 500],
+                in_features=[1],
                 init_ch=[4, 16, 64],
                 depth=[2, 4, 8],
                 max_channels=[16, 64, 256],
                 dropout=uniform(loc=0, scale=1),
                 weight_decay=loguniform(1e-6, 1e-1),
-                lr=loguniform(1e-5, 1e-3),
+                lr=loguniform(1e-5, 1e-2),
             ),
             n_iter=300,
         )
@@ -135,6 +135,7 @@ def test_exhaustive_grid() -> None:
                 model_args=model_args,
                 trainer_args={**TRAINER_ARGS, **dict(enable_progress_bar=False)},
                 logdirname=GRID_LOGDIR,
+                source="lengths",
             )
         except Exception:
             traceback.print_exc()
@@ -144,8 +145,6 @@ def get_results_table(logdirname: str = GRID_LOGDIR) -> DataFrame:
     def load_yaml(path: Path) -> Any:
         with open(path, "r") as handle:
             return load(handle, Loader=UnsafeLoader)
-
-    LightningModule.load_from_checkpoint
 
     bests = sorted((LOGS / logdirname).rglob("*.ckpt"))
     get_val = lambda p: float(re.search(r"val_acc=(.*)", p.stem).group(1))  # type: ignore
@@ -197,13 +196,14 @@ def test_grid_best(logdirname: str = GRID_LOGDIR) -> None:
                     model_cls=SoftLinearModel,
                     model_args=model_args,
                     trainer_args=TRAINER_ARGS,
-                    logdirname="SoftLinear--Best",
+                    logdirname=GRID_LOGDIR.replace("Grid", "Best"),
+                    source="lengths",
                 )
             except Exception:
                 traceback.print_exc()
 
 
 if __name__ == "__main__":
-    # test_exhaustive_grid()
+    test_exhaustive_grid()
     # test_grid_best()
-    get_results_table()
+    # get_results_table()
